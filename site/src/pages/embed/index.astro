@@ -1,0 +1,31 @@
+---
+import Base from '../../layouts/Base.astro';
+import { marked } from 'marked';
+import { blockPath, countryPath, path } from '../../lib/urls';
+import { embedMarkdown } from '../../lib/pages';
+import { widgetScript } from '../../lib/embed';
+
+// Same source as /embed.md; the live examples below use the published widget script.
+const body = marked.parse(embedMarkdown(), { async: false }) as string;
+---
+
+<Base
+  section="Data and API"
+  title="Embeds"
+  description="Embed internacia-db membership maps of organizations and membership lists of countries on other sites, with an iframe or a web component."
+  breadcrumbs={[
+    { name: 'Data & API', href: path('data/') },
+    { name: 'Embeds', href: path('embed/') },
+  ]}
+  markdown={path('embed.md')}
+>
+  <article class="container prose" set:html={body} />
+  <section class="container card-section embed-demo" aria-labelledby="examples">
+    <h2 id="examples">Examples</h2>
+    <h3>European Union</h3>
+    <internacia-embed block="EU"><a href={blockPath('EU')}>European Union on Internacia</a></internacia-embed>
+    <h3>France</h3>
+    <internacia-embed country="FR"><a href={countryPath('FR')}>France on Internacia</a></internacia-embed>
+  </section>
+  <script is:inline src={widgetScript()} defer></script>
+</Base>

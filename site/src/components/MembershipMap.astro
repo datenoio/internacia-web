@@ -17,6 +17,8 @@ interface Props {
   area?: { name: string; codes: string[] };
   // A value per country, shown as a sequential choropleth (home page, SPEC §8 V2).
   values?: { label: string; data: Record<string, number> };
+  // In an embedded widget, the full list is on the card rather than on the same page.
+  cardHref?: string;
 }
 
 type Group = 'm' | 'p' | 'o' | 'f';
@@ -37,7 +39,7 @@ const groupOf = (status: string): Group =>
         ? 'f'
         : 'p';
 
-const { block, country, area, values } = Astro.props;
+const { block, country, area, values, cardHref } = Astro.props;
 // Entry: [CSS class, value label, joined date, name]
 const data: Record<string, [string, string, string, string]> = {};
 let caption = '';
@@ -89,9 +91,20 @@ const ratio = `--map-ratio: ${worldMap().width} / ${worldMap().height}`;
 {
   show && (
     <figure class={`map${country ? ' map-locator' : ''}`} data-map data-src={path('assets/world.svg')}>
-      <div class="map-canvas js-only" style={ratio} role="img" aria-label={`${caption}: ${summary}. The table on this page lists every entry.`} />
+      <div
+        class="map-canvas js-only"
+        style={ratio}
+        role="img"
+        aria-label={`${caption}: ${summary}. ${cardHref ? 'The full list is on the Internacia card.' : 'The table on this page lists every entry.'}`}
+      />
       <noscript>
-        <p class="muted small">The map needs JavaScript; the table on this page lists the same data.</p>
+        {cardHref ? (
+          <p class="muted small">
+            The map needs JavaScript; <a href={cardHref}>the Internacia card</a> lists the same data.
+          </p>
+        ) : (
+          <p class="muted small">The map needs JavaScript; the table on this page lists the same data.</p>
+        )}
       </noscript>
       <script type="application/json" data-map-data set:html={JSON.stringify(data).replace(/</g, '\\u003c')} />
       <div class="map-tip" hidden />

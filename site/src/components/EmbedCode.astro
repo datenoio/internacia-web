@@ -1,0 +1,27 @@
+---
+// "Embed" box on cards: copyable snippets for the widget of this record (src/lib/embed.ts).
+import { snippets, type EmbedKind } from '../lib/embed';
+import { path } from '../lib/urls';
+
+interface Props {
+  kind: EmbedKind;
+  id: string;
+  name: string;
+}
+
+const { kind, id, name } = Astro.props;
+const s = snippets(kind, id, name);
+const what = kind === 'block' ? 'this map' : 'this list';
+---
+
+<details class="cite embed-code" data-embed={s.src}>
+  <summary class="small">{`Embed ${what} on another site`}</summary>
+  <p class="small">
+    {'An iframe: '}
+    <a href={s.src}>preview the widget</a>.
+  </p>
+  <pre><code>{s.iframe}</code></pre>
+  <p class="small">Or the web component, which sizes the frame to its content:</p>
+  <pre><code>{s.component}</code></pre>
+  <p class="small"><a href={path('embed/')}>About embeds</a>: options, attribution and privacy.</p>
+</details>

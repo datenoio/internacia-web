@@ -1,0 +1,37 @@
+---
+// Embeddable membership map of one intblock (src/lib/embed.ts).
+import MembershipMap from '../../../../components/MembershipMap.astro';
+import Embed from '../../../../layouts/Embed.astro';
+import { blocks, type Block } from '../../../../lib/data';
+import { blockEmbeddable, embedTitle } from '../../../../lib/embed';
+import { enumLabel, num, statusLabel } from '../../../../lib/format';
+import { absolute, blockPath } from '../../../../lib/urls';
+
+export function getStaticPaths() {
+  return blocks()
+    .filter(blockEmbeddable)
+    .map((b) => ({ params: { id: b.id.toLowerCase() }, props: { b } }));
+}
+
+const { b } = Astro.props as { b: Block };
+const name = b._acronym ? `${b.name} (${b._acronym})` : b.name;
+const card = blockPath(b.id);
+const statusSummary = Object.entries(b._status_counts)
+  .map(([s, n]) => `${num(n)} ${statusLabel(s).toLowerCase()}`)
+  .join(', ');
+const summary = b._active
+  ? `${num(b._current_member_count)} current member countries and territories${statusSummary ? ` (${statusSummary})` : ''}.`
+  : `${enumLabel('status', b.status)}${b.dissolved ? `, dissolved ${b.dissolved}` : ''}. Members as recorded.`;
+---
+
+<Embed
+  title={embedTitle('block', name)}
+  description={`Map of the member countries and territories of ${name}, from internacia-db.`}
+  canonical={absolute(card)}
+  card={card}
+  cardLabel="Full list and details"
+>
+  <h1 class="embed-title"><a href={card}>{name}</a></h1>
+  <p class="small" data-embed-summary>{summary}</p>
+  <MembershipMap block={b} cardHref={card} />
+</Embed>

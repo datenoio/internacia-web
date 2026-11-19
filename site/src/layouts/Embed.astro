@@ -1,0 +1,55 @@
+---
+// Layout of the embeddable widgets (src/lib/embed.ts). No header, navigation or search: the page
+// is shown inside other sites. It is never indexed; the canonical URL is the card. Links open in a
+// new tab (<base target>), so a reader never navigates away inside the frame. The inline script
+// sets the same first-paint class as the main layout; the theme comes from ?theme= only, because
+// the widget must not read or write storage on someone else's page.
+import '../styles/global.css';
+import { meta } from '../lib/meta';
+import { path, REPO_DATA } from '../lib/urls';
+
+interface Props {
+  title: string;
+  description: string;
+  canonical: string;
+  card: string;
+  cardLabel: string;
+}
+
+const { title, description, canonical, card, cardLabel } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{`${title} · Internacia`}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="robots" content="noindex" />
+    <meta name="color-scheme" content="light dark" />
+    <base target="_blank" />
+    <link rel="icon" type="image/svg+xml" href={path('favicon.svg')} />
+    <script is:inline>
+      (() => {
+        document.documentElement.classList.add('js');
+        const theme = new URLSearchParams(location.search).get('theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+  </head>
+  <body class="embed-page">
+    <div class="embed" data-embed-root>
+      <main>
+        <slot />
+      </main>
+      <footer class="embed-foot small muted">
+        <a href={card}>{cardLabel}</a> · <a href={path('')}>Internacia</a>, data from <a href={REPO_DATA}>internacia-db</a>{` v${meta.data.version} (CC BY 4.0; country centroids ODbL 1.0)`}
+      </footer>
+    </div>
+    <script>
+      import '../scripts/embed.ts';
+    </script>
+  </body>
+</html>
