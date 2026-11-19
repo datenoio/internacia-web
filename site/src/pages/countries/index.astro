@@ -1,0 +1,126 @@
+---
+import Base from '../../layouts/Base.astro';
+import { countries } from '../../lib/data';
+import { enumLabel, num } from '../../lib/format';
+import { meta } from '../../lib/meta';
+import { countryPath, path } from '../../lib/urls';
+
+const rows = countries();
+const options = (values: (string | undefined)[]) =>
+  [...new Set(values.filter((v): v is string => Boolean(v)))].sort((a, b) => a.localeCompare(b));
+const continents = options(rows.flatMap((c) => c.continents ?? []));
+const subregions = options(rows.map((c) => c.subregion));
+const wbRegions = [...new Map(rows.filter((c) => c.region).map((c) => [c.region!.id, c.region!.value])).entries()].sort(
+  (a, b) => a[1].localeCompare(b[1]),
+);
+const entityTypes = options(rows.map((c) => c.entity_type));
+const codeStatuses = options(rows.map((c) => c.code_status));
+const unStatuses = options(rows.map((c) => c.un_status));
+---
+
+<Base
+  title="Countries and territories"
+  description={`All ${rows.length} country and territory records in internacia-db, with ISO codes, regions, UN status and number of memberships.`}
+  breadcrumbs={[{ name: 'Countries', href: path('countries/') }]}
+  markdown={path('countries.md')}
+  json={path('api/v1/countries.json')}
+>
+  <section class="container page-head">
+    <h1>Countries and territories</h1>
+    <p class="lead">
+      {rows.length} records: {meta.counts.iso_countries} current ISO 3166-1 entries and {rows.length - meta.counts.iso_countries}
+      records with non-standard codes (disputed territories, historical entities, groupings). Filter on
+      <em>Code status</em> to see ISO entries only.
+    </p>
+  </section>
+
+  <section class="container">
+    <div class="filters" data-table-tools="countries-table" hidden>
+      <label>Search<input type="search" data-filter="text" placeholder="Name or code" /></label>
+      <label
+        >Continent<select data-filter="continent"
+          ><option value="">All</option>{continents.map((v) => <option value={v}>{v}</option>)}</select
+        ></label
+      >
+      <label
+        >UN M49 subregion<select data-filter="subregion"
+          ><option value="">All</option>{subregions.map((v) => <option value={v}>{v}</option>)}</select
+        ></label
+      >
+      <label
+        >World Bank region<select data-filter="wbregion"
+          ><option value="">All</option>{wbRegions.map(([id, v]) => <option value={id}>{v}</option>)}</select
+        ></label
+      >
+      <label
+        >Entity type<select data-filter="entity"
+          ><option value="">All</option>{entityTypes.map((v) => <option value={v}>{enumLabel('entity_type', v)}</option>)}</select
+        ></label
+      >
+      <label
+        >Code status<select data-filter="codestatus"
+          ><option value="">All</option>{codeStatuses.map((v) => <option value={v}>{enumLabel('code_status', v)}</option>)}</select
+        ></label
+      >
+      <label
+        >UN status<select data-filter="unstatus"
+          ><option value="">All</option>{unStatuses.map((v) => <option value={v}>{enumLabel('un_status', v)}</option>)}</select
+        ></label
+      >
+      <label class="inline"><input type="checkbox" data-filter="landlocked" data-value="yes" /> Landlocked only</label>
+      <span class="count" data-count aria-live="polite"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data" id="countries-table">
+        <caption class="muted small" style="text-align:left;padding:0.5rem 0.65rem">
+          Countries and territories in internacia-db v{meta.data.version}
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col" data-sort="text">Name</th>
+            <th scope="col" data-sort="text">Alpha-2</th>
+            <th scope="col" data-sort="text">Alpha-3</th>
+            <th scope="col" data-sort="text">Continent</th>
+            <th scope="col" data-sort="text">UN M49 subregion</th>
+            <th scope="col" data-sort="text">Entity type</th>
+            <th scope="col" data-sort="text">UN status</th>
+            <th scope="col" class="num" data-sort="num">Current memberships</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            rows
+              .slice()
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((c) => (
+                <tr
+                  data-continent={(c.continents ?? []).join('|')}
+                  data-subregion={c.subregion ?? ''}
+                  data-wbregion={c.region?.id ?? ''}
+                  data-entity={c.entity_type}
+                  data-codestatus={c.code_status}
+                  data-unstatus={c.un_status ?? ''}
+                  data-landlocked={c.landlocked ? 'yes' : 'no'}
+                >
+                  <td data-value={c.name}>
+                    <span aria-hidden="true">{c.flag_emoji}</span> <a href={countryPath(c.code)}>{c.name}</a>
+                  </td>
+                  <td><code>{c.code}</code></td>
+                  <td><code>{c.iso3code}</code></td>
+                  <td>{(c.continents ?? []).join(', ')}</td>
+                  <td>{c.subregion}</td>
+                  <td>{enumLabel('entity_type', c.entity_type)}</td>
+                  <td>{enumLabel('un_status', c.un_status)}</td>
+                  <td class="num">{num(c._current_member_count)}</td>
+                </tr>
+              ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <script>
+    import '../../scripts/tables.ts';
+  </script>
+</Base>

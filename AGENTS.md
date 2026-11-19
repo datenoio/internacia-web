@@ -6,7 +6,8 @@ specification disagree, raise it; do not silently follow either.
 
 ## Current stage
 
-Milestone M0 is in place: lock file, data pipeline, placeholder site, CI. Next is M1
+M0 and M1a are in place: pipeline, country and intblock cards with Markdown and JSON twins,
+`llms.txt`, sitemap, Data & API and About pages, post-build checks. Next is M1b
 ([SPEC §13](docs/SPEC.md#13-milestones)).
 
 ## Rules
@@ -27,8 +28,12 @@ Milestone M0 is in place: lock file, data pipeline, placeholder site, CI. Next i
 ## Layout
 
 - `internacia.lock.json` — pinned release; bump it only through a pull request that builds.
-- `pipeline/` — Python data stage. `fetch.py` downloads and verifies; `build_data.py` writes
-  `site/src/generated/` (not committed). One SQL file per derived dataset in `pipeline/sql/`.
+- `pipeline/` — Python data stage. `fetch.py` downloads and verifies; `release.py` loads the
+  release; `derive.py` adds `_` fields; `build_data.py` writes `site/src/generated/` (not
+  committed); `check_site.py` checks `site/dist/` after the build. One SQL file per derived
+  dataset in `pipeline/sql/`.
+- `site/src/lib/` — data loading, URLs, labels, Markdown twins, JSON-LD, `llms.txt`. HTML pages
+  and their `.md` / `.json` endpoints read the same generated data.
 - `site/` — Astro project. `site/site.config.mjs` holds `SITE_URL` and `INDEXABLE`.
 - `.github/workflows/site.yml` — builds on pull requests, deploys `main` to GitHub Pages.
 
@@ -42,6 +47,7 @@ Run from the repository root, in this order:
 .venv/bin/python -m pytest pipeline/tests
 .venv/bin/python pipeline/build_data.py
 (cd site && npm ci && npm run build)
+.venv/bin/python pipeline/check_site.py
 ```
 
 The site build fails if `site/src/generated/meta.json` is missing: run the pipeline first.
@@ -51,3 +57,9 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
 - `compressHTML` is off in `site/astro.config.mjs`: Astro's compression drops the space between
   text and a link on the next line.
 - `_meta.git_commit` in the release is a short hash; the lock file holds the full one.
+- `historical-country` roster entries reuse current codes (`DE` is the GDR in such rows): never
+  link them to country cards, never count them as a country's memberships.
+- An intblock alias with reason `disambiguated` gets an explanation page, never a redirect; when
+  the old ID now names a current record, the note goes on that record's card.
+- In `.astro` templates, build sentences that end in punctuation as one string expression:
+  JSX-style whitespace otherwise leaves a space before the period.

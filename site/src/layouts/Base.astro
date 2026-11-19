@@ -1,18 +1,42 @@
 ---
 import '../styles/global.css';
 import { INDEXABLE } from '../../site.config.mjs';
+import { breadcrumbList, graph, toScript } from '../lib/jsonld';
 import { meta } from '../lib/meta';
+import { path, REPO_DATA, REPO_SITE } from '../lib/urls';
+
+interface Crumb {
+  name: string;
+  href: string;
+}
 
 interface Props {
   title: string;
   description: string;
+  breadcrumbs?: Crumb[];
+  markdown?: string;
+  json?: string;
+  sourceUrl?: string;
+  reportUrl?: string;
+  jsonld?: Record<string, unknown>[];
+  canonical?: string;
+  noindex?: boolean;
 }
 
-const { title, description } = Astro.props;
-const base = import.meta.env.BASE_URL;
-const canonical = new URL(Astro.url.pathname, Astro.site);
+const { title, description, breadcrumbs = [], markdown, json, sourceUrl, reportUrl, jsonld = [], noindex } = Astro.props;
+const base = path();
+const canonical = Astro.props.canonical ?? new URL(Astro.url.pathname, Astro.site).href;
 const fullTitle = title === 'Internacia' ? title : `${title} · Internacia`;
 const releaseDate = meta.data.build_date.slice(0, 10);
+const crumbs: Crumb[] = breadcrumbs.length ? [{ name: 'Home', href: base }, ...breadcrumbs] : [];
+const ld = crumbs.length || jsonld.length ? graph(...jsonld, ...(crumbs.length ? [breadcrumbList(crumbs)] : [])) : null;
+const nav = [
+  { href: path('countries/'), label: 'Countries' },
+  { href: path('blocks/'), label: 'Organizations' },
+  { href: path('data/'), label: 'Data & API' },
+  { href: path('about/'), label: 'About' },
+];
+const current = Astro.url.pathname;
 ---
 
 <!doctype html>
@@ -23,9 +47,19 @@ const releaseDate = meta.data.build_date.slice(0, 10);
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
-    {!INDEXABLE && <meta name="robots" content="noindex, nofollow" />}
+    {(!INDEXABLE || noindex) && <meta name="robots" content="noindex, nofollow" />}
     <meta name="color-scheme" content="light dark" />
-    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Internacia" />
+    <link rel="icon" type="image/svg+xml" href={path('favicon.svg')} />
+    {markdown && <link rel="alternate" type="text/markdown" href={markdown} />}
+    {json && <link rel="alternate" type="application/json" href={json} />}
+    <link rel="help" type="text/plain" href={path('llms.txt')} />
+    {ld && <script type="application/ld+json" set:html={toScript(ld)} />}
+    <slot name="head" />
     <script is:inline>
       (() => {
         try {
@@ -42,14 +76,32 @@ const releaseDate = meta.data.build_date.slice(0, 10);
         <a class="site-title" href={base}>Internacia</a>
         <nav class="site-nav" aria-label="Main">
           <ul>
-            <li><a href="https://github.com/datenoio/internacia-db">Data source</a></li>
-            <li><a href="https://github.com/datenoio/internacia-web/blob/main/docs/SPEC.md">Specification</a></li>
-            <li><a href="https://github.com/datenoio/internacia-web">GitHub</a></li>
+            {
+              nav.map((item) => (
+                <li>
+                  <a href={item.href} aria-current={current.startsWith(item.href) ? 'page' : undefined}>
+                    {item.label}
+                  </a>
+                </li>
+              ))
+            }
           </ul>
         </nav>
         <button class="theme-toggle" id="theme-toggle" type="button" hidden>Theme: auto</button>
       </div>
     </header>
+
+    {
+      crumbs.length > 0 && (
+        <nav class="container breadcrumbs" aria-label="Breadcrumb">
+          <ol>
+            {crumbs.map((c, i) => (
+              <li>{i === crumbs.length - 1 ? <span aria-current="page">{c.name}</span> : <a href={c.href}>{c.name}</a>}</li>
+            ))}
+          </ol>
+        </nav>
+      )
+    }
 
     <main id="content">
       <slot />
@@ -57,16 +109,26 @@ const releaseDate = meta.data.build_date.slice(0, 10);
 
     <footer class="site-footer">
       <div class="container">
+        {
+          (markdown || json || sourceUrl || reportUrl) && (
+            <p class="page-links">
+              {markdown && <a href={markdown}>View as Markdown</a>}
+              {json && <a href={json}>View as JSON</a>}
+              {sourceUrl && <a href={sourceUrl}>Source record on GitHub</a>}
+              {reportUrl && <a href={reportUrl}>Report a data error</a>}
+            </p>
+          )
+        }
         <p>
           Data: <a href={meta.data.release_url}>internacia-db v{meta.data.version}</a>
           (contract {meta.data.contract_version}), released {releaseDate}. Licensed
-          <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>; see the
-          <a href="https://github.com/datenoio/internacia-db/blob/main/ATTRIBUTION.md">attribution</a>.
+          <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>; country centroids
+          ODbL 1.0. See the <a href={path('about/')}>attribution</a>.
         </p>
         <p>
-          Site code: <a href="https://github.com/datenoio/internacia-web">MIT</a>. Part of the
-          <a href="https://dateno.io">Dateno</a> open-source project. Report data errors in
-          <a href="https://github.com/datenoio/internacia-db/issues">internacia-db issues</a>.
+          Site code: <a href={REPO_SITE}>MIT</a>. Part of the <a href="https://dateno.io">Dateno</a>
+          open-source project. For AI agents: <a href={path('llms.txt')}>llms.txt</a>. Report data errors in
+          <a href={`${REPO_DATA}/issues`}>internacia-db issues</a>.
         </p>
       </div>
     </footer>
@@ -95,6 +157,18 @@ const releaseDate = meta.data.build_date.slice(0, 10);
         button.addEventListener('click', () => apply(modes[(modes.indexOf(read()) + 1) % modes.length]));
         button.textContent = `Theme: ${read()}`;
         button.hidden = false;
+
+        // Copy buttons for codes and IDs (hidden without JavaScript).
+        document.querySelectorAll('button[data-copy]').forEach((btn) => {
+          btn.hidden = false;
+          btn.addEventListener('click', async () => {
+            try {
+              await navigator.clipboard.writeText(btn.dataset.copy);
+              btn.textContent = 'Copied';
+              setTimeout(() => (btn.textContent = 'Copy'), 1500);
+            } catch {}
+          });
+        });
       })();
     </script>
   </body>

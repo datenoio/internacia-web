@@ -1,37 +1,43 @@
 ---
+import BarList from '../components/BarList.astro';
 import Base from '../layouts/Base.astro';
+import { blockById, blocktypes } from '../lib/data';
+import { displayName } from '../lib/format';
 import { meta } from '../lib/meta';
+import { blockPath, path } from '../lib/urls';
 
 const fmt = new Intl.NumberFormat('en');
 const { counts } = meta;
 
 const figures = [
-  { value: counts.countries, label: 'Countries and territories', note: `${fmt.format(counts.iso_countries)} ISO 3166-1` },
-  { value: counts.intblocks, label: 'Organizations and groupings' },
+  { value: counts.countries, label: 'Countries and territories', note: `${fmt.format(counts.iso_countries)} ISO 3166-1`, href: path('countries/') },
+  { value: counts.intblocks, label: 'Organizations and groupings', href: path('blocks/') },
   { value: counts.blocktypes, label: 'Block types' },
   { value: counts.topics, label: 'Topics' },
-  {
-    value: counts.memberships,
-    label: 'Membership records',
-    note: `${fmt.format(counts.current_memberships)} current`,
-  },
+  { value: counts.memberships, label: 'Membership records', note: `${fmt.format(counts.current_memberships)} current` },
 ];
+
+const FEATURED = ['UN', 'EU', 'AFUNION', 'ASEAN', 'NATO', 'OECD', 'G-20', 'BRICS', 'COMMONWEALTH', 'OSCE'];
+const featured = FEATURED.map((id) => blockById().get(id)).filter((b) => b !== undefined);
+const topTypes = blocktypes()
+  .slice()
+  .sort((a, b) => b._count - a._count)
+  .slice(0, 12)
+  .map((t) => ({ label: t.name, value: t._count }));
 ---
 
 <Base
   title="Internacia"
   description="Countries, international organizations and country groupings from internacia-db, as cards, maps and timelines for people and AI agents."
+  markdown={path('index.md')}
+  json={path('api/v1/index.json')}
 >
   <section class="container hero">
     <h1>Internacia</h1>
     <p class="lead">
       Countries, international organizations and country groupings from
-      <a href="https://github.com/datenoio/internacia-db">internacia-db</a>, as cards, maps and
-      timelines for people and for AI agents.
-    </p>
-    <p class="notice" role="status">
-      This site is under construction. Country and organization cards arrive in the next milestone;
-      see the <a href="https://github.com/datenoio/internacia-web/blob/main/docs/SPEC.md">specification</a>.
+      <a href="https://github.com/datenoio/internacia-db">internacia-db</a>, as cards for people and for AI agents.
+      Every card is also available as Markdown and JSON.
     </p>
   </section>
 
@@ -41,7 +47,7 @@ const figures = [
       {
         figures.map((f) => (
           <div class="figure">
-            <dt>{f.label}</dt>
+            <dt>{f.href ? <a href={f.href}>{f.label}</a> : f.label}</dt>
             <dd>
               <span class="figure-value">{fmt.format(f.value)}</span>
               {f.note && <span class="figure-note">{f.note}</span>}
@@ -50,6 +56,37 @@ const figures = [
         ))
       }
     </dl>
+  </section>
+
+  <div class="container grid-2">
+    <section class="card-section" aria-labelledby="featured-heading">
+      <h2 id="featured-heading">Featured organizations</h2>
+      <ul class="featured">
+        {
+          featured.map((b) => (
+            <li>
+              <a href={blockPath(b!.id)}>{displayName(b!.name, b!._acronym)}</a>
+              <span class="muted small"> {fmt.format(b!._current_member_count)} members</span>
+            </li>
+          ))
+        }
+      </ul>
+      <p><a href={path('blocks/')}>Browse all {fmt.format(counts.intblocks)} organizations and groupings</a></p>
+    </section>
+
+    <section class="card-section" aria-labelledby="types-heading">
+      <h2 id="types-heading">Largest block types</h2>
+      <BarList items={topTypes} label="Intblocks per block type, largest 12" />
+    </section>
+  </div>
+
+  <section class="container card-section" aria-labelledby="dev-heading">
+    <h2 id="dev-heading">For developers and AI agents</h2>
+    <ul>
+      <li><a href={path('llms.txt')}>llms.txt</a>: how to use this site from an AI agent, in one file.</li>
+      <li><a href={path('api/v1/index.json')}>Static JSON API</a>: every country and organization as JSON.</li>
+      <li><a href={path('data/')}>Data and downloads</a>: DuckDB, Parquet and JSONL with checksums, and how to cite.</li>
+    </ul>
   </section>
 </Base>
 
@@ -61,20 +98,6 @@ const figures = [
   h1 {
     font-size: clamp(2rem, 5vw, 3rem);
     margin: 0 0 var(--space-2);
-  }
-
-  .lead {
-    font-size: 1.2rem;
-    max-width: 44rem;
-    margin: 0 0 var(--space-4);
-  }
-
-  .notice {
-    background: var(--color-notice);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius);
-    padding: var(--space-2) var(--space-3);
-    max-width: 44rem;
   }
 
   .figures {
@@ -105,7 +128,6 @@ const figures = [
   .figure-value {
     font-size: 2rem;
     font-weight: 700;
-    font-variant-numeric: tabular-nums;
   }
 
   .figure-note {

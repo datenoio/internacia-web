@@ -1,0 +1,449 @@
+---
+import AliasPage from '../../../components/AliasPage.astro';
+import Facts from '../../../components/Facts.astro';
+import Base from '../../../layouts/Base.astro';
+import { aliases, blockById, blocks, type Block, type BlockRef } from '../../../lib/data';
+import {
+  blocktypeLabel,
+  enumLabel,
+  humanize,
+  num,
+  splitCode,
+  statusDeprecated,
+  statusDescription,
+  statusLabel,
+  topicLabel,
+} from '../../../lib/format';
+import { blockLd } from '../../../lib/jsonld';
+import { blockJson, blockMd, blockPath, countryPath, path, reportErrorUrl, sourceUrl, wikidataUrl } from '../../../lib/urls';
+
+export function getStaticPaths() {
+  const pages = blocks().map((b) => ({ params: { id: b.id.toLowerCase() }, props: { id: b.id, alias: null } }));
+  const extra = aliases()
+    .pages.filter((a) => a.section === 'blocks')
+    .map((a) => ({ params: { id: a.alias.toLowerCase() }, props: { id: null, alias: a } }));
+  return [...pages, ...extra];
+}
+
+const { id, alias } = Astro.props;
+const b = id ? (blockById().get(id) as Block) : null;
+
+const current = b ? b._roster.filter((r) => r.current) : [];
+const other = b ? b._roster.filter((r) => !r.current) : [];
+const listed = b ? (b._active ? current : b._roster) : [];
+const statusOptions = [...new Set(listed.map((r) => r.status))];
+const countryCount = b?._current_member_count ?? 0;
+const countsComparable = b && b.membership_count !== undefined && (!b.membership_count_type || b.membership_count_type === 'countries');
+const known = (id: string) => blockById().has(id);
+const refLink = (r: BlockRef | null) => (r && r.exists ? blockPath(r.id) : undefined);
+const links = b
+  ? [
+      ...(b.links ?? []).map((l) => ({ label: humanize(l.type), url: l.url })),
+      ...(b.official_documents ?? []).map((d) => ({ label: d.title ?? 'Official document', url: d.url })),
+      ...Object.entries(b.social_media ?? {}).map(([k, v]) => ({ label: humanize(k), url: v })),
+    ]
+  : [];
+const statusSummary = b
+  ? Object.entries(b._status_counts)
+      .map(([s, n]) => `${num(n)} ${statusLabel(s).toLowerCase()}`)
+      .join(', ')
+  : '';
+const orgCount = current.length - countryCount;
+const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.value}`, a])).values()] : [];
+---
+
+{alias && <AliasPage alias={alias} />}
+{
+  b && (
+    <Base
+      title={b._acronym ? `${b.name} (${b._acronym})` : b.name}
+      description={`${b.name}${b._acronym ? ` (${b._acronym})` : ''}: ${enumLabel('status', b.status).toLowerCase()} ${blocktypeLabel(b.blocktype[0]).toLowerCase()} with ${countryCount} ${b._active ? 'current' : 'recorded'} member countries. Roster, structure, names and links.`}
+      breadcrumbs={[
+        { name: 'Organizations', href: path('blocks/') },
+        { name: b._acronym ?? b.name, href: blockPath(b.id) },
+      ]}
+      markdown={blockMd(b.id)}
+      json={blockJson(b.id)}
+      sourceUrl={sourceUrl(b._source_path)}
+      reportUrl={reportErrorUrl('intblocks', b.id, b.name)}
+      jsonld={blockLd(b)}
+    >
+      <section class="container page-head">
+        <h1>
+          {b.name}
+          {b._acronym && <span class="muted"> ({b._acronym})</span>}
+        </h1>
+        <ul class="badges">
+          <li class={b._active ? 'badge' : 'badge badge-warn'}>
+            {`${enumLabel('status', b.status)}${!b._active && b.dissolved ? `, dissolved ${b.dissolved}` : ''}`}
+          </li>
+          {b.scope_category && <li class="badge">{enumLabel('scope_category', b.scope_category)}</li>}
+          {b.geographic_scope && <li class="badge">{enumLabel('geographic_scope', b.geographic_scope)} scope</li>}
+          {b.blocktype.map((t) => (
+            <li class="badge">{blocktypeLabel(t)}</li>
+          ))}
+        </ul>
+        {(b.topics?.length ?? 0) > 0 && (
+          <ul class="badges" aria-label="Topics">
+            {b.topics!.map((t) => (
+              <li class="badge">{topicLabel(t.key, t.name)}</li>
+            ))}
+          </ul>
+        )}
+        {b.description && <p class="lead">{b.description}</p>}
+        {b._alias_notes.map((n) =>
+          n.kind === 'former_id' ? (
+            <p class="muted small">
+              Also formerly under ID <code>{n.alias}</code> ({n.reason} in v{n.since}).
+            </p>
+          ) : (
+            <p class="notice small">{n.note}</p>
+          ),
+        )}
+      </section>
+
+      <div class="container">
+        <div class="grid-2">
+          <section class="card-section" aria-labelledby="facts">
+            <h2 id="facts">Key facts</h2>
+            <Facts
+              rows={[
+                { label: 'ID', value: b.id, code: true, copy: true },
+                { label: 'Wikidata', value: b.wikidata_id, code: true, href: b.wikidata_id ? wikidataUrl(b.wikidata_id) : undefined, copy: true },
+                { label: 'Founded', value: b.founded },
+                { label: 'Dissolved', value: b.dissolved },
+                {
+                  label: 'Active period',
+                  value: b.active_period ? [b.active_period.start, b.active_period.end ?? 'present'].filter(Boolean).join(' – ') : undefined,
+                },
+                {
+                  label: 'Headquarters',
+                  value: b.headquarters?.city
+                    ? [b.headquarters.city, b._hq_country_name ?? b.headquarters.country].filter(Boolean).join(', ')
+                    : undefined,
+                  href: b.headquarters?.country && b._hq_country_name ? countryPath(b.headquarters.country) : undefined,
+                  note: b.headquarters?.note,
+                },
+                {
+                  label: 'Secretariat',
+                  value: b.secretariat ? [b.secretariat.organization, b.secretariat.location].filter(Boolean).join(', ') : undefined,
+                },
+                { label: 'Official languages', value: b.languages?.join(', ') },
+                { label: 'Regions', value: b.regions?.join(', ') },
+                { label: 'Legal status', value: b.legal_status ? humanize(b.legal_status) : undefined },
+                { label: 'Recognition', value: b.recognition_status },
+                {
+                  label: 'Official member count',
+                  value:
+                    b.membership_count !== undefined
+                      ? `${num(b.membership_count)}${b.membership_count_type ? ` ${b.membership_count_type}` : ''}`
+                      : undefined,
+                  note:
+                    countsComparable && b._active && b.membership_count !== countryCount
+                      ? `(the roster lists ${countryCount} current countries and territories)`
+                      : undefined,
+                },
+                { label: 'Last verified', value: b.last_verified },
+              ]}
+            />
+          </section>
+
+          {(b._parents.length > 0 || b._children.length > 0 || b._predecessor || b._successor || (b.previous_names?.length ?? 0) > 0) && (
+            <section class="card-section" aria-labelledby="structure">
+              <h2 id="structure">Structure</h2>
+              <Facts
+                rows={[
+                  { label: 'Predecessor', value: b._predecessor ? (b._predecessor.name ?? b._predecessor.id) : undefined, href: refLink(b._predecessor) },
+                  { label: 'Successor', value: b._successor ? (b._successor.name ?? b._successor.id) : undefined, href: refLink(b._successor) },
+                ]}
+              />
+              {b._parents.length > 0 && (
+                <>
+                  <h3>Part of</h3>
+                  <ul>
+                    {b._parents.map((p) => (
+                      <li>{p.exists ? <a href={blockPath(p.id)}>{p.name}</a> : <code>{p.id}</code>}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {b._children.length > 0 && (
+                <>
+                  <h3>Suborganizations and bodies ({b._children.length})</h3>
+                  <ul>
+                    {b._children.map((c) => (
+                      <li>
+                        {c.exists ? <a href={blockPath(c.id)}>{c.name}</a> : (c.name ?? c.id)} <code class="muted small">{c.id}</code>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+              {(b.previous_names?.length ?? 0) > 0 && (
+                <>
+                  <h3>Previous names</h3>
+                  <ul>
+                    {b.previous_names!.map((p) => (
+                      <li lang={p.id}>
+                        {p.name}
+                        {p.period && <span class="muted"> ({p.period})</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+          )}
+        </div>
+
+        {b.notes && (
+          <section class="card-section" aria-labelledby="notes">
+            <h2 id="notes">Notes</h2>
+            <p>
+              {splitCode(b.notes).map((part) =>
+                part.code ? known(part.text) ? <a href={blockPath(part.text)}><code>{part.text}</code></a> : <code>{part.text}</code> : part.text,
+              )}
+            </p>
+          </section>
+        )}
+
+        <section class="card-section" aria-labelledby="roster">
+          <h2 id="roster">{b._active ? 'Members and participants' : 'Members as recorded'}</h2>
+          {b.membership_applicability === 'not_applicable' && b._roster.length === 0 ? (
+            <p>
+              This record has no country or organization roster by design: membership does not apply, or its members are not
+              states (for example NGOs or individuals).
+            </p>
+          ) : (
+            <>
+              <p>
+                {b._active ? (
+                  <>
+                    <strong>{num(countryCount)}</strong> current countries and territories
+                    {`${statusSummary ? ` (${statusSummary})` : ''}${orgCount > 0 ? `, plus ${orgCount} organizations` : ''}.`}
+                  </>
+                ) : (
+                  <>This {b.dissolved ? 'dissolved' : 'historical'} entity has no current members. The roster below is as recorded.</>
+                )}
+              </p>
+              {listed.length > 0 && (
+                <>
+                  <div class="filters" data-table-tools="roster-table" hidden>
+                    <label>
+                      Search
+                      <input type="search" data-filter="text" placeholder="Country or code" />
+                    </label>
+                    <label>
+                      Status
+                      <select data-filter="status">
+                        <option value="">All</option>
+                        {statusOptions.map((s) => (
+                          <option value={s}>{statusLabel(s)}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <span class="count" data-count aria-live="polite" />
+                  </div>
+                  <div class="table-wrap">
+                    <table class="data" id="roster-table">
+                      <thead>
+                        <tr>
+                          <th scope="col" data-sort="text">Name</th>
+                          <th scope="col" data-sort="text">Code</th>
+                          <th scope="col" data-sort="text">Type</th>
+                          <th scope="col" data-sort="text">Status</th>
+                          <th scope="col" data-sort="text">Joined</th>
+                          {!b._active && <th scope="col" data-sort="text">Left</th>}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {listed.map((r) => (
+                          <tr data-status={r.status} data-member={r.id} data-type={r.type} data-current={r.current ? 'yes' : 'no'}>
+                            <td data-value={r.name ?? r.id}>
+                              {r.flag_emoji && <span aria-hidden="true">{r.flag_emoji} </span>}
+                              {r.link === 'country' ? (
+                                <a href={countryPath(r.id)}>{r.name}</a>
+                              ) : r.link === 'block' ? (
+                                <a href={blockPath(r.id)}>{r.name}</a>
+                              ) : (
+                                (r.name ?? r.id)
+                              )}
+                              {r.note && <div class="muted small">{r.note}</div>}
+                            </td>
+                            <td>
+                              <code>{r.id}</code>
+                            </td>
+                            <td>{enumLabel('include_type', r.type)}</td>
+                            <td title={statusDescription(r.status)}>
+                              {statusLabel(r.status)}
+                              {statusDeprecated(r.status) && <span class="muted small"> (deprecated label)</span>}
+                            </td>
+                            <td>{r.joined}</td>
+                            {!b._active && <td>{r.left}</td>}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+              {b._active && other.length > 0 && (
+                <details>
+                  <summary>Former members and participants ({other.length})</summary>
+                  <div class="table-wrap">
+                    <table class="data" id="former-table">
+                      <thead>
+                        <tr>
+                          <th scope="col">Name</th>
+                          <th scope="col">Code</th>
+                          <th scope="col">Type</th>
+                          <th scope="col">Status</th>
+                          <th scope="col">Joined</th>
+                          <th scope="col">Left</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {other.map((r) => (
+                          <tr data-member={r.id} data-type={r.type} data-current="no">
+                            <td>
+                              {r.link === 'country' ? (
+                                <a href={countryPath(r.id)}>{r.name}</a>
+                              ) : r.link === 'block' ? (
+                                <a href={blockPath(r.id)}>{r.name}</a>
+                              ) : (
+                                (r.name ?? r.id)
+                              )}
+                              {r.note && <div class="muted small">{r.note}</div>}
+                            </td>
+                            <td>
+                              <code>{r.id}</code>
+                            </td>
+                            <td>{enumLabel('include_type', r.type)}</td>
+                            <td>{statusLabel(r.status)}</td>
+                            <td>{r.joined}</td>
+                            <td>{r.left}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
+              )}
+            </>
+          )}
+        </section>
+
+        {b._similar.length > 0 && (
+          <section class="card-section" aria-labelledby="overlap">
+            <h2 id="overlap">Overlapping organizations</h2>
+            <p class="muted small">By overlap of current member countries (Jaccard index: shared ÷ combined).</p>
+            <div class="table-wrap">
+              <table class="data">
+                <thead>
+                  <tr>
+                    <th scope="col">Organization or grouping</th>
+                    <th scope="col" class="num">Shared members</th>
+                    <th scope="col" class="num">Jaccard</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {b._similar.map((s) => (
+                    <tr>
+                      <td>
+                        <a href={blockPath(s.id)}>{s.name}</a>
+                        {s.acronym && <span class="muted"> ({s.acronym})</span>}
+                      </td>
+                      <td class="num">{num(s.shared)}</td>
+                      <td class="num">{s.jaccard.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {(acronyms.length > 0 || (b.other_names?.length ?? 0) > 0) && (
+          <section class="card-section" aria-labelledby="names">
+            <h2 id="names">Names</h2>
+            {acronyms.length > 0 && (
+              <>
+                <h3>Acronyms</h3>
+                <ul class="names">
+                  {acronyms.map((a) => (
+                    <li>
+                      <span class="lang">{a.lang}</span>
+                      <bdi lang={a.lang}>{a.value}</bdi>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {(b.other_names?.length ?? 0) > 0 && (
+              <>
+                <h3>In other languages ({b.other_names!.length})</h3>
+                <ul class="names">
+                  {b
+                    .other_names!.slice()
+                    .sort((x, y) => x.id.localeCompare(y.id))
+                    .map((n) => (
+                      <li>
+                        <span class="lang">{n.id}</span>
+                        <bdi lang={n.id}>{n.name}</bdi>
+                      </li>
+                    ))}
+                </ul>
+              </>
+            )}
+          </section>
+        )}
+
+        {links.length > 0 && (
+          <section class="card-section" aria-labelledby="links">
+            <h2 id="links">Links</h2>
+            <ul>
+              {links.map((l) => (
+                <li>
+                  <span class="muted">{l.label}:</span> <a href={l.url}>{l.url}</a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {(b.provenance?.length ?? 0) > 0 && (
+          <section class="card-section" aria-labelledby="provenance">
+            <h2 id="provenance">Provenance</h2>
+            <div class="table-wrap">
+              <table class="data">
+                <thead>
+                  <tr>
+                    <th scope="col">Field</th>
+                    <th scope="col">Source</th>
+                    <th scope="col">Retrieved</th>
+                    <th scope="col">Licence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {b.provenance!.map((p) => (
+                    <tr>
+                      <td>
+                        <code>{p.field}</code>
+                      </td>
+                      <td>{p.url ? <a href={p.url}>{p.source}</a> : p.source}</td>
+                      <td>{p.retrieved_at}</td>
+                      <td>{p.license}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+      </div>
+      <script>
+        import '../../../scripts/tables.ts';
+      </script>
+    </Base>
+  )
+}

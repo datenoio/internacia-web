@@ -78,7 +78,7 @@ Assets used:
 | Asset | Use |
 |-------|-----|
 | `internacia.duckdb` | Main query source: tables `countries`, `intblocks`, `blocktypes`, `memberships`, `_meta`, alias tables; views `current_memberships`, `country_currencies`, `country_languages`, `country_timezones` |
-| `intblocks.jsonl.zst` | Fields exported to full JSON only: `suborganizations`, `founding_members`, `membership_applicability`, `notes`, `recognition_status`, `previous_names`, `official_documents`, `social_media`, `secretariat` |
+| `countries.jsonl.zst`, `intblocks.jsonl.zst` | Entity records as cards and JSON twins show them, with every field, including those exported to full JSON only (`suborganizations`, `founding_members`, `membership_applicability`, `notes`, `recognition_status`, `previous_names`, `official_documents`, `social_media`, `secretariat`). Intblock rosters come from `includes[]`: the `memberships` table leaves out organization members |
 | `contract.json` | Contract version check, enum values, table schemas |
 | `SHA256SUMS` | Integrity check of every downloaded asset |
 | `intblocks_aliases.json`, `countries_aliases.json` | Redirect pages for retired or renamed IDs |
@@ -436,6 +436,10 @@ Formal intergovernmental organization, regional scope. Founded 1967. Headquarter
   `/api/v1/schemas/`.
 - Every document has a `meta` object:
   `{"data_version": "3.1.0", "contract_version": "3.1", "built_at": "…", "license": "CC-BY-4.0", "source": "https://github.com/datenoio/internacia-db/releases/tag/v3.1.0", "html": "…", "markdown": "…"}`.
+  `built_at` is the build time of the data release, so output is reproducible. Country documents
+  add `license_notes`: `centroid` values come from mledoze/countries under ODbL-1.0.
+- Entity documents have the shape `{"meta": {…}, "data": {…}}`; lists add `count`. The JSON at a
+  retired or renamed ID is `{"meta", "redirect", "kind", "reason", "since", "note"}`.
 
 | Endpoint | Contents | Size budget (gzip) |
 |----------|----------|-------------------:|
@@ -477,8 +481,9 @@ Google Dataset Search.
 
 ### 7.6 Discovery
 
-- `sitemap.xml` (index) with sub-sitemaps per section; `lastmod` is the data build date of the
-  record's last change, not the site build time.
+- `sitemap.xml` (index) with sub-sitemaps per section; `lastmod` is the build date of the data
+  release, not the site build time. internacia-db does not publish per-record change dates; when
+  it does, `lastmod` switches to them.
 - `robots.txt` allows all crawlers, including AI crawlers, and points to the sitemap and
   `llms.txt` (policy confirmed with the owner, see [§15](#15-open-questions)).
 - `/feed.xml` (Atom): one entry per published data version, with counts of added, removed and
@@ -696,6 +701,12 @@ Sample pages: `/`, `/countries/fr/`, `/countries/xk/`, `/countries/ps/`, `/count
 **Done when** the pipeline downloads and verifies v3.1.0 and a placeholder page deploys.
 
 ### M1 — Cards and machine layer (MVP)
+
+Delivered in two parts. **M1a**: indexes, cards, twins, lite and entity JSON, alias pages,
+`llms.txt`, JSON-LD, sitemap, `robots.txt`, Data & API and About pages, and the checks in
+`pipeline/check_site.py` (count, roster and twin parity, JSON validity, internal links, redirects,
+structured data, guardrails). **M1b**: membership map (V1), entity finder, 404 suggestions,
+OpenAPI and JSON Schemas, accessibility (axe) and performance (Lighthouse) checks.
 
 - Country and intblock indexes and cards ([§6.2](#62-countries-index)–[§6.5](#65-intblock-card)),
   including the membership map (V1) on intblock cards.

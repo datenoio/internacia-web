@@ -1,0 +1,44 @@
+---
+// Definition list of facts; rows without a value are left out (SPEC §6.3: omit empty sections).
+export interface Fact {
+  label: string;
+  value?: string | number | null;
+  href?: string;
+  code?: boolean;
+  copy?: boolean;
+  note?: string;
+}
+
+interface Props {
+  rows: Fact[];
+}
+
+const rows = Astro.props.rows.filter((r) => r.value !== undefined && r.value !== null && r.value !== '');
+---
+
+{
+  rows.length > 0 && (
+    <dl class="facts">
+      {rows.map((r) => (
+        <>
+          <dt>{r.label}</dt>
+          <dd>
+            {r.href ? (
+              <a href={r.href}>{r.code ? <code>{r.value}</code> : r.value}</a>
+            ) : r.code ? (
+              <code>{r.value}</code>
+            ) : (
+              r.value
+            )}
+            {r.copy && (
+              <button class="copy" type="button" data-copy={String(r.value)} hidden aria-label={`Copy ${r.label}`}>
+                Copy
+              </button>
+            )}
+            {r.note && <span class="muted small"> {r.note}</span>}
+          </dd>
+        </>
+      ))}
+    </dl>
+  )
+}

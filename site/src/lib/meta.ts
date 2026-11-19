@@ -1,4 +1,6 @@
 // Build identity and key figures written by pipeline/build_data.py.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 export interface SiteMeta {
   data: {
@@ -22,14 +24,16 @@ export interface SiteMeta {
   };
 }
 
-const files = import.meta.glob<{ default: SiteMeta }>('../generated/meta.json', { eager: true });
-const loaded = files['../generated/meta.json'];
-
-if (!loaded) {
-  throw new Error(
-    'site/src/generated/meta.json is missing. Run `python pipeline/fetch.py` and ' +
-      '`python pipeline/build_data.py` from the repository root before building the site.',
-  );
+function loadMeta(): SiteMeta {
+  const path = join(process.cwd(), 'src', 'generated', 'meta.json');
+  try {
+    return JSON.parse(readFileSync(path, 'utf-8')) as SiteMeta;
+  } catch {
+    throw new Error(
+      'site/src/generated/meta.json is missing. Run `python pipeline/fetch.py` and ' +
+        '`python pipeline/build_data.py` from the repository root before building the site.',
+    );
+  }
 }
 
-export const meta: SiteMeta = loaded.default;
+export const meta: SiteMeta = loadMeta();

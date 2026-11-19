@@ -12,6 +12,7 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "astro": "7.4.13"
+    "astro": "7.4.13",
+    "marked": "18.2.1"
   }
 }

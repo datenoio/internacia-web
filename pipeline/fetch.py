@@ -29,6 +29,7 @@ from lock import DEFAULT_CACHE, DEFAULT_LOCK, Lock, LockError, load_lock
 # Release assets the site reads (SPEC §4.1). SHA256SUMS is fetched first and checked on its own.
 ASSETS = [
     "internacia.duckdb",
+    "countries.jsonl.zst",
     "intblocks.jsonl.zst",
     "contract.json",
     "datapackage.json",

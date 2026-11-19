@@ -1,0 +1,33 @@
+---
+import Base from '../../layouts/Base.astro';
+import { marked } from 'marked';
+import { downloads } from '../../lib/data';
+import { datasetLd } from '../../lib/jsonld';
+import { dataMarkdown, recipes } from '../../lib/pages';
+import { path } from '../../lib/urls';
+
+// Same source as /data.md, so the HTML and Markdown forms cannot drift apart.
+const body = marked.parse(dataMarkdown(), { async: false }) as string;
+---
+
+<Base
+  title="Data and API"
+  description="Data version, static JSON API, downloads with checksums, and how to cite internacia-db."
+  breadcrumbs={[{ name: 'Data & API', href: path('data/') }]}
+  markdown={path('data.md')}
+  json={path('api/v1/index.json')}
+  jsonld={[datasetLd(downloads())]}
+>
+  <article class="container prose" set:html={body} />
+  <section class="container card-section" aria-labelledby="recipes">
+    <h2 id="recipes">Recipes</h2>
+    {
+      recipes().map((r) => (
+        <>
+          <h3>{r.title}</h3>
+          <pre><code>{r.code}</code></pre>
+        </>
+      ))
+    }
+  </section>
+</Base>

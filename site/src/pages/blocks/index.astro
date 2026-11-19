@@ -1,0 +1,124 @@
+---
+import Base from '../../layouts/Base.astro';
+import { blocks, blocktypes } from '../../lib/data';
+import { blocktypeLabel, enumLabel, num, topicLabel } from '../../lib/format';
+import { meta } from '../../lib/meta';
+import { blockPath, path } from '../../lib/urls';
+
+const rows = blocks().slice().sort((a, b) => a.name.localeCompare(b.name));
+const options = (values: (string | undefined)[]) =>
+  [...new Set(values.filter((v): v is string => Boolean(v)))].sort((a, b) => a.localeCompare(b));
+const types = blocktypes()
+  .filter((t) => t._count > 0)
+  .sort((a, b) => a.name.localeCompare(b.name));
+const statuses = options(rows.map((b) => b.status));
+const scopes = options(rows.map((b) => b.scope_category));
+const geo = options(rows.map((b) => b.geographic_scope));
+const topics = [...new Map(rows.flatMap((b) => (b.topics ?? []).map((t) => [t.key, topicLabel(t.key, t.name)] as const))).entries()].sort(
+  (a, b) => a[1].localeCompare(b[1]),
+);
+const active = rows.filter((b) => b._active).length;
+---
+
+<Base
+  title="International organizations and groupings"
+  description={`All ${rows.length} international organizations, agreements and country groupings in internacia-db, with block types, status, founding year and member counts.`}
+  breadcrumbs={[{ name: 'Organizations', href: path('blocks/') }]}
+  markdown={path('blocks.md')}
+  json={path('api/v1/blocks.json')}
+>
+  <section class="container page-head">
+    <h1>International organizations and groupings</h1>
+    <p class="lead">
+      {num(rows.length)} records ("intblocks") in {types.length} block types: intergovernmental organizations, treaties
+      and agreements, policy forums and named country groupings. {num(active)} are active; the rest are historical or
+      dissolved.
+    </p>
+  </section>
+
+  <section class="container">
+    <div class="filters" data-table-tools="blocks-table" hidden>
+      <label>Search<input type="search" data-filter="text" placeholder="Name, acronym or ID" /></label>
+      <label
+        >Block type<select data-filter="types"
+          ><option value="">All</option>{types.map((t) => <option value={t.id}>{t.name} ({t._count})</option>)}</select
+        ></label
+      >
+      <label
+        >Status<select data-filter="status"
+          ><option value="">All</option>{statuses.map((v) => <option value={v}>{enumLabel('status', v)}</option>)}</select
+        ></label
+      >
+      <label
+        >Scope category<select data-filter="scope"
+          ><option value="">All</option>{scopes.map((v) => <option value={v}>{enumLabel('scope_category', v)}</option>)}</select
+        ></label
+      >
+      <label
+        >Geographic scope<select data-filter="geo"
+          ><option value="">All</option>{geo.map((v) => <option value={v}>{enumLabel('geographic_scope', v)}</option>)}</select
+        ></label
+      >
+      <label
+        >Topic<select data-filter="topics"
+          ><option value="">All</option>{topics.map(([k, v]) => <option value={k}>{v}</option>)}</select
+        ></label
+      >
+      <label class="inline"><input type="checkbox" data-filter="active" data-value="yes" checked /> Active only</label>
+      <span class="count" data-count aria-live="polite"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table class="data" id="blocks-table">
+        <caption class="muted small" style="text-align:left;padding:0.5rem 0.65rem">
+          International organizations and groupings in internacia-db v{meta.data.version}
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col" data-sort="text">Name</th>
+            <th scope="col" data-sort="text">ID</th>
+            <th scope="col" data-sort="text">Block type</th>
+            <th scope="col" data-sort="text">Status</th>
+            <th scope="col" data-sort="text">Geographic scope</th>
+            <th scope="col" class="num" data-sort="num">Founded</th>
+            <th scope="col" data-sort="text">Headquarters</th>
+            <th scope="col" class="num" data-sort="num">Current members</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            rows.map((b) => (
+              <tr
+                data-types={b.blocktype.join('|')}
+                data-status={b.status}
+                data-scope={b.scope_category ?? ''}
+                data-geo={b.geographic_scope ?? ''}
+                data-topics={(b.topics ?? []).map((t) => t.key).join('|')}
+                data-active={b._active ? 'yes' : 'no'}
+              >
+                <td data-value={b.name}>
+                  <a href={blockPath(b.id)}>{b.name}</a>
+                  {b._acronym && <span class="muted"> ({b._acronym})</span>}
+                </td>
+                <td>
+                  <code>{b.id}</code>
+                </td>
+                <td>{b.blocktype.map((t) => blocktypeLabel(t)).join(', ')}</td>
+                <td>{enumLabel('status', b.status)}</td>
+                <td>{enumLabel('geographic_scope', b.geographic_scope)}</td>
+                <td class="num" data-value={(b.founded ?? '').slice(0, 4)}>
+                  {b.founded}
+                </td>
+                <td>{b.headquarters?.city ? [b.headquarters.city, b.headquarters.country].filter(Boolean).join(', ') : ''}</td>
+                <td class="num">{num(b._current_member_count)}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <script>
+    import '../../scripts/tables.ts';
+  </script>
+</Base>
