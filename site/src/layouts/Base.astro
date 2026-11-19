@@ -62,6 +62,9 @@ const current = Astro.url.pathname;
     <slot name="head" />
     <script is:inline>
       (() => {
+        // Elements that need JavaScript are styled .js-only; this class shows them from the
+        // first paint, so they never shift the layout when scripts attach behaviour.
+        document.documentElement.classList.add('js');
         try {
           const theme = localStorage.getItem('theme');
           if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
@@ -87,7 +90,22 @@ const current = Astro.url.pathname;
             }
           </ul>
         </nav>
-        <button class="theme-toggle" id="theme-toggle" type="button" hidden>Theme: auto</button>
+        <div class="finder js-only" data-finder data-index={path('api/v1/search-index.json')}>
+          <label class="visually-hidden" for="finder-input">Find a country or organization</label>
+          <input
+            id="finder-input"
+            type="search"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded="false"
+            aria-controls="finder-results"
+            placeholder="Find: France, НАТО, 北约, G-20…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <ul id="finder-results" role="listbox" aria-label="Matches" hidden></ul>
+        </div>
+        <button class="theme-toggle js-only" id="theme-toggle" type="button">Theme: auto</button>
       </div>
     </header>
 
@@ -133,6 +151,9 @@ const current = Astro.url.pathname;
       </div>
     </footer>
 
+    <script>
+      import '../scripts/finder.ts';
+    </script>
     <script is:inline>
       (() => {
         const button = document.getElementById('theme-toggle');
@@ -156,11 +177,9 @@ const current = Astro.url.pathname;
         };
         button.addEventListener('click', () => apply(modes[(modes.indexOf(read()) + 1) % modes.length]));
         button.textContent = `Theme: ${read()}`;
-        button.hidden = false;
 
-        // Copy buttons for codes and IDs (hidden without JavaScript).
+        // Copy buttons for codes and IDs (.js-only: not shown without JavaScript).
         document.querySelectorAll('button[data-copy]').forEach((btn) => {
-          btn.hidden = false;
           btn.addEventListener('click', async () => {
             try {
               await navigator.clipboard.writeText(btn.dataset.copy);

@@ -15,6 +15,8 @@
 
   /* Data colours (dataviz reference palette): single-series marks use series-1. */
   --series-1: light-dark(#2a78d6, #3987e5);
+  --series-2: light-dark(#eb6834, #d95926);
+  --series-3: light-dark(#1baf7a, #199e70);
   --chart-track: light-dark(#e1e0d9, #2c2c2a);
 
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue', Arial,
@@ -355,21 +357,32 @@ table.data th button.sort {
   cursor: pointer;
 }
 
-table.data th button.sort::after {
+html.js table.data th[data-sort]::after {
   content: ' ↕';
   color: var(--color-muted);
   font-weight: 400;
 }
 
-table.data th[aria-sort='ascending'] button.sort::after {
+html.js table.data th[aria-sort='ascending']::after {
   content: ' ↑';
 }
 
-table.data th[aria-sort='descending'] button.sort::after {
+html.js table.data th[aria-sort='descending']::after {
   content: ' ↓';
 }
 
-/* Filters (progressive enhancement: hidden until the script runs) */
+/* Elements that only work with JavaScript. html.js is set in <head>, so they are laid out from the
+   first paint and never shift the page when scripts attach. */
+html:not(.js) .js-only {
+  display: none !important;
+}
+
+/* Default checkbox filters, applied from the first paint (the table carries data-only-<attr>). */
+html.js table[data-only-active] tbody tr:not(.group):not([data-active='yes']) {
+  display: none;
+}
+
+/* Filters */
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -530,8 +543,10 @@ pre {
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   padding: var(--space-3);
-  overflow-x: auto;
   font-size: 0.88rem;
+  /* Wrap instead of scrolling: a scrollable <pre> would need its own keyboard focus. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .featured {
@@ -542,6 +557,273 @@ pre {
   padding: 0;
 }
 
-#blocks-table td:first-child {
-  min-width: 16rem;
+/* Chunked tables: one table, rows in <tbody> chunks laid out as grids so that off-screen chunks
+   skip rendering (content-visibility). Explicit ARIA roles keep the table semantics that a
+   changed display value would otherwise drop. */
+table.chunked {
+  display: block;
+  min-width: 62rem;
+}
+
+table.chunked caption {
+  display: block;
+}
+
+table.chunked thead,
+table.chunked tbody {
+  display: block;
+}
+
+table.chunked tbody {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 4200px;
+}
+
+table.chunked tr {
+  display: grid;
+  grid-template-columns: var(--cols);
+}
+
+table.chunked tr[hidden] {
+  display: none;
+}
+
+table.chunked th,
+table.chunked td {
+  display: block;
+}
+
+#blocks-table {
+  --cols: minmax(14rem, 2.6fr) minmax(6rem, 0.9fr) minmax(8rem, 1.3fr) 6rem 7rem 5.5rem minmax(7rem, 1fr) 6rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Entity finder */
+.finder {
+  position: relative;
+  flex: 1 1 16rem;
+  max-width: 22rem;
+}
+
+.finder input {
+  width: 100%;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.35rem 0.6rem;
+}
+
+.finder ul {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: var(--space-1) 0;
+  list-style: none;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.15);
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+.finder li a {
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem 0.7rem;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.finder li[aria-selected='true'] a,
+.finder li a:hover {
+  background: var(--color-surface);
+}
+
+.finder-meta,
+.finder-empty {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.finder-empty {
+  padding: 0.35rem 0.7rem;
+}
+
+@media (max-width: 40rem) {
+  .finder {
+    order: 10;
+    max-width: none;
+    flex-basis: 100%;
+  }
+}
+
+/* Maps (SPEC §8). Land is one step off the surface; a surface-coloured stroke is the gap
+   between touching regions. */
+.map {
+  position: relative;
+  margin: var(--space-3) 0;
+}
+
+.map-canvas {
+  aspect-ratio: var(--map-ratio, 2);
+}
+
+.map-canvas svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.map .sphere {
+  fill: none;
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.map .c,
+.map .x {
+  fill: var(--chart-track);
+  stroke: var(--color-bg);
+  stroke-width: 0.6;
+}
+
+.map .dot {
+  display: none;
+}
+
+.map .dot.has {
+  display: inline;
+}
+
+.map .dot .hit {
+  fill: transparent;
+}
+
+.map .dot .mark {
+  stroke: var(--color-bg);
+  stroke-width: 2;
+}
+
+.map .g-m,
+.map .g-m .mark,
+.swatch.g-m {
+  fill: var(--series-1);
+  background: var(--series-1);
+}
+
+.map .g-p,
+.map .g-p .mark,
+.swatch.g-p {
+  fill: var(--series-2);
+  background: var(--series-2);
+}
+
+.map .g-o,
+.map .g-o .mark,
+.swatch.g-o {
+  fill: var(--series-3);
+  background: var(--series-3);
+}
+
+.map .g-f,
+.map .g-f .mark {
+  fill: url(#map-hatch);
+}
+
+.swatch.g-f {
+  background: repeating-linear-gradient(45deg, var(--color-muted) 0 1px, var(--chart-track) 1px 4px);
+}
+
+.map .hatch-bg {
+  fill: var(--chart-track);
+}
+
+.map .hatch-line {
+  stroke: var(--color-muted);
+  stroke-width: 1.5;
+}
+
+.map .has {
+  cursor: default;
+}
+
+.map .has.hover,
+.map .has:focus {
+  stroke: var(--color-text);
+  stroke-width: 1.2;
+  outline: none;
+}
+
+.map .dot.has.hover .mark,
+.map .dot.has:focus .mark {
+  stroke: var(--color-text);
+}
+
+.map-tip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 10rem;
+  max-width: 16rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.15);
+  font-size: 0.88rem;
+}
+
+.map figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  align-items: center;
+  margin-top: var(--space-2);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.9rem;
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 2px;
+  margin-right: var(--space-1);
+  vertical-align: -0.1rem;
+}
+
+.map-locator {
+  max-width: 28rem;
+}
+
+@media (forced-colors: active) {
+  .map .has {
+    fill: Highlight;
+  }
 }

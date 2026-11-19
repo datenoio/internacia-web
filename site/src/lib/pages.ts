@@ -66,6 +66,8 @@ Base: ${absolute(path('api/v1/'))}. Every document has a \`meta\` object (versio
 - ${absolute(path('api/v1/blocks.json'))} — all intblocks, lite
 - ${absolute(path('api/v1/blocks/{ID}.json'))} — one intblock with its resolved roster
 - ${absolute(path('api/v1/aliases.json'))} — retired and renamed IDs
+- ${absolute(path('api/v1/search-index.json'))} — names, acronyms and codes in all languages
+- ${absolute(path('api/v1/openapi.json'))} — OpenAPI 3.1 description, which links the JSON Schema of every document
 
 ## Downloads (GitHub Release ${meta.data.tag})
 

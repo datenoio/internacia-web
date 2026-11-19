@@ -31,7 +31,7 @@ const rows = Astro.props.rows.filter((r) => r.value !== undefined && r.value !==
               r.value
             )}
             {r.copy && (
-              <button class="copy" type="button" data-copy={String(r.value)} hidden aria-label={`Copy ${r.label}`}>
+              <button class="copy js-only" type="button" data-copy={String(r.value)} aria-label={`Copy ${r.label}`}>
                 Copy
               </button>
             )}

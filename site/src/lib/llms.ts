@@ -48,7 +48,7 @@ Every card exists in three forms with the same facts: HTML, Markdown and JSON.
 
 - [Countries](${u('countries.md')}): ${c.countries} records
 - [Organizations and groupings](${u('blocks.md')}): ${c.intblocks} records
-- [JSON API index](${u('api/v1/index.json')})
+- [JSON API index](${u('api/v1/index.json')}) — OpenAPI 3.1: ${u('api/v1/openapi.json')}
 - [Data and downloads](${u('data.md')})
 - [About, licence and methodology](${u('about.md')})
 
