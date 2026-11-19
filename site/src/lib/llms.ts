@@ -56,6 +56,8 @@ Every card exists in three forms with the same facts: HTML, Markdown and JSON.
 - [Organizations and groupings](${u('blocks.md')}): ${c.intblocks} records
 - [Block types](${u('types.md')}), [topics](${u('topics.md')}), [geography](${u('geography.md')})
 - [Statistics and coverage](${u('stats.md')})
+- Bulk JSON for analysis: ${u('api/v1/memberships.json')} (every current membership edge), ${u('api/v1/headquarters.json')}
+- Interactive explorers for people (maps, timelines, comparisons): ${u('explore/')}
 - [Data releases (Atom)](${u('feed.xml')})
 - [JSON API index](${u('api/v1/index.json')}) — OpenAPI 3.1: ${u('api/v1/openapi.json')}
 - [Data and downloads](${u('data.md')})

@@ -15,7 +15,7 @@ const urls = (section: string): string[] => {
   if (section === 'types') return types().map((t) => typePath(t.id));
   if (section === 'topics') return topics().map((t) => topicPath(t.key));
   if (section === 'geography') return geography().map((a) => areaPath(a.slug));
-  return ['', 'countries/', 'blocks/', 'types/', 'topics/', 'geography/', 'stats/', 'data/', 'about/'].map((p) => path(p));
+  return ['', 'countries/', 'blocks/', 'types/', 'topics/', 'geography/', 'stats/', 'explore/', 'explore/map/', 'explore/timeline/', 'explore/founded/', 'explore/headquarters/', 'explore/compare/', 'explore/countries/', 'explore/hierarchy/', 'data/', 'about/'].map((p) => path(p));
 };
 
 export const GET: APIRoute = ({ params }) => {

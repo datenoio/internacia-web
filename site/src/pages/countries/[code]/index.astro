@@ -393,7 +393,10 @@ const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
         {c._similar.length > 0 && (
           <section class="card-section" aria-labelledby="similar">
             <h2 id="similar">Similar countries</h2>
-            <p class="muted small">By overlap of current memberships (Jaccard index: shared ÷ combined).</p>
+            <p class="muted small">
+              By overlap of current memberships (Jaccard index: shared ÷ combined).
+              <a href={path(`explore/countries/?codes=${[c.code, ...c._similar.slice(0, 2).map((s) => s.code)].join(',')}`)}>Compare them</a>.
+            </p>
             <div class="table-wrap">
               <table class="data">
                 <thead>

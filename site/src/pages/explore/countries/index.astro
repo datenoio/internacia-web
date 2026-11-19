@@ -1,0 +1,96 @@
+---
+import Base from '../../../layouts/Base.astro';
+import { countries } from '../../../lib/data';
+import { path } from '../../../lib/urls';
+
+const options = countries()
+  .slice()
+  .sort((a, b) => a.name.localeCompare(b.name));
+---
+
+<Base
+  title="Compare countries"
+  description="Compare the memberships of two to four countries: what they share and what only one of them belongs to, by block type."
+  breadcrumbs={[
+    { name: 'Explore', href: path('explore/') },
+    { name: 'Compare countries', href: path('explore/countries/') },
+  ]}
+>
+  <section class="container page-head">
+    <h1>Compare countries</h1>
+    <p class="lead">Current memberships of two to four countries or territories: shared and exclusive, by block type.</p>
+  </section>
+  <section class="container" data-explorer="countries" data-base={path()}>
+    <div class="explorer-controls js-only">
+      <label
+        >Add a country or territory
+        <select data-input="country">
+          <option value="">Choose…</option>
+          {options.map((c) => <option value={c.code}>{c.name} ({c.code})</option>)}
+        </select>
+      </label>
+    </div>
+    <ul class="chips js-only" data-chips aria-label="Selected countries"></ul>
+    <p class="explorer-status" role="status" aria-live="polite" data-status></p>
+    <div data-result>
+      <p class="muted small">This explorer needs JavaScript. Each country's memberships are on its card.</p>
+    </div>
+  </section>
+  <script>
+    import { esc, n } from '../../../scripts/charts';
+    import { getJson, params, setParams } from '../../../scripts/explore';
+
+    interface M { block_id: string; block_name: string; acronym: string | null; blocktype: string; current: boolean }
+    interface Doc { data: { code: string; name: string; _memberships: M[] } }
+    const MAX = 4;
+    const root = document.querySelector<HTMLElement>('[data-explorer="countries"]')!;
+    const base = root.dataset.base!;
+    const select = root.querySelector<HTMLSelectElement>('[data-input="country"]')!;
+    const chips = root.querySelector<HTMLElement>('[data-chips]')!;
+    const status = root.querySelector<HTMLElement>('[data-status]')!;
+    const result = root.querySelector<HTMLElement>('[data-result]')!;
+    let codes: string[] = [];
+
+    const blockLink = (m: M) => `<a href="${esc(`${base}blocks/${m.block_id.toLowerCase()}/`)}">${esc(m.block_name)}</a>${m.acronym ? ` <span class="muted">(${esc(m.acronym)})</span>` : ''}`;
+    const list = (items: M[]) => (items.length ? `<ul>${items.map((m) => `<li>${blockLink(m)}</li>`).join('')}</ul>` : '<p class="muted small">None.</p>');
+
+    async function draw() {
+      chips.innerHTML = codes.map((c) => `<li><button type="button" data-remove="${esc(c)}" aria-label="Remove ${esc(c)}">${esc(c)} ×</button></li>`).join('');
+      chips.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach((b) => b.addEventListener('click', () => ((codes = codes.filter((x) => x !== b.dataset.remove)), void draw())));
+      setParams({ codes: codes.length ? codes : null });
+      if (codes.length < 2) {
+        status.textContent = 'Choose at least two countries.';
+        result.innerHTML = '';
+        return;
+      }
+      const docs = (await Promise.all(codes.map((c) => getJson<Doc>(`${base}api/v1/countries/${encodeURIComponent(c)}.json`).catch(() => null)))).filter(Boolean) as Doc[];
+      const typeNames = new Map((await getJson<{ data: { id: string; name: string }[] }>(`${base}api/v1/types.json`)).data.map((t) => [t.id, t.name]));
+      const sets = docs.map((d) => new Map(d.data._memberships.filter((m) => m.current).map((m) => [m.block_id, m])));
+      const all = new Map<string, M>();
+      sets.forEach((s) => s.forEach((m, id) => all.set(id, m)));
+      const shared = [...all.values()].filter((m) => sets.every((s) => s.has(m.block_id))).sort((a, b) => a.block_name.localeCompare(b.block_name));
+      const only = sets.map((s) => [...s.values()].filter((m) => sets.every((o) => o === s || !o.has(m.block_id))).sort((a, b) => a.block_name.localeCompare(b.block_name)));
+      const names = docs.map((d) => d.data.name);
+      status.textContent = `${names.join(', ')} share ${n(shared.length)} current memberships.`;
+      const types = [...new Set([...all.values()].map((m) => m.blocktype))].sort((a, b) => (typeNames.get(a) ?? a).localeCompare(typeNames.get(b) ?? b));
+      const count = (items: M[], t: string) => items.filter((m) => m.blocktype === t).length;
+      result.innerHTML = `
+        <section class="card-section"><h2>By block type</h2><div class="table-wrap"><table class="data"><thead><tr><th scope="col">Block type</th><th scope="col" class="num">Shared by all</th>${names
+          .map((nm) => `<th scope="col" class="num">Only ${esc(nm)}</th>`)
+          .join('')}</tr></thead><tbody>${types
+          .map((t) => `<tr><td><a href="${esc(`${base}types/${t}/`)}">${esc(typeNames.get(t) ?? t)}</a></td><td class="num">${n(count(shared, t))}</td>${only.map((o) => `<td class="num">${n(count(o, t))}</td>`).join('')}</tr>`)
+          .join('')}<tr><th scope="row">Total</th><td class="num">${n(shared.length)}</td>${only.map((o) => `<td class="num">${n(o.length)}</td>`).join('')}</tr></tbody></table></div></section>
+        <section class="card-section"><h2>Shared by all (${n(shared.length)})</h2><details><summary class="small">Show the list</summary>${list(shared)}</details></section>
+        ${docs.map((d, i) => `<section class="card-section"><h2>Only <a href="${esc(`${base}countries/${d.data.code.toLowerCase()}/`)}">${esc(d.data.name)}</a> (${n(only[i].length)})</h2><details><summary class="small">Show the list</summary>${list(only[i])}</details></section>`).join('')}`;
+    }
+
+    select.addEventListener('change', () => {
+      const c = select.value;
+      if (c && !codes.includes(c) && codes.length < MAX) codes.push(c);
+      select.value = '';
+      void draw();
+    });
+    codes = (params().get('codes') ?? 'FR,DE').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, MAX);
+    void draw();
+  </script>
+</Base>

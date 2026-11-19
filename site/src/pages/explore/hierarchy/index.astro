@@ -1,0 +1,87 @@
+---
+import Base from '../../../layouts/Base.astro';
+import { blockById, blocks, type Block } from '../../../lib/data';
+import { displayName, num } from '../../../lib/format';
+import { blockPath, path } from '../../../lib/urls';
+
+// Organization hierarchy (SPEC §8, V8): parents and their bodies, from `partof` and
+// `suborganizations`. A nested list of <details>, so it works with the keyboard and without
+// JavaScript. Roots are intblocks with children and no known parent.
+const childrenOf = (b: Block) => b._children.filter((c) => c.exists).map((c) => blockById().get(c.id)!);
+const hasKnownParent = (b: Block) => b._parents.some((p) => p.exists && blockById().get(p.id)!._children.some((c) => c.id === b.id));
+const sizeCache = new Map<string, number>();
+const size = (b: Block, seen = new Set<string>()): number => {
+  if (sizeCache.has(b.id)) return sizeCache.get(b.id)!;
+  if (seen.has(b.id)) return 0;
+  seen.add(b.id);
+  const s = childrenOf(b).reduce((n, c) => n + 1 + size(c, seen), 0);
+  sizeCache.set(b.id, s);
+  return s;
+};
+const roots = blocks()
+  .filter((b) => childrenOf(b).length > 0 && !hasKnownParent(b))
+  .sort((a, b) => size(b) - size(a) || a.name.localeCompare(b.name));
+
+// Render the tree as HTML; a node seen earlier on the same path (a cycle) is a plain link.
+function node(b: Block, path_: Set<string>, depth: number): string {
+  const kids = childrenOf(b).sort((x, y) => x.name.localeCompare(y.name));
+  const link = `<a href="${blockPath(b.id)}">${esc(displayName(b.name, b._acronym))}</a>${b._active ? '' : ' <span class="muted small">(historical)</span>'}`;
+  if (!kids.length || path_.has(b.id) || depth > 8) return `<li data-node="${esc(b.id)}"><span class="leaf">${link}</span></li>`;
+  const next = new Set(path_).add(b.id);
+  // The link sits next to the summary, not inside it: a link inside <summary> nests two controls.
+  return `<li data-node="${esc(b.id)}">${link} <details><summary><span class="muted small">${kids.length} ${kids.length === 1 ? 'body' : 'bodies'}</span></summary><ul>${kids
+    .map((k) => node(k, next, depth + 1))
+    .join('')}</ul></details></li>`;
+}
+function esc(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+const html = roots.map((r) => node(r, new Set(), 0)).join('');
+const linked = new Set(blocks().flatMap((b) => [...b._children.filter((c) => c.exists).map((c) => c.id), ...(childrenOf(b).length ? [b.id] : [])])).size;
+---
+
+<Base
+  title="Organization hierarchy"
+  description="Parent organizations and their bodies, agencies and programmes, from internacia-db's partof and suborganizations fields."
+  breadcrumbs={[
+    { name: 'Explore', href: path('explore/') },
+    { name: 'Organization hierarchy', href: path('explore/hierarchy/') },
+  ]}
+>
+  <section class="container page-head">
+    <h1>Organization hierarchy</h1>
+    <p class="lead">
+      {num(roots.length)} top-level organizations with bodies of their own; {num(linked)} intblocks take part in the hierarchy.
+      Open a branch to see its bodies.
+    </p>
+    <p class="js-only">
+      <button type="button" class="theme-toggle" data-expand>Expand all</button>
+      <button type="button" class="theme-toggle" data-collapse>Collapse all</button>
+    </p>
+  </section>
+  <section class="container">
+    <ul class="tree" data-tree set:html={html} />
+  </section>
+  <script>
+    // ?id=UN opens the branches leading to every place UN appears and marks them.
+    const tree = document.querySelector<HTMLElement>('[data-tree]')!;
+    document.querySelector('[data-expand]')?.addEventListener('click', () => tree.querySelectorAll('details').forEach((d) => (d.open = true)));
+    document.querySelector('[data-collapse]')?.addEventListener('click', () => tree.querySelectorAll('details').forEach((d) => (d.open = false)));
+    const id = new URLSearchParams(location.search).get('id');
+    if (id) {
+      const nodes = [...tree.querySelectorAll<HTMLElement>('li[data-node]')].filter((li) => li.dataset.node === id);
+      for (const li of nodes) {
+        li.classList.add('target');
+        let el: HTMLElement | null = li;
+        while (el && el !== tree) {
+          if (el instanceof HTMLDetailsElement) el.open = true;
+          el = el.parentElement;
+        }
+        li.querySelector<HTMLDetailsElement>(':scope > details')?.setAttribute('open', '');
+        li.classList.add('target-node');
+      }
+      nodes[0]?.scrollIntoView({ block: 'center' });
+      nodes[0]?.querySelector<HTMLElement>('a')?.focus({ preventScroll: true });
+    }
+  </script>
+</Base>

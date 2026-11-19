@@ -17,6 +17,8 @@
   --series-1: light-dark(#2a78d6, #3987e5);
   --series-2: light-dark(#eb6834, #d95926);
   --series-3: light-dark(#1baf7a, #199e70);
+  --series-4: light-dark(#eda100, #c98500);
+  --series-5: light-dark(#e87ba4, #d55181);
   --chart-track: light-dark(#e1e0d9, #2c2c2a);
 
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', 'Helvetica Neue', Arial,
@@ -45,6 +47,11 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* The hidden attribute always wins over a display value set by a class. */
+[hidden] {
+  display: none !important;
 }
 
 body {
@@ -948,4 +955,238 @@ table.coverage td.h5 { background: #3987e5; color: #0b0b0b; }
 
 .cite pre {
   font-size: 0.8rem;
+}
+
+/* Explorer charts (scripts/charts.ts) */
+.chart .bar.series-1, .swatch.series-1 { fill: var(--series-1); background: var(--series-1); }
+.chart .bar.series-2, .swatch.series-2 { fill: var(--series-2); background: var(--series-2); }
+.chart .bar.series-3, .swatch.series-3 { fill: var(--series-3); background: var(--series-3); }
+.chart .bar.series-4, .swatch.series-4 { fill: var(--series-4); background: var(--series-4); }
+.chart .bar.series-5, .swatch.series-5 { fill: var(--series-5); background: var(--series-5); }
+
+.chart .line {
+  fill: none;
+  stroke: var(--series-1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.chart .end {
+  fill: var(--series-1);
+  stroke: var(--color-bg);
+  stroke-width: 2;
+}
+
+.chart .marker {
+  stroke: var(--color-text);
+  stroke-width: 1;
+}
+
+.chart .col.selected .hit {
+  fill: var(--color-surface);
+  stroke: var(--color-text);
+  stroke-width: 1;
+}
+
+.chart .col {
+  cursor: pointer;
+}
+
+/* Explorer layout */
+.explorer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2) var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.explorer-controls label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  gap: 0.15rem;
+}
+
+.explorer-controls input,
+.explorer-controls select,
+.explorer-controls button {
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.55rem;
+}
+
+.explorer-controls input[type='text'] {
+  min-width: min(22rem, 100%);
+}
+
+.explorer-controls button {
+  cursor: pointer;
+  background: var(--color-surface);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0;
+}
+
+.chips button {
+  font: inherit;
+  font-size: 0.85rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  cursor: pointer;
+}
+
+.explorer-status {
+  min-height: 1.5em;
+}
+
+.explore-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-3);
+  list-style: none;
+  padding: 0;
+}
+
+.explore-list li {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  background: var(--color-surface);
+}
+
+.explore-list h2 {
+  font-size: 1.1rem;
+  margin: 0 0 var(--space-1);
+}
+
+.explore-list p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+}
+
+/* UpSet matrix */
+.upset .dot {
+  fill: var(--chart-track);
+}
+
+.upset .dot.on {
+  fill: var(--color-text);
+}
+
+.upset .link {
+  stroke: var(--color-text);
+  stroke-width: 2;
+}
+
+.upset .setbar {
+  fill: var(--series-1);
+}
+
+.upset text {
+  fill: var(--color-text);
+  font-size: 12px;
+  font-family: var(--font-sans);
+}
+
+.upset text.muted {
+  fill: var(--color-muted);
+}
+
+/* Headquarters points */
+.map .hq-point circle {
+  fill: var(--series-1);
+  fill-opacity: 0.85;
+  stroke: var(--color-bg);
+  stroke-width: 1.5;
+}
+
+.map .hq-point:hover circle,
+.map .hq-point:focus circle {
+  stroke: var(--color-text);
+  stroke-width: 2;
+}
+
+.map .hq-point:focus {
+  outline: none;
+}
+
+/* Hierarchy tree: "Name ▸ n bodies"; an open branch lists its bodies below. */
+.tree li > details {
+  display: inline;
+}
+
+.tree li > details > summary {
+  display: inline;
+  cursor: pointer;
+}
+
+.tree li > details[open] > ul {
+  display: block;
+}
+
+.tree li.target > a {
+  background: var(--color-notice);
+}
+
+/* Hierarchy tree */
+.tree,
+.tree ul {
+  list-style: none;
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.tree {
+  padding-left: 0;
+}
+
+.tree li {
+  margin: 0.15rem 0;
+}
+
+.tree summary {
+  font-weight: 400;
+  margin: 0;
+}
+
+.tree .leaf {
+  padding-left: 1.1rem;
+}
+
+.tree .target > summary,
+.tree .target > a,
+.tree li.target > .leaf {
+  background: var(--color-notice);
+}
+
+.explorer-controls label.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--color-text);
+  font-size: 0.95rem;
+}
+
+/* The UpSet chart keeps its natural size (it scrolls horizontally when wider than the page). */
+.chart svg.upset {
+  width: auto;
+  max-width: none;
+  height: auto;
 }

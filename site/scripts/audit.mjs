@@ -47,9 +47,18 @@ const AXE_PAGES = [
   'geography/',
   'geography/europe/',
   'stats/',
+  'explore/',
+  'explore/map/',
+  'explore/map/?mode=count',
+  'explore/timeline/',
+  'explore/founded/',
+  'explore/headquarters/',
+  'explore/compare/',
+  'explore/countries/',
+  'explore/hierarchy/?id=UNEP',
   'blocks/g20/', // 404 with suggestions
 ];
-const LH_PAGES = ['', 'countries/fr/', 'blocks/un/', 'blocks/eu/', 'blocks/', 'types/intorg/', 'stats/'];
+const LH_PAGES = ['', 'countries/fr/', 'blocks/un/', 'blocks/eu/', 'blocks/', 'types/intorg/', 'stats/', 'explore/map/', 'explore/headquarters/', 'explore/compare/'];
 const LH_MIN = 0.95;
 const LCP_MAX_MS = 2500;
 

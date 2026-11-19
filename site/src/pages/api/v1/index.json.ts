@@ -20,6 +20,8 @@ export const GET: APIRoute = () =>
       geography: absolute(path('api/v1/geography.json')),
       area: absolute(path('api/v1/geography/{SLUG}.json')),
       stats: absolute(path('api/v1/stats.json')),
+      memberships: absolute(path('api/v1/memberships.json')),
+      headquarters: absolute(path('api/v1/headquarters.json')),
       search_index: absolute(path('api/v1/search-index.json')),
       openapi: absolute(path('api/v1/openapi.json')),
     },
