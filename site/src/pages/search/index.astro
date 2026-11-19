@@ -1,0 +1,49 @@
+---
+import Base from '../../layouts/Base.astro';
+import { path } from '../../lib/urls';
+---
+
+<Base
+  title="Search"
+  description="Full-text search across every card and page of Internacia."
+  breadcrumbs={[{ name: 'Search', href: path('search/') }]}
+  noindex
+>
+  <link slot="head" rel="stylesheet" href={path('pagefind/pagefind-ui.css')} />
+  <section class="container page-head">
+    <h1>Search</h1>
+    <p class="lead">Full-text search across country, organization, type, topic and geography pages.</p>
+    <noscript><p class="notice">Search needs JavaScript. The <a href={path('countries/')}>countries</a> and <a href={path('blocks/')}>organizations</a> lists work without it.</p></noscript>
+  </section>
+  <section class="container">
+    <div id="search" data-bundle={path('pagefind/')} data-base={path()}></div>
+  </section>
+  <script is:inline define:vars={{ bundle: path('pagefind/') }}>
+    const s = document.createElement('script');
+    s.src = `${bundle}pagefind-ui.js`;
+    s.onload = () => {
+      const el = document.getElementById('search');
+      // eslint-disable-next-line no-undef
+      const ui = new PagefindUI({ element: '#search', bundlePath: el.dataset.bundle, baseUrl: el.dataset.base, showImages: false, showSubResults: true, resetStyles: false });
+      const q = new URLSearchParams(location.search).get('q');
+      if (q) ui.triggerSearch(q);
+      el.addEventListener('input', (e) => {
+        const value = e.target && e.target.value;
+        if (typeof value === 'string') history.replaceState(null, '', value ? `?q=${encodeURIComponent(value)}` : location.pathname);
+      });
+    };
+    document.head.append(s);
+  </script>
+</Base>
+
+<style is:global>
+  #search {
+    --pagefind-ui-primary: var(--color-accent);
+    --pagefind-ui-text: var(--color-text);
+    --pagefind-ui-background: var(--color-bg);
+    --pagefind-ui-border: var(--color-border);
+    --pagefind-ui-tag: var(--color-surface);
+    --pagefind-ui-font: var(--font-sans);
+    --pagefind-ui-border-radius: 8px;
+  }
+</style>

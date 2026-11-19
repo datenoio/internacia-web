@@ -10,8 +10,8 @@ M0 and M1 are in place: pipeline, country and intblock cards with Markdown and J
 membership and locator maps, entity finder, 404 suggestions, OpenAPI and JSON Schemas, `llms.txt`,
 sitemap, post-build checks and an axe/Lighthouse audit. M2a adds block type, topic, geography and
 statistics pages, the home map, the Atom feed, citations and `data-bump.yml`. M2b adds the
-explorers under `/explore/`. Next is M2c: Pagefind and social images
-([SPEC §13](docs/SPEC.md#13-milestones)).
+explorers under `/explore/`; M2c adds full-text search (`/search/`, Pagefind) and per-card social
+images (`/og/…png`). Next is M3 ([SPEC §13](docs/SPEC.md#13-milestones)).
 
 ## Rules
 
@@ -83,6 +83,11 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   focusable chart groups (axe: label-content-name-mismatch).
 - Explorers keep their state in the query string (`scripts/explore.ts` `setParams`); default
   states must use intblocks that have the data the view needs.
+- `npm run build` runs `astro build` and then Pagefind. A page is indexed only when its `Base`
+  gets a `section` prop; alias, search and 404 pages must not get one. Tables, charts and maps
+  are excluded from the index in the build script.
+- Social images (`src/lib/og.ts`) take about 50 ms each; keep their SVG simple. Site size is near
+  the 300 MB target, so check `du -sh site/dist` when adding per-entity files.
 - Coverage on the Statistics page follows internacia-db's `*_completeness.yaml` gates; records
   empty by design (`timezone_status`, `membership_applicability`) count as filled.
 - Tables with hundreds of rows use the `chunked` class: rows in `<tbody>` chunks with

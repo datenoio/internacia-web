@@ -61,6 +61,7 @@ const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.v
 {
   b && (
     <Base
+      section="Organizations"
       title={b._acronym ? `${b.name} (${b._acronym})` : b.name}
       description={`${b.name}${b._acronym ? ` (${b._acronym})` : ''}: ${enumLabel('status', b.status).toLowerCase()} ${blocktypeLabel(b.blocktype[0]).toLowerCase()} with ${countryCount} ${b._active ? 'current' : 'recorded'} member countries. Roster, structure, names and links.`}
       breadcrumbs={[
@@ -72,6 +73,8 @@ const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.v
       sourceUrl={sourceUrl(b._source_path)}
       reportUrl={reportErrorUrl('intblocks', b.id, b.name)}
       jsonld={blockLd(b)}
+      ogImage={path(`og/blocks/${b.id.toLowerCase()}.png`)}
+      ogAlt={`${b.name}: map of member countries and territories`}
     >
       <section class="container page-head">
         <h1>

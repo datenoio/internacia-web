@@ -569,7 +569,7 @@ small territories) are drawn as dots at `centroid`.
 | Base map | `world-atlas` TopoJSON (Natural Earth) | Static file, no tile server |
 | Full-text search | [Pagefind](https://pagefind.app/) | Static index built after the site; multilingual |
 | Entity finder | Small custom index + fuzzy matcher (for example `uFuzzy`) | Multilingual names and acronyms in one ≤ 300 KB file |
-| Social images | Satori (HTML/CSS → SVG) and resvg (SVG → PNG) at build time | Per-card Open Graph images without a server |
+| Social images | Hand-written SVG, resvg (SVG → PNG) and sharp (palette PNG) at build time | Per-card Open Graph images without a server |
 | Tests | Vitest, Playwright, axe-core, lychee, Lighthouse CI, `jsonschema` | See [§12](#12-quality-assurance-and-acceptance) |
 
 The data stage writes JSON; the site stage reads only that JSON. The site never opens DuckDB.
@@ -742,6 +742,13 @@ chart and the table give the combinations. The headquarters map (V5) and the hie
 rendered at build time and work without JavaScript; the hierarchy places each link next to, not
 inside, the `<summary>` that opens its branch. The accession timeline (V3) is offered only for
 intblocks where at least 30 % of country entries have a joining date (the EU has none in v3.1.0).
+
+Decisions taken in M2c: Pagefind indexes the text of every page that names a search section, but
+not tables, charts, maps, link lists or provenance, so a search for an organization finds its card
+rather than every member country's membership list. Social images are hand-written SVG rendered
+by resvg (Inter, OFL-1.1) and reduced to a 16-colour palette with sharp, not Satori: about 25 KB
+per card, 37 MB for all, and the build takes about 75 s. The site is then about 290 MB, near the
+300 MB target in §10.3.
 
 - Block type, topic and geography pages.
 - Explorers V2–V10, home page map and treemap, Statistics & coverage page.
