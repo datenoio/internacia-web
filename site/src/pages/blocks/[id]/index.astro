@@ -1,6 +1,7 @@
 ---
 import AliasPage from '../../../components/AliasPage.astro';
 import Facts from '../../../components/Facts.astro';
+import MembershipMap from '../../../components/MembershipMap.astro';
 import Base from '../../../layouts/Base.astro';
 import { aliases, blockById, blocks, type Block, type BlockRef } from '../../../lib/data';
 import {
@@ -226,6 +227,7 @@ const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.v
                   <>This {b.dissolved ? 'dissolved' : 'historical'} entity has no current members. The roster below is as recorded.</>
                 )}
               </p>
+              <MembershipMap block={b} />
               {listed.length > 0 && (
                 <>
                   <div class="filters" data-table-tools="roster-table" hidden>

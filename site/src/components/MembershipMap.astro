@@ -1,0 +1,97 @@
+---
+// Membership map (SPEC §8, V1) and country locator map. The base map is one static SVG
+// (/assets/world.svg) fetched and coloured in the browser; the facts are in the table next to the
+// map, so the map only enhances. Colours: dataviz reference palette, slots 1–3 (validated
+// all-pairs in light and dark), plus a hatched neutral for former members.
+import type { Block, Country } from '../lib/data';
+import { statusLabel } from '../lib/format';
+import { onMap } from '../lib/worldmap';
+import { path } from '../lib/urls';
+
+interface Props {
+  block?: Block;
+  country?: Country;
+}
+
+type Group = 'm' | 'p' | 'o' | 'f';
+const GROUPS: Record<Group, string> = {
+  m: 'Member',
+  p: 'Other participation',
+  o: 'Observer',
+  f: 'Former member',
+};
+const RANK: Record<Group, number> = { m: 4, p: 3, o: 2, f: 1 };
+
+const groupOf = (status: string): Group =>
+  status === 'member' || status === 'founding_member'
+    ? 'm'
+    : status === 'observer'
+      ? 'o'
+      : status === 'former_member'
+        ? 'f'
+        : 'p';
+
+const { block, country } = Astro.props;
+const data: Record<string, [Group, string, string, string]> = {};
+let caption = '';
+let summary = '';
+
+if (block) {
+  for (const r of block._roster) {
+    if (r.link !== 'country' || !onMap(r.id)) continue;
+    const g: Group = block._active ? (r.current ? groupOf(r.status) : 'f') : groupOf(r.status);
+    const prev = data[r.id];
+    if (!prev || RANK[g] > RANK[prev[0]]) {
+      data[r.id] = [g, statusLabel(r.status), r.joined ?? '', r.name ?? r.id];
+    }
+  }
+  caption = block._active
+    ? `Countries and territories in ${block.name}, by membership status`
+    : `Countries and territories in ${block.name}, as recorded (the entity is no longer active)`;
+  const counts = Object.values(data).reduce<Record<string, number>>((acc, [g]) => ({ ...acc, [g]: (acc[g] ?? 0) + 1 }), {});
+  summary = (Object.keys(GROUPS) as Group[])
+    .filter((g) => counts[g])
+    .map((g) => `${counts[g]} ${GROUPS[g].toLowerCase()}`)
+    .join(', ');
+} else if (country && onMap(country.code)) {
+  data[country.code] = ['m', 'Location', '', country.name];
+  caption = `Location of ${country.name}`;
+  summary = caption;
+}
+
+const present = (Object.keys(GROUPS) as Group[]).filter((g) => Object.values(data).some(([x]) => x === g));
+const show = Object.keys(data).length > 0;
+---
+
+{
+  show && (
+    <figure class={`map${country ? ' map-locator' : ''}`} data-map data-src={path('assets/world.svg')}>
+      <div class="map-canvas" role="img" aria-label={`${caption}: ${summary}. The table on this page lists every entry.`} />
+      <noscript>
+        <p class="muted small">The map needs JavaScript; the table on this page lists the same data.</p>
+      </noscript>
+      <script type="application/json" data-map-data set:html={JSON.stringify(data).replace(/</g, '\\u003c')} />
+      <div class="map-tip" hidden />
+      <figcaption>
+        {block && (
+          <ul class="legend">
+            {present.map((g) => (
+              <li>
+                <span class={`swatch g-${g}`} aria-hidden="true" />
+                {GROUPS[g]}
+              </li>
+            ))}
+          </ul>
+        )}
+        <span class="muted small">
+          {caption}. Small territories are shown as dots. Base map: Natural Earth (public domain); boundaries do not imply
+          endorsement.
+        </span>
+      </figcaption>
+    </figure>
+  )
+}
+
+<script>
+  import '../scripts/map.ts';
+</script>

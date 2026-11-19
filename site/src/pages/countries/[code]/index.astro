@@ -1,6 +1,7 @@
 ---
 import BarList from '../../../components/BarList.astro';
 import Facts from '../../../components/Facts.astro';
+import MembershipMap from '../../../components/MembershipMap.astro';
 import Base from '../../../layouts/Base.astro';
 import { CENTROID_NOTE } from '../../../lib/api';
 import { aliases, countries, countryByCode, type Country } from '../../../lib/data';
@@ -120,6 +121,7 @@ const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
 
           <section class="card-section" aria-labelledby="geography">
             <h2 id="geography">Geography</h2>
+            <MembershipMap country={c} />
             <Facts
               rows={[
                 { label: 'Continents', value: c.continents?.join(', ') },

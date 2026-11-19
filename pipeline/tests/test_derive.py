@@ -93,6 +93,23 @@ def test_primary_acronym():
     assert primary_acronym(brics) is None  # same as the name
 
 
+@pytest.mark.parametrize(
+    ("block", "expected"),
+    [
+        # Other languages' forms listed as English: pick the one matching the ID or the initials.
+        ({"id": "AFUNION", "name": "African Union", "acronyms": [{"lang": "en", "value": "UA"}, {"lang": "en", "value": "AU"}]}, "AU"),
+        ({"id": "UN", "name": "United Nations", "acronyms": [{"lang": "en", "value": "ONU"}, {"lang": "en", "value": "UN"}]}, "UN"),
+        ({"id": "G-20", "name": "G-20 major economies", "acronyms": [{"lang": "en", "value": "G21"}, {"lang": "en", "value": "G-20"}]}, "G-20"),
+        ({"id": "OECD", "name": "Organisation for Economic Co-operation and Development", "acronyms": [{"lang": "en", "value": "OECD"}]}, "OECD"),
+        # No English acronym that fits the name: show none rather than a wrong one.
+        ({"id": "XYZ", "name": "International Monetary Fund", "acronyms": [{"lang": "en", "value": "FMI"}]}, None),
+        ({"id": "ASEAN", "name": "Association of SouthEast Asian Nations", "acronyms": []}, None),
+    ],
+)
+def test_primary_acronym_resists_mislabelled_languages(block, expected):
+    assert primary_acronym(block) == expected
+
+
 def test_check_current_rule_accepts_matching_view():
     check_current_rule(make_release())
 

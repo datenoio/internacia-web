@@ -13,6 +13,8 @@ export const GET: APIRoute = () =>
       blocks: absolute(path('api/v1/blocks.json')),
       block: absolute(path('api/v1/blocks/{ID}.json')),
       aliases: absolute(path('api/v1/aliases.json')),
+      search_index: absolute(path('api/v1/search-index.json')),
+      openapi: absolute(path('api/v1/openapi.json')),
     },
     notes: [
       '{CODE} is the ISO 3166-1 alpha-2 code as in the data (uppercase); {ID} is the exact intblock ID (case-sensitive).',

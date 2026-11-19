@@ -6,8 +6,9 @@ specification disagree, raise it; do not silently follow either.
 
 ## Current stage
 
-M0 and M1a are in place: pipeline, country and intblock cards with Markdown and JSON twins,
-`llms.txt`, sitemap, Data & API and About pages, post-build checks. Next is M1b
+M0 and M1 are in place: pipeline, country and intblock cards with Markdown and JSON twins,
+membership and locator maps, entity finder, 404 suggestions, OpenAPI and JSON Schemas, `llms.txt`,
+sitemap, post-build checks and an axe/Lighthouse audit. Next is M2
 ([SPEC §13](docs/SPEC.md#13-milestones)).
 
 ## Rules
@@ -48,6 +49,7 @@ Run from the repository root, in this order:
 .venv/bin/python pipeline/build_data.py
 (cd site && npm ci && npm run build)
 .venv/bin/python pipeline/check_site.py
+(cd site && npx playwright install chromium && npm run audit)   # axe + Lighthouse; --no-lh for axe only
 ```
 
 The site build fails if `site/src/generated/meta.json` is missing: run the pipeline first.
@@ -61,5 +63,11 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   link them to country cards, never count them as a country's memberships.
 - An intblock alias with reason `disambiguated` gets an explanation page, never a redirect; when
   the old ID now names a current record, the note goes on that record's card.
+- `lang: en` acronyms in the data include other languages' forms (the African Union lists "UA"
+  first); use `_acronym` (`derive.primary_acronym`), never the first English acronym.
+- Intblock IDs may contain `+` (`G8+5`); JSON Schemas and URL helpers must allow it.
+- The base map is one static SVG (`/assets/world.svg`, Natural Earth 1:110m); records without a
+  polygon are dots at their centroid. Map colours are the dataviz palette's first three slots,
+  validated all-pairs in both themes; do not add a fourth colour to the map.
 - In `.astro` templates, build sentences that end in punctuation as one string expression:
   JSX-style whitespace otherwise leaves a space before the period.

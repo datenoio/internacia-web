@@ -1,12 +1,58 @@
 ---
 import Base from '../layouts/Base.astro';
-
-const base = import.meta.env.BASE_URL;
+import { path } from '../lib/urls';
 ---
 
 <Base title="Page not found" description="This page does not exist on Internacia.">
-  <section class="container">
+  <section class="container page-head">
     <h1>Page not found</h1>
-    <p>This address does not exist on the site. Go to the <a href={base}>home page</a>.</p>
+    <p class="lead">This address does not exist on the site.</p>
+    <div data-suggest data-index={path('api/v1/search-index.json')} data-base={path()} hidden>
+      <h2>Did you mean</h2>
+      <ul></ul>
+    </div>
+    <p>
+      Go to the <a href={path()}>home page</a>, the list of <a href={path('countries/')}>countries</a> or of
+      <a href={path('blocks/')}>organizations</a>, or use the finder at the top of the page.
+    </p>
   </section>
+  <script>
+    import { distance, loadIndex, normalize, search } from '../scripts/search';
+
+    // Suggest close matches for a mistyped card URL (SPEC §6.13): edit distance over codes and
+    // IDs, then the finder's name matching over the last path segment.
+    const box = document.querySelector<HTMLElement>('[data-suggest]');
+    if (box) {
+      const base = box.dataset.base!;
+      const parts = decodeURIComponent(location.pathname.slice(base.length)).split('/').filter(Boolean);
+      const section = parts[0] === 'countries' ? 'c' : parts[0] === 'blocks' ? 'b' : null;
+      const slug = (parts[1] ?? parts[0] ?? '').replace(/\.(md|json|html)$/, '');
+      if (slug) {
+        loadIndex(box.dataset.index!).then((entries) => {
+          const key = normalize(slug).replace(/ /g, '');
+          const pool = entries.filter((e) => !section || e.kind === section);
+          const near = pool
+            .map((e) => ({ e, d: Math.min(...e.names.filter((n) => n.lang === '').map((n) => distance(key, n.norm.replace(/ /g, '')))) }))
+            .filter((x) => x.d <= Math.max(1, Math.floor(key.length / 3)))
+            .sort((a, b) => a.d - b.d)
+            .slice(0, 5)
+            .map((x) => ({ label: x.e.label, path: x.e.path }));
+          const byName = search(pool, slug.replace(/[-_]+/g, ' '), 5).map((h) => ({ label: h.label, path: h.path }));
+          const seen = new Set<string>();
+          const items = [...near, ...byName].filter((i) => !seen.has(i.path) && seen.add(i.path)).slice(0, 6);
+          if (!items.length) return;
+          const ul = box.querySelector('ul')!;
+          for (const item of items) {
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.href = item.path;
+            a.textContent = item.label;
+            li.append(a);
+            ul.append(li);
+          }
+          box.hidden = false;
+        });
+      }
+    }
+  </script>
 </Base>

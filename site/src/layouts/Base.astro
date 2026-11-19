@@ -87,6 +87,21 @@ const current = Astro.url.pathname;
             }
           </ul>
         </nav>
+        <div class="finder" data-finder data-index={path('api/v1/search-index.json')} hidden>
+          <label class="visually-hidden" for="finder-input">Find a country or organization</label>
+          <input
+            id="finder-input"
+            type="search"
+            role="combobox"
+            aria-autocomplete="list"
+            aria-expanded="false"
+            aria-controls="finder-results"
+            placeholder="Find: France, НАТО, 北约, G-20…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <ul id="finder-results" role="listbox" aria-label="Matches" hidden></ul>
+        </div>
         <button class="theme-toggle" id="theme-toggle" type="button" hidden>Theme: auto</button>
       </div>
     </header>
@@ -133,6 +148,9 @@ const current = Astro.url.pathname;
       </div>
     </footer>
 
+    <script>
+      import '../scripts/finder.ts';
+    </script>
     <script is:inline>
       (() => {
         const button = document.getElementById('theme-toggle');

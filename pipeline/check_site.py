@@ -6,7 +6,7 @@ Runs after `astro build`. Fails (exit 1) when any check fails:
 - count parity      one HTML card, Markdown twin and JSON twin per country and intblock
 - roster parity     current members on each intblock card = rows in current_memberships
 - twin parity       HTML, Markdown and JSON carry the same current members / memberships
-- JSON validity     every API file parses and carries meta.data_version
+- JSON validity     every API file parses, carries meta.data_version and matches its JSON Schema
 - internal links    every site-internal href/src points to a built file
 - redirects         every alias page points to an existing card
 - structured data   JSON-LD parses and has the expected @type on cards
@@ -23,6 +23,7 @@ from collections import Counter
 from pathlib import Path
 
 import duckdb
+from jsonschema import Draft202012Validator
 
 from lock import DEFAULT_CACHE, DEFAULT_LOCK, ROOT, load_lock
 from release import read_jsonl_zst
@@ -156,16 +157,55 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
             problems.append(f"country {code}: JSON {len(j)}, HTML {len(h)}, Markdown {len(m)} current memberships differ")
     report.check("twin parity", problems)
 
-    # JSON validity
+    # JSON validity and schemas (the schemas are the published ones, read from dist)
     problems = []
-    for path in sorted((dist / "api").rglob("*.json")):
+    api = dist / "api" / "v1"
+    validators = {
+        p.name.removesuffix(".schema.json"): Draft202012Validator(json.loads(p.read_text(encoding="utf-8")))
+        for p in (api / "schemas").glob("*.schema.json")
+    }
+    alias_ids = {(a["section"], a["alias"]) for a in aliases}
+
+    def schema_for(rel: str) -> str | None:
+        parts = rel.split("/")
+        if rel == "index.json":
+            return "index"
+        if rel in ("countries.json", "blocks.json"):
+            return f"{rel.removesuffix('.json')}-list"
+        if rel in ("aliases.json", "search-index.json"):
+            return rel.removesuffix(".json")
+        if len(parts) == 2 and parts[0] in ("countries", "blocks"):
+            ident = parts[1].removesuffix(".json")
+            if (parts[0], ident) in alias_ids:
+                return "alias-document"
+            return "country" if parts[0] == "countries" else "block"
+        return None
+
+    try:
+        openapi = json.loads((api / "openapi.json").read_text(encoding="utf-8"))
+        if not str(openapi.get("openapi", "")).startswith("3.1") or openapi.get("info", {}).get("version") != lock.version:
+            problems.append("openapi.json: not OpenAPI 3.1 or info.version is not the data version")
+    except (OSError, json.JSONDecodeError) as exc:
+        problems.append(f"openapi.json: {exc}")
+    for path in sorted(api.rglob("*.json")):
+        rel = path.relative_to(api).as_posix()
+        if rel == "openapi.json" or rel.startswith("schemas/"):
+            continue
         try:
             doc = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
-            problems.append(f"{path.relative_to(dist)}: {exc}")
+            problems.append(f"{rel}: {exc}")
             continue
         if doc.get("meta", {}).get("data_version") != lock.version:
-            problems.append(f"{path.relative_to(dist)}: meta.data_version is not {lock.version}")
+            problems.append(f"{rel}: meta.data_version is not {lock.version}")
+        name = schema_for(rel)
+        if name is None or name not in validators:
+            problems.append(f"{rel}: no JSON Schema for this document")
+            continue
+        error = next(iter(validators[name].iter_errors(doc)), None)
+        if error is not None:
+            where = "/".join(str(x) for x in error.absolute_path) or "(root)"
+            problems.append(f"{rel}: {where}: {error.message[:160]}")
     report.check("JSON validity", problems)
 
     # Internal links, structured data

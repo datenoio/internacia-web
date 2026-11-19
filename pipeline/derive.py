@@ -6,6 +6,7 @@ field (SPEC §7.4, §12 guardrails). Record fields are passed through unchanged.
 
 from __future__ import annotations
 
+import re
 from collections import Counter, defaultdict
 
 from release import Release
@@ -27,10 +28,47 @@ def include_is_current(include: dict, block: dict) -> bool:
     return include.get("status") != "former_member" and not include.get("left") and block_is_active(block)
 
 
+_STOPWORDS = {"of", "the", "and", "for", "in", "on", "to", "de", "la", "du", "des", "et", "y"}
+
+
+def _letters(text: str) -> str:
+    return "".join(ch for ch in text.upper() if ch.isalnum())
+
+
+def _initials(name: str) -> str:
+    words = [w for w in re.split(r"[\s\-–/]+", name) if w and w.lower() not in _STOPWORDS]
+    return "".join(w[0] for w in words).upper()
+
+
+def _is_subsequence(short: str, long: str) -> bool:
+    it = iter(long)
+    return all(ch in it for ch in short)
+
+
 def primary_acronym(block: dict) -> str | None:
-    for acronym in block.get("acronyms") or []:
-        value = acronym.get("value")
-        if acronym.get("lang") == "en" and value and value != block.get("name"):
+    """The English acronym to show next to the name, or None.
+
+    `lang: en` acronyms in the data also hold other languages' forms (the African Union lists
+    "UA" first, the UN "ONU"), so the first one is not reliable. In order of preference: an
+    acronym equal to the ID; one equal to the initials of the name; the first English one whose
+    letters appear in order in the name, starting with its first letter.
+    """
+    name = block.get("name") or ""
+    english = [a["value"] for a in block.get("acronyms") or [] if a.get("lang") == "en" and a.get("value")]
+    every = [a["value"] for a in block.get("acronyms") or [] if a.get("value")]
+    english = [v for v in english if v != name]
+    key = _letters(block.get("id", ""))
+    for value in every:
+        if _letters(value) == key and value != name:
+            return value
+    initials = _initials(name)
+    for value in english:
+        if _letters(value) == initials:
+            return value
+    name_letters = _letters(name)
+    for value in english:
+        letters = _letters(value)
+        if letters and name_letters.startswith(letters[0]) and _is_subsequence(letters, name_letters):
             return value
     return None
 

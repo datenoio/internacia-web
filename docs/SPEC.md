@@ -199,8 +199,8 @@ All paths end with a slash for HTML. Machine twins use the same slug with an ext
 
 - `{code}`: country alpha-2 code in lowercase (`/countries/fr/`).
 - `{id}`: intblock ID in lowercase (`/blocks/nato/`, `/blocks/g-20/`, `/blocks/afcfta/`). IDs use
-  letters, digits, `-` and `_`. The build fails if two IDs collide after lowercasing (none do in
-  v3.1.0).
+  letters, digits, `-`, `_` and `+` (`G8+5`; GitHub Pages serves `/blocks/g8+5/` as is). The build
+  fails if two IDs collide after lowercasing (none do in v3.1.0).
 - JSON paths keep the **exact** ID (`/api/v1/blocks/AfCFTA.json`) so agents can build URLs from
   data without transformation. A lowercase JSON alias is not generated.
 - `{key}`: block type or topic key as in the data (snake_case).
@@ -705,8 +705,10 @@ Sample pages: `/`, `/countries/fr/`, `/countries/xk/`, `/countries/ps/`, `/count
 Delivered in two parts. **M1a**: indexes, cards, twins, lite and entity JSON, alias pages,
 `llms.txt`, JSON-LD, sitemap, `robots.txt`, Data & API and About pages, and the checks in
 `pipeline/check_site.py` (count, roster and twin parity, JSON validity, internal links, redirects,
-structured data, guardrails). **M1b**: membership map (V1), entity finder, 404 suggestions,
-OpenAPI and JSON Schemas, accessibility (axe) and performance (Lighthouse) checks.
+structured data, guardrails). **M1b**: membership map (V1) and country locator map, entity
+finder, 404 suggestions, OpenAPI and JSON Schemas (validated in `check_site.py`), and
+`site/scripts/audit.mjs`: axe on 17 sample pages in light and dark themes, Lighthouse on five
+(the largest pages included), served with gzip like GitHub Pages.
 
 - Country and intblock indexes and cards ([§6.2](#62-countries-index)–[§6.5](#65-intblock-card)),
   including the membership map (V1) on intblock cards.
