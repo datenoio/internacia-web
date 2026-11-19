@@ -1,0 +1,17 @@
+---
+import Base from '../../layouts/Base.astro';
+import { marked } from 'marked';
+import { aboutMarkdown } from '../../lib/pages';
+import { path } from '../../lib/urls';
+
+const body = marked.parse(aboutMarkdown(), { async: false }) as string;
+---
+
+<Base
+  title="About"
+  description="What Internacia and internacia-db are, methodology, neutrality, licence and attribution."
+  breadcrumbs={[{ name: 'About', href: path('about/') }]}
+  markdown={path('about.md')}
+>
+  <article class="container prose" set:html={body} />
+</Base>

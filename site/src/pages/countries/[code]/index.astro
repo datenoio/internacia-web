@@ -1,0 +1,453 @@
+---
+import BarList from '../../../components/BarList.astro';
+import Facts from '../../../components/Facts.astro';
+import Base from '../../../layouts/Base.astro';
+import { CENTROID_NOTE } from '../../../lib/api';
+import { aliases, countries, countryByCode, type Country } from '../../../lib/data';
+import { blocktypeLabel, enumLabel, num, statusDeprecated, statusDescription, statusLabel, vocabLabel, yesNo } from '../../../lib/format';
+import { countryLd } from '../../../lib/jsonld';
+import {
+  blockPath,
+  countryJson,
+  countryMd,
+  countryPath,
+  geonamesUrl,
+  path,
+  reportErrorUrl,
+  sourceUrl,
+  wikidataUrl,
+} from '../../../lib/urls';
+import AliasPage from '../../../components/AliasPage.astro';
+
+export function getStaticPaths() {
+  const pages = countries().map((c) => ({ params: { code: c.code.toLowerCase() }, props: { code: c.code, alias: null } }));
+  const redirects = aliases()
+    .pages.filter((a) => a.section === 'countries')
+    .map((a) => ({ params: { code: a.alias.toLowerCase() }, props: { code: null, alias: a } }));
+  return [...pages, ...redirects];
+}
+
+const { code, alias } = Astro.props;
+const c = code ? (countryByCode().get(code) as Country) : null;
+
+const current = c ? c._memberships.filter((m) => m.current) : [];
+const former = c ? c._memberships.filter((m) => !m.current) : [];
+const byType = new Map<string, typeof current>();
+for (const m of current) byType.set(m.blocktype, [...(byType.get(m.blocktype) ?? []), m]);
+const typeGroups = [...byType.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+const topTypes = typeGroups.slice(0, 10).map(([t, ms]) => ({ label: blocktypeLabel(t), value: ms.length }));
+const otherTypes = typeGroups.slice(10);
+const otherTypeCount = otherTypes.reduce((n, [, ms]) => n + ms.length, 0);
+const statusSummary = c
+  ? Object.entries(c._status_counts)
+      .map(([s, n]) => `${num(n)} ${statusLabel(s).toLowerCase()}`)
+      .join(', ')
+  : '';
+const statusOptions = [...new Set(current.map((m) => m.status))];
+
+const indicator = (v: Country['population'], unit = '') =>
+  v && v.value !== null && v.value !== undefined ? `${num(v.value)}${unit}` : undefined;
+const indicatorNote = (v: Country['population']) =>
+  v && v.value !== null && v.value !== undefined ? `(${v.year ?? 'year unknown'}${v.source ? `, ${v.source}` : ''})` : undefined;
+const wb = (v?: { id: string; value: string }) => (v ? `${v.value} (${v.id})` : undefined);
+const vocabList = (vocab: string, items?: { id: string }[]) =>
+  items?.length ? items.map((i) => vocabLabel(vocab, i.id)).join(', ') : undefined;
+const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
+---
+
+{
+  alias && <AliasPage alias={alias} />
+}
+{
+  c && (
+    <Base
+      title={c.name}
+      description={`${c.name} (${c.code}, ${c.iso3code}): identifiers, geography, classification and ${c._current_member_count} current memberships in international organizations and groupings.`}
+      breadcrumbs={[
+        { name: 'Countries', href: path('countries/') },
+        { name: c.name, href: countryPath(c.code) },
+      ]}
+      markdown={countryMd(c.code)}
+      json={countryJson(c.code)}
+      sourceUrl={sourceUrl(c._source_path)}
+      reportUrl={reportErrorUrl('countries', c.code, c.name)}
+      jsonld={countryLd(c)}
+    >
+      <section class="container page-head">
+        <h1>
+          {c.flag_emoji && <span aria-hidden="true">{c.flag_emoji} </span>}
+          {c.name}
+        </h1>
+        {c.official_name && c.official_name !== c.name && <p class="subtitle">{c.official_name}</p>}
+        <ul class="badges">
+          <li class="badge">{enumLabel('entity_type', c.entity_type)}</li>
+          <li class={c.code_status === 'official_iso3166_1' ? 'badge' : 'badge badge-warn'}>{enumLabel('code_status', c.code_status)}</li>
+          {c.un_status && <li class="badge">{enumLabel('un_status', c.un_status)}</li>}
+          <li class="badge">{num(c._current_member_count)} current memberships</li>
+        </ul>
+        {c.recognition_status?.notes && <p class="notice">{c.recognition_status.notes}</p>}
+        {c._alias_notes.map((n) =>
+          n.kind === 'former_id' ? (
+            <p class="muted small">
+              Formerly coded <code>{n.alias}</code> ({n.reason} in v{n.since}). {n.note}
+            </p>
+          ) : (
+            <p class="notice small">{n.note}</p>
+          ),
+        )}
+      </section>
+
+      <div class="container">
+        <div class="grid-2">
+          <section class="card-section" aria-labelledby="identifiers">
+            <h2 id="identifiers">Identifiers</h2>
+            <Facts
+              rows={[
+                { label: 'ISO 3166-1 alpha-2', value: c.code, code: true, copy: true },
+                { label: 'ISO 3166-1 alpha-3', value: c.iso3code, code: true, copy: true },
+                { label: 'ISO 3166-1 numeric', value: c.numeric_code, code: true, copy: true },
+                { label: 'UN M49', value: c.m49_code, code: true, copy: true },
+                { label: 'Wikidata', value: c.wikidata_id, code: true, href: c.wikidata_id ? wikidataUrl(c.wikidata_id) : undefined, copy: true },
+                { label: 'GeoNames', value: c.geonames_id, code: true, href: c.geonames_id ? geonamesUrl(c.geonames_id) : undefined, copy: true },
+                { label: 'IOC', value: c.ioc_code, code: true },
+                { label: 'FIFA', value: c.fifa_code, code: true },
+                { label: 'FIPS 10-4', value: c.fips_code, code: true, note: '(legacy)' },
+                { label: 'Top-level domain', value: c.tld, code: true },
+                { label: 'Calling codes', value: c.calling_codes?.join(', ') },
+              ]}
+            />
+          </section>
+
+          <section class="card-section" aria-labelledby="geography">
+            <h2 id="geography">Geography</h2>
+            <Facts
+              rows={[
+                { label: 'Continents', value: c.continents?.join(', ') },
+                { label: 'UN M49 subregion', value: c.subregion },
+                {
+                  label: 'Capital',
+                  value: c.capital_city?.name,
+                  note:
+                    c.capital_city?.lat !== undefined && c.capital_city?.lng !== undefined
+                      ? `(${c.capital_city.lat}, ${c.capital_city.lng})`
+                      : undefined,
+                },
+                { label: 'Landlocked', value: yesNo(c.landlocked) },
+                { label: 'Centroid', value: c.centroid ? `${c.centroid.lat}, ${c.centroid.lng}` : undefined, note: c.centroid ? '(ODbL 1.0)' : undefined },
+                {
+                  label: 'Bounding box',
+                  value: c.bbox ? `W ${c.bbox.west}, E ${c.bbox.east}, N ${c.bbox.north}, S ${c.bbox.south}` : undefined,
+                },
+              ]}
+            />
+            {c._borders.length > 0 && (
+              <>
+                <h3>Land borders ({c._borders.length})</h3>
+                <ul class="list-inline">
+                  {c._borders.map((b) =>
+                    b.code ? (
+                      <li>
+                        <a href={countryPath(b.code)}>{b.name}</a>
+                      </li>
+                    ) : (
+                      <li>
+                        <code>{b.iso3code}</code>
+                      </li>
+                    ),
+                  )}
+                </ul>
+              </>
+            )}
+          </section>
+
+          <section class="card-section" aria-labelledby="classification">
+            <h2 id="classification">Status and classification</h2>
+            <Facts
+              rows={[
+                { label: 'UN status', value: enumLabel('un_status', c.un_status) },
+                { label: 'Independent', value: yesNo(c.independent) },
+                { label: 'Recognition', value: c.recognition_status?.status ? enumLabel('recognition', c.recognition_status.status) : undefined },
+                {
+                  label: 'Parent entity',
+                  value: c.parent_entity ? `${c.parent_entity.name} (${c.parent_entity.code})` : undefined,
+                  href: c.parent_entity && c._parent_exists ? countryPath(c.parent_entity.code) : undefined,
+                },
+                { label: 'World Bank region', value: c.region ? wb(c.region) : 'Not classified by the World Bank' },
+                { label: 'Administrative region', value: wb(c.adminregion) },
+                { label: 'Income level', value: wb(c.incomeLevel) },
+                { label: 'Lending type', value: wb(c.lendingType) },
+              ]}
+            />
+            {c._dependents.length > 0 && (
+              <>
+                <h3>Dependent territories and regions ({c._dependents.length})</h3>
+                <ul class="list-inline">
+                  {c._dependents.map((d) => (
+                    <li>
+                      <a href={countryPath(d.code)}>{d.name}</a>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+
+          <section class="card-section" aria-labelledby="practical">
+            <h2 id="practical">Practical reference</h2>
+            <Facts
+              rows={[
+                { label: 'Currencies', value: c.currencies?.map((x) => `${x.name ?? x.code} (${x.code}${x.symbol ? `, ${x.symbol}` : ''})`).join('; ') },
+                { label: 'Time zones', value: c.timezones?.length ? c.timezones.join(', ') : c.timezone_status ? 'Not applicable' : undefined },
+                { label: 'Driving side', value: c.car_side ? enumLabel('car_side', c.car_side) : undefined },
+                { label: 'Start of week', value: c.start_of_week ? enumLabel('start_of_week', c.start_of_week) : undefined },
+                { label: 'DVD region', value: c.dvd_region !== undefined ? vocabLabel('dvd_regions', c.dvd_region) : undefined },
+                { label: 'Broadcast systems', value: vocabList('broadcast_systems', c.broadcast_systems) },
+                { label: 'Rail gauges', value: vocabList('rail_gauges', c.rail_gauges) },
+                { label: 'Legal systems', value: vocabList('legal_systems', c.legal_systems) },
+              ]}
+            />
+          </section>
+
+          <section class="card-section" aria-labelledby="languages">
+            <h2 id="languages">Languages and names</h2>
+            <Facts
+              rows={[
+                { label: 'Languages', value: c.languages?.map((l) => `${l.name} (${l.code})${l.official ? ', official' : ''}`).join('; ') },
+                { label: 'Writing systems', value: vocabList('writing_systems', c.writing_systems) },
+                { label: 'Writing direction', value: vocabList('writing_directions', c.writing_directions) },
+                { label: 'Demonym', value: [c.demonyms?.male, c.demonyms?.female].filter((v, i, a) => v && a.indexOf(v) === i).join(' / ') },
+                { label: 'Common names', value: c.common_names?.join('; ') },
+              ]}
+            />
+            {(c.other_names?.length ?? 0) > 0 && (
+              <>
+                <h3>Names in the UN languages</h3>
+                <ul class="names">
+                  {c.other_names!.map((n) => (
+                    <li>
+                      <span class="lang">{n.id}</span>
+                      <bdi lang={n.id}>{n.name}</bdi>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {nativeNames.length > 0 && (
+              <>
+                <h3>Native names</h3>
+                <ul class="names">
+                  {nativeNames.map(([lang, n]) => (
+                    <li>
+                      <span class="lang">{lang}</span>
+                      <bdi lang={lang}>{[n.official, n.common].filter((v, i, a) => v && a.indexOf(v) === i).join(' — ')}</bdi>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </section>
+
+          {(c.population || c.area || c.gini) && (
+            <section class="card-section" aria-labelledby="figures">
+              <h2 id="figures">Reference figures</h2>
+              <Facts
+                rows={[
+                  { label: 'Population', value: indicator(c.population), note: indicatorNote(c.population) },
+                  { label: 'Land area', value: indicator(c.area, ' km²'), note: indicatorNote(c.area) },
+                  { label: 'Gini index', value: indicator(c.gini), note: indicatorNote(c.gini) },
+                ]}
+              />
+            </section>
+          )}
+        </div>
+
+        <section class="card-section" aria-labelledby="memberships">
+          <h2 id="memberships">Memberships</h2>
+          <p>
+            {c.name} has <strong>{num(current.length)}</strong> current memberships in international organizations and
+            groupings{statusSummary ? ` (${statusSummary})` : ''}.
+          </p>
+          {topTypes.length > 0 && (
+            <>
+              <h3>Current memberships by block type{otherTypes.length > 0 ? ', top 10' : ''}</h3>
+              <BarList items={topTypes} label="Current memberships by block type" />
+              {otherTypes.length > 0 && (
+                <p class="muted small">
+                  {num(otherTypeCount)} more memberships in {otherTypes.length} other block types; all are listed in the table below.
+                </p>
+              )}
+            </>
+          )}
+
+          {current.length > 0 && (
+            <>
+              <h3>Current memberships</h3>
+              <div class="filters" data-table-tools="memberships-table" hidden>
+                <label>
+                  Search
+                  <input type="search" data-filter="text" placeholder="Organization or ID" />
+                </label>
+                <label>
+                  Status
+                  <select data-filter="status">
+                    <option value="">All</option>
+                    {statusOptions.map((s) => (
+                      <option value={s}>{statusLabel(s)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Block type
+                  <select data-filter="type">
+                    <option value="">All</option>
+                    {typeGroups.map(([t]) => (
+                      <option value={t}>{blocktypeLabel(t)}</option>
+                    ))}
+                  </select>
+                </label>
+                <span class="count" data-count aria-live="polite" />
+              </div>
+              <div class="table-wrap">
+                <table class="data" id="memberships-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Organization or grouping</th>
+                      <th scope="col">ID</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Joined</th>
+                    </tr>
+                  </thead>
+                  {typeGroups.map(([t, ms]) => (
+                    <tbody>
+                      <tr class="group">
+                        <th scope="rowgroup" colspan="4">
+                          {blocktypeLabel(t)} ({ms.length})
+                        </th>
+                      </tr>
+                      {ms.map((m) => (
+                        <tr data-status={m.status} data-type={m.blocktype} data-block={m.block_id}>
+                          <td>
+                            <a href={blockPath(m.block_id)}>{m.block_name}</a>
+                            {m.acronym && <span class="muted"> ({m.acronym})</span>}
+                            {m.note && <div class="muted small">{m.note}</div>}
+                          </td>
+                          <td>
+                            <code>{m.block_id}</code>
+                          </td>
+                          <td title={statusDescription(m.status)}>
+                            {statusLabel(m.status)}
+                            {statusDeprecated(m.status) && <span class="muted small"> (deprecated label)</span>}
+                          </td>
+                          <td>{m.joined}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  ))}
+                </table>
+              </div>
+            </>
+          )}
+
+          {former.length > 0 && (
+            <details>
+              <summary>Former memberships and memberships of historical organizations ({former.length})</summary>
+              <div class="table-wrap">
+                <table class="data" id="former-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Organization or grouping</th>
+                      <th scope="col">ID</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Joined</th>
+                      <th scope="col">Left</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {former.map((m) => (
+                      <tr data-block={m.block_id}>
+                        <td>
+                          <a href={blockPath(m.block_id)}>{m.block_name}</a>
+                          {m.block_status === 'historical' && <span class="muted small"> (historical)</span>}
+                          {m.note && <div class="muted small">{m.note}</div>}
+                        </td>
+                        <td>
+                          <code>{m.block_id}</code>
+                        </td>
+                        <td>{statusLabel(m.status)}</td>
+                        <td>{m.joined}</td>
+                        <td>{m.left}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
+        </section>
+
+        {c._similar.length > 0 && (
+          <section class="card-section" aria-labelledby="similar">
+            <h2 id="similar">Similar countries</h2>
+            <p class="muted small">By overlap of current memberships (Jaccard index: shared ÷ combined).</p>
+            <div class="table-wrap">
+              <table class="data">
+                <thead>
+                  <tr>
+                    <th scope="col">Country</th>
+                    <th scope="col" class="num">Shared memberships</th>
+                    <th scope="col" class="num">Jaccard</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {c._similar.map((s) => (
+                    <tr>
+                      <td>
+                        <span aria-hidden="true">{s.flag_emoji}</span> <a href={countryPath(s.code)}>{s.name}</a>
+                      </td>
+                      <td class="num">{num(s.shared)}</td>
+                      <td class="num">{s.jaccard.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
+        {(c.provenance?.length ?? 0) > 0 && (
+          <section class="card-section" aria-labelledby="provenance">
+            <h2 id="provenance">Provenance</h2>
+            <div class="table-wrap">
+              <table class="data">
+                <thead>
+                  <tr>
+                    <th scope="col">Field</th>
+                    <th scope="col">Source</th>
+                    <th scope="col">Retrieved</th>
+                    <th scope="col">Licence</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {c.provenance!.map((p) => (
+                    <tr>
+                      <td>
+                        <code>{p.field}</code>
+                      </td>
+                      <td>{p.url ? <a href={p.url}>{p.source}</a> : p.source}</td>
+                      <td>{p.retrieved_at}</td>
+                      <td>{p.license}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {c.centroid && <p class="muted small">{CENTROID_NOTE}</p>}
+          </section>
+        )}
+      </div>
+      <script>
+        import '../../../scripts/tables.ts';
+      </script>
+    </Base>
+  )
+}

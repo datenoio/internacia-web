@@ -1,0 +1,33 @@
+---
+// Single-series horizontal bars with the value at the tip. One hue, no legend: the heading names
+// the series. The labels and values are text, so the list doubles as its own data table.
+interface Item {
+  label: string;
+  value: number;
+  href?: string;
+}
+
+interface Props {
+  items: Item[];
+  label: string;
+  unit?: string;
+}
+
+const { items, label, unit = '' } = Astro.props;
+const max = Math.max(1, ...items.map((i) => i.value));
+const fmt = new Intl.NumberFormat('en');
+---
+
+<ul class="bars" aria-label={label}>
+  {
+    items.map((item) => (
+      <li title={`${item.label}: ${fmt.format(item.value)}${unit}`}>
+        <span>{item.href ? <a href={item.href}>{item.label}</a> : item.label}</span>
+        <span class="bar">
+          <span class="fill" style={`width: calc(${((item.value / max) * 100).toFixed(1)}% - 3rem)`} />
+          <span class="value">{fmt.format(item.value)}</span>
+        </span>
+      </li>
+    ))
+  }
+</ul>

@@ -3,7 +3,7 @@ import json
 import duckdb
 import pytest
 
-from build_data import BuildError, build, check_duckdb_version
+from build_data import BuildError, build_meta, check_duckdb_version
 
 META_ROW = "('{name}', '{version}', '2026-10-22T11:26:42Z', '{commit}', {rows}, 'hash', 'CC-BY-4.0', '{contract}')"
 
@@ -40,7 +40,7 @@ def make_release(cache_root, lock, *, version=None, commit="930121d", contract="
 
 def test_build_writes_meta(tmp_path, lock):
     make_release(tmp_path / "cache", lock)
-    meta = build(lock, tmp_path / "cache", tmp_path / "out")
+    meta = build_meta(lock, tmp_path / "cache")
     assert meta["counts"] == {
         "countries": 3,
         "iso_countries": 2,
@@ -53,12 +53,11 @@ def test_build_writes_meta(tmp_path, lock):
     assert meta["data"]["version"] == "3.1.0"
     assert meta["data"]["contract_version"] == "3.1"
     assert meta["data"]["build_date"] == "2026-10-22T11:26:42Z"
-    assert json.loads((tmp_path / "out" / "meta.json").read_text()) == meta
 
 
 def test_build_requires_fetch(tmp_path, lock):
     with pytest.raises(BuildError, match="run pipeline/fetch.py first"):
-        build(lock, tmp_path / "cache", tmp_path / "out")
+        build_meta(lock, tmp_path / "cache")
 
 
 @pytest.mark.parametrize(
@@ -73,7 +72,7 @@ def test_build_requires_fetch(tmp_path, lock):
 def test_build_rejects_mismatch(tmp_path, lock, kwargs, message):
     make_release(tmp_path / "cache", lock, **kwargs)
     with pytest.raises(BuildError, match=message):
-        build(lock, tmp_path / "cache", tmp_path / "out")
+        build_meta(lock, tmp_path / "cache")
 
 
 def test_check_duckdb_version():

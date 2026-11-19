@@ -1,0 +1,83 @@
+// Display helpers: labels from internacia-db vocabularies, numbers and dates.
+import { blocktypeById, labels } from './data';
+
+const numberFormat = new Intl.NumberFormat('en');
+
+export const num = (value: number | null | undefined): string =>
+  value === null || value === undefined ? '' : numberFormat.format(value);
+
+export const humanize = (key: string | null | undefined): string =>
+  key ? key.replace(/[_-]+/g, ' ').replace(/^./, (c) => c.toUpperCase()) : '';
+
+// Open enums (SPEC §4.4): an unknown value falls back to its raw key, never breaks the build.
+export const statusLabel = (status: string): string => labels().statuses[status]?.name ?? status;
+export const statusDescription = (status: string): string => labels().statuses[status]?.description ?? '';
+export const statusDeprecated = (status: string): boolean => labels().statuses[status]?.deprecated ?? false;
+
+export const blocktypeLabel = (id: string): string => blocktypeById().get(id)?.name ?? humanize(id);
+export const topicLabel = (key: string, fallback?: string): string => labels().topics[key] ?? fallback ?? humanize(key);
+export const vocabLabel = (vocab: string, id: string | number): string =>
+  labels().vocabs[vocab]?.[String(id)] ?? humanize(String(id));
+
+const ENUM_LABELS: Record<string, Record<string, string>> = {
+  entity_type: {
+    sovereign_state: 'Sovereign state',
+    dependent_territory: 'Dependent territory',
+    special_administrative_region: 'Special administrative region',
+    disputed_territory: 'Disputed territory',
+    historical_entity: 'Historical entity',
+    supranational_grouping: 'Supranational grouping',
+    statistical_area: 'Statistical area',
+  },
+  code_status: {
+    official_iso3166_1: 'ISO 3166-1',
+    user_assigned: 'User-assigned code',
+    obsolete: 'Obsolete code',
+    exceptionally_reserved: 'Exceptionally reserved code',
+  },
+  un_status: { member: 'UN member', observer: 'UN observer state', non_member: 'Not a UN member' },
+  status: { formal: 'Formal', informal: 'Informal', 'de-facto': 'De facto', historical: 'Historical' },
+  scope_category: {
+    igo: 'Intergovernmental organization',
+    treaty_body: 'Treaty body',
+    policy_forum: 'Policy forum',
+    reference_enumeration: 'Reference grouping',
+    intergovernmental_body: 'Intergovernmental body',
+    non_state_organization: 'Non-state organization',
+  },
+  geographic_scope: { global: 'Global', regional: 'Regional', 'sub-regional': 'Sub-regional', bilateral: 'Bilateral' },
+  include_type: {
+    country: 'Country',
+    territory: 'Territory',
+    organization: 'Organization',
+    'historical-country': 'Historical country',
+  },
+};
+
+export const enumLabel = (field: string, value: string | null | undefined): string =>
+  value ? (ENUM_LABELS[field]?.[value] ?? humanize(value)) : '';
+
+export const yesNo = (value: boolean | undefined): string => (value === undefined ? '' : value ? 'Yes' : 'No');
+
+export function bytes(value: number | null): string {
+  if (value === null || value === undefined) return '';
+  if (value < 1024) return `${value} B`;
+  const units = ['KB', 'MB', 'GB'];
+  let v = value / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+}
+
+export const displayName = (name: string, acronym: string | null | undefined): string =>
+  acronym ? `${name} (${acronym})` : name;
+
+// Split text on `code` spans so IDs inside notes can become links.
+export function splitCode(text: string): { text: string; code: boolean }[] {
+  return text.split(/(`[^`]+`)/).filter(Boolean).map((part) =>
+    part.startsWith('`') && part.endsWith('`') ? { text: part.slice(1, -1), code: true } : { text: part, code: false },
+  );
+}

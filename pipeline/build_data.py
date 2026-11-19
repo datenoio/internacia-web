@@ -4,8 +4,15 @@
 Reads .cache/internacia/<tag>/ (written by fetch.py) and writes site/src/generated/.
 The site build reads only these JSON files; it never opens DuckDB.
 
-M0 writes meta.json: data version, build identity and key figures. Cards, indexes and the
-static API follow in M1.
+Files written:
+
+- meta.json        data version, build identity, key figures
+- countries.json   country records with derived `_` fields (memberships, borders, similar)
+- blocks.json      intblock records with derived `_` fields (roster, structure, similar)
+- blocktypes.json  block types with counts
+- labels.json      labels for membership statuses, topics and vocabularies
+- aliases.json     retired and renamed IDs and what the site does with each
+- downloads.json   release files with size and SHA-256
 """
 
 from __future__ import annotations
@@ -17,7 +24,18 @@ from pathlib import Path
 
 import duckdb
 
+from derive import (
+    DeriveError,
+    check_current_rule,
+    classify_aliases,
+    derive_blocks,
+    derive_blocktypes,
+    derive_countries,
+    derive_labels,
+    primary_acronym,
+)
 from lock import DEFAULT_CACHE, DEFAULT_LOCK, ROOT, Lock, LockError, load_lock
+from release import load_release
 
 DEFAULT_OUT = ROOT / "site" / "src" / "generated"
 SQL_DIR = Path(__file__).resolve().parent / "sql"
@@ -77,14 +95,34 @@ def check_meta(con: duckdb.DuckDBPyConnection, lock: Lock) -> dict:
     }
 
 
-def query_one(con: duckdb.DuckDBPyConnection, sql_name: str) -> dict:
+def query_rows(con: duckdb.DuckDBPyConnection, sql_name: str) -> list[dict]:
     sql = (SQL_DIR / f"{sql_name}.sql").read_text(encoding="utf-8")
     cursor = con.execute(sql)
     columns = [d[0] for d in cursor.description]
-    return dict(zip(columns, cursor.fetchone()))
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
-def build(lock: Lock, cache_root: Path, out_dir: Path) -> dict:
+def query_one(con: duckdb.DuckDBPyConnection, sql_name: str) -> dict:
+    return query_rows(con, sql_name)[0]
+
+
+def _group_similar(rows: list[dict], key: str, names: dict[str, str], extra=None) -> dict[str, list[dict]]:
+    grouped: dict[str, list[dict]] = {}
+    for row in rows:
+        other = row["other"]
+        item = {key: other, "name": names.get(other), "shared": row["shared"], "jaccard": row["jaccard"]}
+        if extra:
+            item.update(extra(other))
+        grouped.setdefault(row[key], []).append(item)
+    return grouped
+
+
+def write_json(path: Path, data) -> None:
+    path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+
+
+def build_meta(lock: Lock, cache_root: Path) -> dict:
+    """Check the fetched DuckDB against the lock file and return meta.json content."""
     assets = cache_root / lock.tag / "assets"
     db_path = assets / "internacia.duckdb"
     if not db_path.exists():
@@ -97,7 +135,7 @@ def build(lock: Lock, cache_root: Path, out_dir: Path) -> dict:
         identity = check_meta(con, lock)
         counts = query_one(con, "counts")
 
-    meta = {
+    return {
         "data": {
             "repository": lock.repository,
             "tag": lock.tag,
@@ -108,8 +146,50 @@ def build(lock: Lock, cache_root: Path, out_dir: Path) -> dict:
         },
         "counts": counts,
     }
+
+
+def build(lock: Lock, cache_root: Path, out_dir: Path) -> dict:
+    meta = build_meta(lock, cache_root)
+    cache_dir = cache_root / lock.tag
+    release = load_release(cache_dir, lock.repository, lock.tag)
+    check_current_rule(release)
+
+    with duckdb.connect(str(cache_dir / "assets" / "internacia.duckdb"), read_only=True) as con:
+        similar_countries = query_rows(con, "similar_countries")
+        similar_blocks = query_rows(con, "similar_blocks")
+
+    country_names = {c["code"]: c["name"] for c in release.countries}
+    flags = {c["code"]: c.get("flag_emoji") for c in release.countries}
+    block_by_id = {b["id"]: b for b in release.intblocks}
+
+    aliases = classify_aliases(release)
+    countries = derive_countries(
+        release,
+        _group_similar(similar_countries, "code", country_names, lambda o: {"flag_emoji": flags.get(o)}),
+        aliases["notes"],
+    )
+    blocks = derive_blocks(
+        release,
+        _group_similar(
+            similar_blocks,
+            "id",
+            {k: v["name"] for k, v in block_by_id.items()},
+            lambda o: {"acronym": primary_acronym(block_by_id[o])},
+        ),
+        aliases["notes"],
+    )
+
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "meta.json").write_text(json.dumps(meta, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_json(out_dir / "meta.json", meta)
+    write_json(out_dir / "countries.json", countries)
+    write_json(out_dir / "blocks.json", blocks)
+    write_json(out_dir / "blocktypes.json", derive_blocktypes(release))
+    write_json(out_dir / "labels.json", derive_labels(release))
+    write_json(
+        out_dir / "aliases.json",
+        {"pages": aliases["pages"], "intblocks": release.intblock_aliases, "countries": release.country_aliases},
+    )
+    write_json(out_dir / "downloads.json", release.downloads)
     return meta
 
 
@@ -121,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         meta = build(load_lock(args.lock), args.cache, args.out)
-    except (LockError, BuildError) as exc:
+    except (LockError, BuildError, DeriveError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     counts = ", ".join(f"{k} {v}" for k, v in meta["counts"].items())

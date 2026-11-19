@@ -1,0 +1,70 @@
+---
+// Page at a retired or renamed ID (SPEC §5.3). GitHub Pages cannot send HTTP 301, so a redirect
+// is a meta refresh plus a canonical link to the target; disambiguated and retired IDs get a page
+// that explains, never an automatic redirect.
+import Base from '../layouts/Base.astro';
+import { blockById, countryByCode, type AliasPage } from '../lib/data';
+import { absolute, blockPath, countryPath, path } from '../lib/urls';
+
+interface Props {
+  alias: AliasPage;
+}
+
+const { alias } = Astro.props;
+const isBlock = alias.section === 'blocks';
+const target = alias.target
+  ? isBlock
+    ? blockById().get(alias.target)
+    : countryByCode().get(alias.target)
+  : undefined;
+const targetHref = target && alias.target ? (isBlock ? blockPath(alias.target) : countryPath(alias.target)) : undefined;
+const targetName = target?.name ?? alias.target;
+const section = isBlock
+  ? { name: 'Organizations', href: path('blocks/') }
+  : { name: 'Countries', href: path('countries/') };
+const redirect = alias.kind === 'redirect' && targetHref;
+const heading =
+  alias.kind === 'redirect'
+    ? `${alias.alias} is now ${alias.target}`
+    : alias.kind === 'disambiguation'
+      ? `${alias.alias}: which entity?`
+      : `${alias.alias} is a retired ID`;
+---
+
+<Base
+  title={heading}
+  description={alias.note ?? heading}
+  breadcrumbs={[section, { name: alias.alias, href: Astro.url.pathname }]}
+  canonical={redirect ? absolute(targetHref!) : undefined}
+  noindex
+>
+  {redirect && <meta slot="head" http-equiv="refresh" content={`0; url=${targetHref}`} />}
+  <section class="container page-head">
+    <h1>{heading}</h1>
+    {
+      redirect && (
+        <p class="lead">
+          The ID <code>{alias.alias}</code> was {alias.reason} into <a href={targetHref}>{targetName}</a> (
+          <code>{alias.target}</code>) in internacia-db v{alias.since}. You are being taken there.
+        </p>
+      )
+    }
+    {
+      alias.kind === 'disambiguation' && (
+        <p class="lead">
+          The record once stored under <code>{alias.alias}</code> moved to
+          {targetHref ? <a href={targetHref}>{targetName}</a> : <code>{alias.target}</code>} in v{alias.since}. Check
+          which entity you mean before following this link.
+        </p>
+      )
+    }
+    {
+      alias.kind === 'retired' && (
+        <p class="lead">
+          The ID <code>{alias.alias}</code> was retired in internacia-db v{alias.since} and has no replacement.
+        </p>
+      )
+    }
+    {alias.note && <p class="notice">{alias.note}</p>}
+  </section>
+</Base>
