@@ -1,0 +1,12 @@
+---
+import Base from '../layouts/Base.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Base title="Page not found" description="This page does not exist on Internacia.">
+  <section class="container">
+    <h1>Page not found</h1>
+    <p>This address does not exist on the site. Go to the <a href={base}>home page</a>.</p>
+  </section>
+</Base>

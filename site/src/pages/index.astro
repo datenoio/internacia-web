@@ -1,0 +1,115 @@
+---
+import Base from '../layouts/Base.astro';
+import { meta } from '../lib/meta';
+
+const fmt = new Intl.NumberFormat('en');
+const { counts } = meta;
+
+const figures = [
+  { value: counts.countries, label: 'Countries and territories', note: `${fmt.format(counts.iso_countries)} ISO 3166-1` },
+  { value: counts.intblocks, label: 'Organizations and groupings' },
+  { value: counts.blocktypes, label: 'Block types' },
+  { value: counts.topics, label: 'Topics' },
+  {
+    value: counts.memberships,
+    label: 'Membership records',
+    note: `${fmt.format(counts.current_memberships)} current`,
+  },
+];
+---
+
+<Base
+  title="Internacia"
+  description="Countries, international organizations and country groupings from internacia-db, as cards, maps and timelines for people and AI agents."
+>
+  <section class="container hero">
+    <h1>Internacia</h1>
+    <p class="lead">
+      Countries, international organizations and country groupings from
+      <a href="https://github.com/datenoio/internacia-db">internacia-db</a>, as cards, maps and
+      timelines for people and for AI agents.
+    </p>
+    <p class="notice" role="status">
+      This site is under construction. Country and organization cards arrive in the next milestone;
+      see the <a href="https://github.com/datenoio/internacia-web/blob/main/docs/SPEC.md">specification</a>.
+    </p>
+  </section>
+
+  <section class="container" aria-labelledby="figures-heading">
+    <h2 id="figures-heading">In internacia-db v{meta.data.version}</h2>
+    <dl class="figures">
+      {
+        figures.map((f) => (
+          <div class="figure">
+            <dt>{f.label}</dt>
+            <dd>
+              <span class="figure-value">{fmt.format(f.value)}</span>
+              {f.note && <span class="figure-note">{f.note}</span>}
+            </dd>
+          </div>
+        ))
+      }
+    </dl>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    padding-block: var(--space-5) var(--space-3);
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3rem);
+    margin: 0 0 var(--space-2);
+  }
+
+  .lead {
+    font-size: 1.2rem;
+    max-width: 44rem;
+    margin: 0 0 var(--space-4);
+  }
+
+  .notice {
+    background: var(--color-notice);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: var(--space-2) var(--space-3);
+    max-width: 44rem;
+  }
+
+  .figures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: var(--space-3);
+    margin: 0;
+  }
+
+  .figure {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: var(--space-3);
+  }
+
+  .figure dt {
+    color: var(--color-muted);
+    font-size: 0.95rem;
+  }
+
+  .figure dd {
+    margin: var(--space-1) 0 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .figure-value {
+    font-size: 2rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .figure-note {
+    color: var(--color-muted);
+    font-size: 0.9rem;
+  }
+</style>

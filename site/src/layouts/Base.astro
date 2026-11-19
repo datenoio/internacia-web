@@ -1,0 +1,101 @@
+---
+import '../styles/global.css';
+import { INDEXABLE } from '../../site.config.mjs';
+import { meta } from '../lib/meta';
+
+interface Props {
+  title: string;
+  description: string;
+}
+
+const { title, description } = Astro.props;
+const base = import.meta.env.BASE_URL;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const fullTitle = title === 'Internacia' ? title : `${title} · Internacia`;
+const releaseDate = meta.data.build_date.slice(0, 10);
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    {!INDEXABLE && <meta name="robots" content="noindex, nofollow" />}
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+    <script is:inline>
+      (() => {
+        try {
+          const theme = localStorage.getItem('theme');
+          if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+        } catch {}
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <header class="site-header">
+      <div class="container">
+        <a class="site-title" href={base}>Internacia</a>
+        <nav class="site-nav" aria-label="Main">
+          <ul>
+            <li><a href="https://github.com/datenoio/internacia-db">Data source</a></li>
+            <li><a href="https://github.com/datenoio/internacia-web/blob/main/docs/SPEC.md">Specification</a></li>
+            <li><a href="https://github.com/datenoio/internacia-web">GitHub</a></li>
+          </ul>
+        </nav>
+        <button class="theme-toggle" id="theme-toggle" type="button" hidden>Theme: auto</button>
+      </div>
+    </header>
+
+    <main id="content">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <p>
+          Data: <a href={meta.data.release_url}>internacia-db v{meta.data.version}</a>
+          (contract {meta.data.contract_version}), released {releaseDate}. Licensed
+          <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>; see the
+          <a href="https://github.com/datenoio/internacia-db/blob/main/ATTRIBUTION.md">attribution</a>.
+        </p>
+        <p>
+          Site code: <a href="https://github.com/datenoio/internacia-web">MIT</a>. Part of the
+          <a href="https://dateno.io">Dateno</a> open-source project. Report data errors in
+          <a href="https://github.com/datenoio/internacia-db/issues">internacia-db issues</a>.
+        </p>
+      </div>
+    </footer>
+
+    <script is:inline>
+      (() => {
+        const button = document.getElementById('theme-toggle');
+        const modes = ['auto', 'light', 'dark'];
+        const read = () => {
+          try {
+            return localStorage.getItem('theme') ?? 'auto';
+          } catch {
+            return 'auto';
+          }
+        };
+        const apply = (mode) => {
+          const root = document.documentElement;
+          try {
+            if (mode === 'auto') localStorage.removeItem('theme');
+            else localStorage.setItem('theme', mode);
+          } catch {}
+          if (mode === 'auto') delete root.dataset.theme;
+          else root.dataset.theme = mode;
+          button.textContent = `Theme: ${mode}`;
+        };
+        button.addEventListener('click', () => apply(modes[(modes.indexOf(read()) + 1) % modes.length]));
+        button.textContent = `Theme: ${read()}`;
+        button.hidden = false;
+      })();
+    </script>
+  </body>
+</html>

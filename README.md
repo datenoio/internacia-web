@@ -4,7 +4,8 @@ A static website for [internacia-db](https://github.com/datenoio/internacia-db):
 timelines for countries, international organizations and country groupings, made for people and
 for AI agents alike. Part of the [Dateno](https://dateno.io) open-source project.
 
-**Status:** specification stage. No site code yet.
+**Status:** milestone M0 — data pipeline and a placeholder home page. Cards arrive in M1.
+Temporary address: <https://datenoio.github.io/internacia-web/> (not indexed).
 
 - Specification: [docs/SPEC.md](docs/SPEC.md)
 - Guide for AI coding agents: [AGENTS.md](AGENTS.md)
@@ -18,6 +19,19 @@ for AI agents alike. Part of the [Dateno](https://dateno.io) open-source project
 - A Markdown and a JSON twin for every card, a static JSON API with an OpenAPI description,
   `llms.txt`, and schema.org JSON-LD.
 - Hosting on GitHub Pages under its own domain, rebuilt from pinned internacia-db releases.
+
+## Build locally
+
+Needs Python 3.11+, Node.js 22.23.4+ and git. From the repository root:
+
+```bash
+python -m venv .venv && .venv/bin/pip install -r pipeline/requirements-dev.txt
+.venv/bin/python pipeline/fetch.py        # download and verify the pinned release
+.venv/bin/python pipeline/build_data.py   # write site/src/generated/
+cd site && npm ci && npm run build        # static site in site/dist/
+```
+
+`npm run dev` (in `site/`) serves the site at <http://localhost:4321/internacia-web/>.
 
 ## Data
 
