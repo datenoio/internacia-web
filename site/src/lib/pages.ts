@@ -1,7 +1,8 @@
-// Text of the Data & API and About pages, shared by their HTML and Markdown forms.
+// Text of the Data & API, Embeds and About pages, shared by their HTML and Markdown forms.
 import { downloads } from './data';
 import { bytes } from './format';
 import { meta } from './meta';
+import { FRAME_HEIGHT, snippets } from './embed';
 import { absolute, path, REPO_DATA, REPO_SITE } from './urls';
 
 export const DOI = '10.5281/zenodo.20706176';
@@ -77,6 +78,10 @@ ${files}
 
 Verify downloads with \`sha256sum -c SHA256SUMS\`.
 
+## Embeds
+
+Membership maps of organizations and membership lists of countries can be shown on other sites: ${absolute(path('embed/'))}
+
 ## How to cite
 
 ${c.text}
@@ -122,5 +127,50 @@ The site uses internacia-db's labels and classifications as they are and makes n
 ## Contact and contributions
 
 Report a data error with the form in internacia-db (${REPO_DATA}/issues/new?template=data_error.yml). Suggestions for the site: ${REPO_SITE}/issues.
+`;
+}
+
+export function embedMarkdown(): string {
+  const map = snippets('block', 'EU', 'European Union (EU)');
+  const list = snippets('country', 'FR', 'France');
+  return `# Embeds
+
+Two widgets show internacia-db data on other sites. Each widget is a small page on this site: put it in an \`<iframe>\`, or add the \`<internacia-embed>\` element, which sizes the frame to its content. Every widget links to its card and shows the data version and licence.
+
+## Membership map of an organization or grouping
+
+\`${absolute(path('embed/blocks/{id}/'))}\`, with the intblock ID in lowercase. The map colours member countries and territories by status; each one has a tooltip and can be reached with the keyboard. Offered for every intblock whose roster has countries or territories on the map; the card has the code under "Embed this map".
+
+\`\`\`html
+${map.iframe}
+\`\`\`
+
+## Memberships of a country
+
+\`${absolute(path('embed/countries/{code}/'))}\`, with the ISO 3166-1 alpha-2 code in lowercase. Current memberships, grouped by block type, largest groups first. Offered for every country or territory with current memberships.
+
+\`\`\`html
+${list.iframe}
+\`\`\`
+
+## Web component
+
+\`\`\`html
+${map.component}
+\`\`\`
+
+- \`block="ID"\` or \`country="CODE"\` selects the widget.
+- \`theme="light"\` or \`theme="dark"\` fixes the colour theme; by default the widget follows the reader's system setting.
+- The link inside the element is shown until the script runs, and stays if scripts are blocked.
+
+A plain iframe is ${FRAME_HEIGHT} pixels high by default; change \`height\` to fit your page. For a fixed theme in an iframe, add \`?theme=light\` or \`?theme=dark\` to its URL.
+
+## Attribution
+
+Keep the widget's footer visible. The data are CC BY 4.0 (internacia-db by Dateno); country centroids, used for the dots of small territories, are ODbL 1.0 (mledoze/countries); the base map is Natural Earth (public domain), and its boundaries do not imply endorsement.
+
+## Privacy
+
+Widgets set no cookies, use no storage and load nothing from other hosts. The only message a widget sends to the page around it is its height and title, which the web component uses to size the frame.
 `;
 }

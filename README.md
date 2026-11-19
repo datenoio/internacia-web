@@ -8,8 +8,8 @@ for AI agents alike. Part of the [Dateno](https://dateno.io) open-source project
 membership maps, a multilingual finder, OpenAPI, `llms.txt`, post-build checks and an
 accessibility/performance audit, plus block type, topic, geography and statistics pages (M2a)
 and explorers: membership map, accession and founding timelines, headquarters map, comparisons
-and hierarchy (M2b), full-text search and social images (M2c). Next: custom domain,
-interface translations and embeddable widgets (M3).
+and hierarchy (M2b), full-text search and social images (M2c), embeddable widgets for other
+sites (M3a). Next: interface translations and the custom domain (M3).
 Temporary address: <https://datenoio.github.io/internacia-web/> (not indexed).
 
 - Specification: [docs/SPEC.md](docs/SPEC.md)
@@ -23,6 +23,8 @@ Temporary address: <https://datenoio.github.io/internacia-web/> (not indexed).
   and hierarchy views, and a statistics and coverage page.
 - A Markdown and a JSON twin for every card, a static JSON API with an OpenAPI description,
   `llms.txt`, and schema.org JSON-LD.
+- Widgets for other sites: the membership map of an organization and the memberships of a
+  country, as an iframe or the `<internacia-embed>` web component.
 - Hosting on GitHub Pages under its own domain, rebuilt from pinned internacia-db releases.
 
 ## Build locally

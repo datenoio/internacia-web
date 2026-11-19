@@ -11,7 +11,9 @@ membership and locator maps, entity finder, 404 suggestions, OpenAPI and JSON Sc
 sitemap, post-build checks and an axe/Lighthouse audit. M2a adds block type, topic, geography and
 statistics pages, the home map, the Atom feed, citations and `data-bump.yml`. M2b adds the
 explorers under `/explore/`; M2c adds full-text search (`/search/`, Pagefind) and per-card social
-images (`/og/…png`). Next is M3 ([SPEC §13](docs/SPEC.md#13-milestones)).
+images (`/og/…png`). M3a adds embeddable widgets (`/embed/`, `public/embed/widget.js`) and the
+`repository_dispatch` trigger of `data-bump.yml`. Next are interface translations (M3b) and the
+custom domain (M3c) ([SPEC §13](docs/SPEC.md#13-milestones)).
 
 ## Rules
 
@@ -94,3 +96,9 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   `content-visibility: auto` and explicit ARIA table roles. A plain 1,275-row table scored 0.77.
 - In `.astro` templates, build sentences that end in punctuation as one string expression:
   JSX-style whitespace otherwise leaves a space before the period.
+- Widgets under `/embed/` use `layouts/Embed.astro`: no header, `<base target="_blank">`,
+  `noindex`, canonical URL = the card, theme from `?theme=` only (never storage). A card shows its
+  embed code exactly when the widget exists (`lib/embed.ts` `blockEmbeddable`,
+  `countryEmbeddable`); `check_site.py` compares the two and the widget's facts with the card's.
+- `public/embed/widget.js` finds the widgets relative to its own URL; keep it free of the domain
+  and of dependencies. It trusts a height message only from its own iframe and origin.

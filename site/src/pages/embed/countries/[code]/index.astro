@@ -1,0 +1,79 @@
+---
+// Embeddable list of a country's current memberships, grouped by block type (src/lib/embed.ts).
+// The largest groups are listed first; the rest sit under one "Other block types" entry, so the
+// widget stays short in a fixed-height frame.
+import Embed from '../../../../layouts/Embed.astro';
+import { countries, type Country } from '../../../../lib/data';
+import { countryEmbeddable, embedTitle } from '../../../../lib/embed';
+import { blocktypeLabel, num, statusLabel } from '../../../../lib/format';
+import { absolute, blockPath, countryPath } from '../../../../lib/urls';
+
+export function getStaticPaths() {
+  return countries()
+    .filter(countryEmbeddable)
+    .map((c) => ({ params: { code: c.code.toLowerCase() }, props: { c } }));
+}
+
+const TOP = 8;
+const { c } = Astro.props as { c: Country };
+const card = countryPath(c.code);
+const current = c._memberships.filter((m) => m.current);
+const byType = new Map<string, typeof current>();
+for (const m of current) byType.set(m.blocktype, [...(byType.get(m.blocktype) ?? []), m]);
+const groups = [...byType.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+const top = groups.slice(0, TOP);
+const rest = groups.slice(TOP);
+const restCount = rest.reduce((n, [, ms]) => n + ms.length, 0);
+// Lists are built as compact strings: France alone has about 500 entries, and template
+// indentation would double the size of 254 pages. Every value from data goes through esc().
+const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const list = (ms: typeof current) =>
+  `<ul>${ms
+    .map(
+      (m) =>
+        `<li data-block="${esc(m.block_id)}"><a href="${esc(blockPath(m.block_id))}">${esc(m.block_name)}</a>${m.acronym ? ` <span class="muted">(${esc(m.acronym)})</span>` : ''}${m.status !== 'member' ? ` <span class="muted small">· ${esc(statusLabel(m.status).toLowerCase())}</span>` : ''}</li>`,
+    )
+    .join('')}</ul>`;
+const statusSummary = Object.entries(c._status_counts)
+  .map(([s, n]) => `${num(n)} ${statusLabel(s).toLowerCase()}`)
+  .join(', ');
+---
+
+<Embed
+  title={embedTitle('country', c.name)}
+  description={`Current memberships of ${c.name} in international organizations and groupings, from internacia-db.`}
+  canonical={absolute(countryPath(c.code))}
+  card={card}
+  cardLabel="All memberships and details"
+>
+  <h1 class="embed-title">
+    {c.flag_emoji && <span aria-hidden="true">{c.flag_emoji} </span>}
+    <a href={card}>{c.name}</a>
+  </h1>
+  <p class="small" data-embed-summary>
+    {`${num(current.length)} current memberships in international organizations and groupings${statusSummary ? ` (${statusSummary})` : ''}, by block type:`}
+  </p>
+  <div class="embed-groups">
+    {
+      top.map(([t, ms]) => (
+        <details>
+          <summary>{`${blocktypeLabel(t)} (${num(ms.length)})`}</summary>
+          <Fragment set:html={list(ms)} />
+        </details>
+      ))
+    }
+    {
+      rest.length > 0 && (
+        <details>
+          <summary>{`Other block types (${num(restCount)} in ${rest.length} types)`}</summary>
+          {rest.map(([t, ms]) => (
+            <>
+              <h2 class="small">{`${blocktypeLabel(t)} (${num(ms.length)})`}</h2>
+              <Fragment set:html={list(ms)} />
+            </>
+          ))}
+        </details>
+      )
+    }
+  </div>
+</Embed>

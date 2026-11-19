@@ -3,6 +3,10 @@ name: Data bump
 # Daily: if internacia-db has a newer release than internacia.lock.json pins, fetch and verify it,
 # build and check the site, and open a pull request that moves the lock file (SPEC §11.3).
 #
+# internacia-db's release workflow can also start it at once with a repository_dispatch event of
+# type internacia-db-release and client_payload {"tag": "vX.Y.Z"}; the tag is checked against the
+# release tag pattern before use.
+#
 # A release with a new contract MAJOR fails at "Fetch and verify" on purpose: the pipeline must be
 # updated first. Pull requests opened with GITHUB_TOKEN do not start other workflows, so the Site
 # workflow does not run on them by itself; this workflow already built and checked the site, and
@@ -16,6 +20,8 @@ on:
       tag:
         description: Release tag to move to (default the latest release)
         required: false
+  repository_dispatch:
+    types: [internacia-db-release]
 
 permissions:
   contents: read
@@ -47,6 +53,19 @@ jobs:
       - name: Install pipeline dependencies
         run: pip install -r pipeline/requirements-dev.txt
 
+      - name: Read the requested tag
+        id: req
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          EVENT_TAG: ${{ github.event.client_payload.tag }}
+        run: |
+          tag="${INPUT_TAG:-$EVENT_TAG}"
+          if [ -n "$tag" ] && ! printf '%s' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::the requested tag is not a release tag of the form vX.Y.Z"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
       - name: Check for a newer release
         id: check
         env:
@@ -54,7 +73,7 @@ jobs:
         run: python pipeline/bump.py check
 
       - name: Build data for the pinned release
-        if: steps.check.outputs.newer == 'true' || (inputs.tag || '') != ''
+        if: steps.check.outputs.newer == 'true' || steps.req.outputs.tag != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -64,10 +83,10 @@ jobs:
 
       - name: Move the lock file
         id: update
-        if: steps.check.outputs.newer == 'true' || (inputs.tag || '') != ''
+        if: steps.check.outputs.newer == 'true' || steps.req.outputs.tag != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ inputs.tag }}
+          TAG: ${{ steps.req.outputs.tag }}
         run: python pipeline/bump.py update ${TAG:+--tag "$TAG"}
 
       - name: Fetch and verify the new release

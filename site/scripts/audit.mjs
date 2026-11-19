@@ -7,7 +7,8 @@
 // GitHub Pages.
 // Fails on any serious or critical axe violation, a Lighthouse category below 0.95, or LCP above
 // 2.5 s. While the site is not indexable, Lighthouse's is-crawlable audit is skipped (noindex is
-// intended on the temporary address).
+// intended on the temporary address); embedded widgets are never indexable, so it is always
+// skipped for them. The web component on /embed/ must size its frames from the widgets' messages.
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
@@ -58,8 +59,13 @@ const AXE_PAGES = [
   'explore/hierarchy/?id=UNEP',
   'search/?q=nato',
   'blocks/g20/', // 404 with suggestions
+  'embed/',
+  'embed/blocks/eu/',
+  'embed/blocks/un/',
+  'embed/blocks/jcpoa/',
+  'embed/countries/fr/',
 ];
-const LH_PAGES = ['', 'countries/fr/', 'blocks/un/', 'blocks/eu/', 'blocks/', 'types/intorg/', 'stats/', 'explore/map/', 'explore/headquarters/', 'explore/compare/'];
+const LH_PAGES = ['', 'countries/fr/', 'blocks/un/', 'blocks/eu/', 'blocks/', 'types/intorg/', 'stats/', 'explore/map/', 'explore/headquarters/', 'explore/compare/', 'embed/blocks/un/', 'embed/countries/fr/'];
 const LH_MIN = 0.95;
 const LCP_MAX_MS = 2500;
 
@@ -133,6 +139,26 @@ for (const colorScheme of ['light', 'dark']) {
   console.log(`404   /blocks/g20/ suggests ${links.slice(0, 3).join(', ')}`);
   await page.close();
 }
+// The web component sizes each frame from the height its widget reports.
+{
+  const page = await browser.newPage();
+  await page.goto(pageUrl('embed/'), { waitUntil: 'load' });
+  for (const selector of ['internacia-embed[block="EU"]', 'internacia-embed[country="FR"]']) {
+    const height = await page.locator(selector).evaluate(async (el) => {
+      el.scrollIntoView();
+      for (let i = 0; i < 100; i++) {
+        const frame = el.shadowRoot?.querySelector('iframe');
+        if (frame?.style.height) return frame.style.height;
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      return null;
+    });
+    if (!height) failures.push(`embed: ${selector} frame was not sized by the widget`);
+    else console.log(`embed ${selector} height ${height}`);
+  }
+  await page.close();
+}
+
 const chromePath = chromium.executablePath();
 await browser.close();
 
@@ -145,7 +171,7 @@ if (RUN_LH) {
         output: 'json',
         logLevel: 'error',
         onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo'],
-        skipAudits: INDEXABLE ? [] : ['is-crawlable'],
+        skipAudits: INDEXABLE && !p.startsWith('embed/') ? [] : ['is-crawlable'],
       });
       const scores = Object.fromEntries(Object.entries(lhr.categories).map(([k, c]) => [k, c.score]));
       const lcp = lhr.audits['largest-contentful-paint']?.numericValue ?? 0;

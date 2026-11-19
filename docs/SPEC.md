@@ -193,6 +193,7 @@ All paths end with a slash for HTML. Machine twins use the same slug with an ext
 | Data & API | `/data/` | `/data.md` | `/api/v1/openapi.json` |
 | About, methodology, licence | `/about/…` | `/about/{page}.md` | — |
 | Search | `/search/?q=` | — | `/api/v1/search-index.json` |
+| Embeds (widgets for other sites) | `/embed/`, `/embed/blocks/{id}/`, `/embed/countries/{code}/` | `/embed.md` | — |
 | AI index | — | `/llms.txt`, `/llms-full.txt` | — |
 
 ### 5.2 Slug rules
@@ -664,8 +665,12 @@ Until the domain exists, the site deploys to `https://datenoio.github.io/interna
   `internacia.lock.json` and opens a pull request with a summary: version, contract version,
   counts added and removed, schema hash changes.
 - A new contract MAJOR makes the pull request fail on purpose; the pipeline must be updated first.
-- Optional later step: internacia-db's release workflow sends a `repository_dispatch` event so
-  the bump happens immediately. This needs a token in internacia-db and is a separate change there.
+- `data-bump.yml` also runs on a `repository_dispatch` event of type `internacia-db-release`
+  with `client_payload: {"tag": "vX.Y.Z"}`, so the bump can start as soon as a release is
+  published. The tag must match `^v[0-9]+\.[0-9]+\.[0-9]+$`. Sending the event is a separate
+  change in internacia-db: its release workflow needs a fine-grained token with "Contents: read
+  and write" on `datenoio/internacia-web` only, stored as a secret, and a step such as
+  `gh api repos/datenoio/internacia-web/dispatches -f event_type=internacia-db-release -f "client_payload[tag]=$TAG"`.
 
 ## 12. Quality assurance and acceptance
 
@@ -684,6 +689,7 @@ The build fails when any of these checks fails.
 | Performance | Lighthouse CI meets [§10.4](#104-performance-budgets) on sample pages |
 | Structured data | JSON-LD on sample pages parses and matches the expected types |
 | Guardrails | No page or JSON contains fields that internacia-db does not export, except `_`-prefixed derived fields |
+| Embeds | A widget exists exactly for the cards that offer one, has the card's map data or current memberships, is `noindex`, has the card as canonical URL and links to it with the licence |
 
 Sample pages: `/`, `/countries/fr/`, `/countries/xk/`, `/countries/ps/`, `/countries/aq/`,
 `/blocks/un/`, `/blocks/eu/`, `/blocks/nato/`, `/blocks/afunion/`, `/blocks/g-20/`,
@@ -758,6 +764,23 @@ per card, 37 MB for all, and the build takes about 75 s. The site is then about 
 **Done when** every explorer works with keyboard only, has a data table, and has a shareable URL.
 
 ### M3 — Reach
+
+Delivered in parts. **M3a**: embeddable widgets and the receiving side of `repository_dispatch`.
+**M3b**: interface translations. **M3c**: custom domain, when it is registered.
+
+Decisions taken in M3a: widgets are static pages under `/embed/blocks/{id}/` (membership map,
+1,255 intblocks whose roster has countries on the map) and `/embed/countries/{code}/` (current
+memberships grouped by block type, the eight largest groups first, 254 countries with current
+memberships), built from the same data as the cards. They have no header or navigation, open
+links in a new tab, take the theme from `?theme=` only (no storage on someone else's page), are
+`noindex` with the card as canonical URL, and show the data version, licence and a link to the
+card in a footer. The web component `<internacia-embed block|country="…">` (`/embed/widget.js`,
+no dependencies) puts the widget in an iframe and sizes it from a `postMessage` that carries only
+the height and title; it accepts messages only from its own frame and origin. Widgets have no
+Markdown or JSON twin: the card and its twins hold the facts. `/embed/` documents the widgets,
+with live examples. Country lists are compact strings (France has about 500 entries); the widgets
+add about 17 MB, so the site is about 305 MB, above the 300 MB target of §10.3 and well under the
+1 GB limit of GitHub Pages; M3b must plan its size before adding languages.
 
 - Custom domain live with HTTPS; `noindex` removed.
 - Interface translations into the UN languages ([§9.3](#93-language)).

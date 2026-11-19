@@ -3,10 +3,12 @@ import BarList from '../../../components/BarList.astro';
 import Facts from '../../../components/Facts.astro';
 import MembershipMap from '../../../components/MembershipMap.astro';
 import Cite from '../../../components/Cite.astro';
+import EmbedCode from '../../../components/EmbedCode.astro';
 import Base from '../../../layouts/Base.astro';
 import { CENTROID_NOTE } from '../../../lib/api';
 import { aliases, areaByName, countries, countryByCode, type Country } from '../../../lib/data';
 import { blocktypeLabel, enumLabel, num, statusDeprecated, statusDescription, statusLabel, vocabLabel, yesNo } from '../../../lib/format';
+import { countryEmbeddable } from '../../../lib/embed';
 import { countryLd } from '../../../lib/jsonld';
 import {
   blockPath,
@@ -275,6 +277,7 @@ const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
             {c.name} has <strong>{num(current.length)}</strong> current memberships in international organizations and
             groupings{statusSummary ? ` (${statusSummary})` : ''}.
           </p>
+          {countryEmbeddable(c) && <EmbedCode kind="country" id={c.code} name={c.name} />}
           {topTypes.length > 0 && (
             <>
               <h3>Current memberships by block type{otherTypes.length > 0 ? ', top 10' : ''}</h3>

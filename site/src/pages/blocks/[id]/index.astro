@@ -3,6 +3,7 @@ import AliasPage from '../../../components/AliasPage.astro';
 import Facts from '../../../components/Facts.astro';
 import MembershipMap from '../../../components/MembershipMap.astro';
 import Cite from '../../../components/Cite.astro';
+import EmbedCode from '../../../components/EmbedCode.astro';
 import Base from '../../../layouts/Base.astro';
 import { aliases, blockById, blocks, type Block, type BlockRef } from '../../../lib/data';
 import {
@@ -16,6 +17,7 @@ import {
   statusLabel,
   topicLabel,
 } from '../../../lib/format';
+import { blockEmbeddable } from '../../../lib/embed';
 import { blockLd } from '../../../lib/jsonld';
 import { blockJson, blockMd, blockPath, countryPath, path, reportErrorUrl, sourceUrl, topicPath, typePath, wikidataUrl } from '../../../lib/urls';
 
@@ -255,6 +257,7 @@ const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.v
                   </>
                 )}
               </p>
+              {blockEmbeddable(b) && <EmbedCode kind="block" id={b.id} name={b._acronym ? `${b.name} (${b._acronym})` : b.name} />}
               {listed.length > 0 && (
                 <>
                   <div class="filters js-only" data-table-tools="roster-table">

@@ -13,6 +13,8 @@ Runs after `astro build`. Fails (exit 1) when any check fails:
 - guardrails        entity JSON adds only `_`-prefixed fields to internacia-db export fields
 - social images     every card names an og:image that exists and is a 1200×630 PNG
 - search index      Pagefind indexed the cards and left out alias, search and 404 pages
+- embeds            a widget exists exactly for the cards that offer one, carries the card's facts,
+                    is not indexed and links back to its card
 """
 
 from __future__ import annotations
@@ -45,6 +47,9 @@ ROW = re.compile(r"<tr\b([^>]*)>")
 ATTR = re.compile(r'data-([a-z]+)="([^"]*)"')
 LD = re.compile(r'<script type="application/ld\+json">(.*?)</script>', re.S)
 REFRESH = re.compile(r'http-equiv="refresh" content="0; url=([^"]+)"')
+MAP_DATA = re.compile(r'<script type="application/json" data-map-data>(.*?)</script>', re.S)
+CANONICAL = re.compile(r'<link rel="canonical" href="([^"]+)"')
+LIST_BLOCK = re.compile(r'<li data-block="([^"]+)"')
 
 
 class Report:
@@ -61,12 +66,15 @@ class Report:
             self.passed.append(name)
 
 
-def base_path() -> str:
+def site_url() -> str:
     match = re.search(r"SITE_URL\s*=\s*'([^']+)'", SITE_CONFIG.read_text(encoding="utf-8"))
     if not match:
         raise SystemExit("SITE_URL not found in site/site.config.mjs")
-    path = re.sub(r"^https?://[^/]+", "", match.group(1))
-    return path if path.endswith("/") else path + "/"
+    return match.group(1) if match.group(1).endswith("/") else match.group(1) + "/"
+
+
+def base_path() -> str:
+    return re.sub(r"^https?://[^/]+", "", site_url())
 
 
 def sample(items: list[str], featured: list[str]) -> list[str]:
@@ -341,6 +349,65 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
             if "data-pagefind-body" in (dist / rel).read_text(encoding="utf-8"):
                 problems.append(f"{rel} is indexed")
     report.check("search index", problems)
+
+    # Embeds: one widget per card that offers one, with the same facts as the card
+    problems = []
+    origin = site_url()[: -len(base)] if base != "/" else site_url()[:-1]
+    built = {
+        section: {p.name for p in (dist / "embed" / section).iterdir() if (p / "index.html").is_file()}
+        if (dist / "embed" / section).is_dir()
+        else set()
+        for section in ("blocks", "countries")
+    }
+
+    def check_widget(section: str, slug: str) -> str:
+        rel = f"embed/{section}/{slug}/index.html"
+        html = (dist / rel).read_text(encoding="utf-8")
+        card = f"{base}{section}/{slug}/"
+        canonical = CANONICAL.search(html)
+        if not canonical or canonical.group(1) != origin + card:
+            problems.append(f"{rel}: canonical is {canonical.group(1) if canonical else 'missing'}, expected {origin + card}")
+        if '<meta name="robots" content="noindex"' not in html:
+            problems.append(f"{rel}: no noindex")
+        if "data-pagefind-body" in html:
+            problems.append(f"{rel}: indexed by Pagefind")
+        if f'href="{card}"' not in html or "CC BY 4.0" not in html:
+            problems.append(f"{rel}: no link to the card or no licence")
+        return html
+
+    for b in blocks:
+        slug = b["id"].lower()
+        card = (dist / f"blocks/{slug}/index.html").read_text(encoding="utf-8")
+        card_map = MAP_DATA.search(card)
+        offered = 'data-embed="' in card
+        exists = slug in built["blocks"]
+        if not (bool(card_map) == offered == exists):
+            problems.append(f"blocks/{b['id']}: card map {bool(card_map)}, embed code {offered}, widget {exists}")
+            continue
+        if exists:
+            widget = MAP_DATA.search(check_widget("blocks", slug))
+            if not widget or json.loads(widget.group(1)) != json.loads(card_map.group(1)):
+                problems.append(f"embed/blocks/{slug}: map data differ from the card")
+    for c in countries:
+        slug = c["code"].lower()
+        current = {m["block_id"] for m in c["_memberships"] if m["current"]}
+        card = (dist / f"countries/{slug}/index.html").read_text(encoding="utf-8")
+        offered = 'data-embed="' in card
+        exists = slug in built["countries"]
+        if not (bool(current) == offered == exists):
+            problems.append(f"countries/{c['code']}: {len(current)} current memberships, embed code {offered}, widget {exists}")
+            continue
+        if exists:
+            listed = set(LIST_BLOCK.findall(check_widget("countries", slug)))
+            if listed != current:
+                problems.append(f"embed/countries/{slug}: lists {len(listed)} memberships, the card has {len(current)}")
+    known = {"blocks": {b["id"].lower() for b in blocks}, "countries": {c["code"].lower() for c in countries}}
+    for section, slugs in built.items():
+        for slug in sorted(slugs - known[section]):
+            problems.append(f"embed/{section}/{slug}: widget without a record")
+    if not (dist / "embed" / "widget.js").is_file():
+        problems.append("embed/widget.js missing")
+    report.check("embeds", problems)
     return report
 
 

@@ -61,6 +61,7 @@ Every card exists in three forms with the same facts: HTML, Markdown and JSON.
 - [Data releases (Atom)](${u('feed.xml')})
 - [JSON API index](${u('api/v1/index.json')}) — OpenAPI 3.1: ${u('api/v1/openapi.json')}
 - [Data and downloads](${u('data.md')})
+- [Embeds for other sites](${u('embed.md')}): membership map of an intblock (${u('embed/blocks/{id}/')}), memberships of a country (${u('embed/countries/{code}/')})
 - [About, licence and methodology](${u('about.md')})
 
 ## Optional
