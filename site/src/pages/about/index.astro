@@ -8,6 +8,8 @@ const body = marked.parse(aboutMarkdown(), { async: false }) as string;
 ---
 
 <Base
+
+  section="About"
   title="About"
   description="What Internacia and internacia-db are, methodology, neutrality, licence and attribution."
   breadcrumbs={[{ name: 'About', href: path('about/') }]}

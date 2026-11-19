@@ -8,7 +8,8 @@ for AI agents alike. Part of the [Dateno](https://dateno.io) open-source project
 membership maps, a multilingual finder, OpenAPI, `llms.txt`, post-build checks and an
 accessibility/performance audit, plus block type, topic, geography and statistics pages (M2a)
 and explorers: membership map, accession and founding timelines, headquarters map, comparisons
-and hierarchy (M2b). Full-text search and social images arrive in M2c.
+and hierarchy (M2b), full-text search and social images (M2c). Next: custom domain,
+interface translations and embeddable widgets (M3).
 Temporary address: <https://datenoio.github.io/internacia-web/> (not indexed).
 
 - Specification: [docs/SPEC.md](docs/SPEC.md)

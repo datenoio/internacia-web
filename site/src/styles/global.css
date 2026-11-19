@@ -1190,3 +1190,9 @@ table.coverage td.h5 { background: #3987e5; color: #0b0b0b; }
   max-width: none;
   height: auto;
 }
+
+/* Long sections below the fold: skip rendering until they come near the viewport. */
+.offscreen {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 9000px;
+}

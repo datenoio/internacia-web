@@ -56,6 +56,7 @@ const AXE_PAGES = [
   'explore/compare/',
   'explore/countries/',
   'explore/hierarchy/?id=UNEP',
+  'search/?q=nato',
   'blocks/g20/', // 404 with suggestions
 ];
 const LH_PAGES = ['', 'countries/fr/', 'blocks/un/', 'blocks/eu/', 'blocks/', 'types/intorg/', 'stats/', 'explore/map/', 'explore/headquarters/', 'explore/compare/'];

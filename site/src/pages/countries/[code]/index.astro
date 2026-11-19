@@ -64,6 +64,7 @@ const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
 {
   c && (
     <Base
+      section="Countries"
       title={c.name}
       description={`${c.name} (${c.code}, ${c.iso3code}): identifiers, geography, classification and ${c._current_member_count} current memberships in international organizations and groupings.`}
       breadcrumbs={[
@@ -75,6 +76,8 @@ const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
       sourceUrl={sourceUrl(c._source_path)}
       reportUrl={reportErrorUrl('countries', c.code, c.name)}
       jsonld={countryLd(c)}
+      ogImage={path(`og/countries/${c.code.toLowerCase()}.png`)}
+      ogAlt={`${c.name} on a world map, with its codes and number of memberships`}
     >
       <section class="container page-head">
         <h1>

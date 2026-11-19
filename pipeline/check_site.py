@@ -11,6 +11,8 @@ Runs after `astro build`. Fails (exit 1) when any check fails:
 - redirects         every alias page points to an existing card
 - structured data   JSON-LD parses and has the expected @type on cards
 - guardrails        entity JSON adds only `_`-prefixed fields to internacia-db export fields
+- social images     every card names an og:image that exists and is a 1200×630 PNG
+- search index      Pagefind indexed the cards and left out alias, search and 404 pages
 """
 
 from __future__ import annotations
@@ -21,6 +23,8 @@ import re
 import sys
 from collections import Counter
 from pathlib import Path
+
+import struct
 
 import duckdb
 from jsonschema import Draft202012Validator
@@ -297,6 +301,46 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
             if extra:
                 problems.append(f"{section}/{item[key]}: fields not in internacia-db exports: {extra}")
     report.check("guardrails", problems)
+
+    # Social images
+    problems = []
+    og = re.compile(r'<meta property="og:image" content="([^"]+)"')
+    for section, items, key in (("countries", countries, "code"), ("blocks", blocks, "id")):
+        for item in items:
+            html = (dist / f"{section}/{item[key].lower()}/index.html").read_text(encoding="utf-8")
+            match = og.search(html)
+            expected = f"og/{section}/{item[key].lower()}.png"
+            if not match or not match.group(1).endswith(expected):
+                problems.append(f"{section}/{item[key]}: og:image is {match.group(1) if match else 'missing'}, expected …/{expected}")
+                continue
+            path = dist / expected
+            if not path.is_file():
+                problems.append(f"{expected} missing")
+                continue
+            head = path.read_bytes()[:24]
+            if head[:8] != b"\x89PNG\r\n\x1a\n" or struct.unpack(">II", head[16:24]) != (1200, 630):
+                problems.append(f"{expected} is not a 1200×630 PNG")
+    report.check("social images", problems)
+
+    # Search index (Pagefind)
+    problems = []
+    entry = dist / "pagefind" / "pagefind-entry.json"
+    if not entry.is_file():
+        problems.append("pagefind/pagefind-entry.json missing: run pagefind after astro build")
+    else:
+        languages = json.loads(entry.read_text(encoding="utf-8")).get("languages", {})
+        indexed = sum(lang.get("page_count", 0) for lang in languages.values())
+        expected_min = len(countries) + len(blocks)
+        if indexed < expected_min:
+            problems.append(f"Pagefind indexed {indexed} pages, expected at least {expected_min} (every card)")
+        for a in aliases:
+            html = (dist / a["section"] / a["alias"].lower() / "index.html").read_text(encoding="utf-8")
+            if "data-pagefind-body" in html:
+                problems.append(f"{a['section']}/{a['alias']}: alias page is indexed")
+        for rel in ("404.html", "search/index.html"):
+            if "data-pagefind-body" in (dist / rel).read_text(encoding="utf-8"):
+                problems.append(f"{rel} is indexed")
+    report.check("search index", problems)
     return report
 
 

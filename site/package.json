@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build",
+    "build": "astro build && pagefind --site dist --quiet --exclude-selectors '.table-wrap, .chart, .map, .cite, .filters, .explorer-controls, .bars, [aria-labelledby=links], [aria-labelledby=provenance]'",
     "preview": "astro preview",
     "audit": "node scripts/audit.mjs"
   },
@@ -21,8 +21,12 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",
+    "@expo-google-fonts/inter": "0.4.2",
+    "@resvg/resvg-js": "2.6.2",
     "chrome-launcher": "1.2.3",
     "lighthouse": "13.6.0",
-    "playwright": "1.65.1"
+    "pagefind": "1.6.0",
+    "playwright": "1.65.1",
+    "sharp": "0.35.5"
   }
 }

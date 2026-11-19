@@ -48,6 +48,17 @@ if (root) {
       li.append(a);
       list.append(li);
     });
+    const q = input.value.trim();
+    if (q) {
+      const li = document.createElement('li');
+      li.className = 'finder-all';
+      const a = document.createElement('a');
+      a.href = `${root.dataset.search}?q=${encodeURIComponent(q)}`;
+      a.tabIndex = -1;
+      a.textContent = `Search all pages for “${q}”`;
+      li.append(a);
+      list.append(li);
+    }
     list.hidden = !list.childElementCount;
     input.setAttribute('aria-expanded', list.hidden ? 'false' : 'true');
     highlight(hits.length ? 0 : -1);
@@ -72,6 +83,9 @@ if (root) {
     } else if (e.key === 'Enter' && active >= 0 && hits[active]) {
       e.preventDefault();
       window.location.href = hits[active].path;
+    } else if (e.key === 'Enter' && input.value.trim()) {
+      e.preventDefault();
+      window.location.href = `${root.dataset.search}?q=${encodeURIComponent(input.value.trim())}`;
     } else if (e.key === 'Escape') {
       close();
     }

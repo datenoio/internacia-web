@@ -25,6 +25,8 @@ const top = clusters.slice(0, 5);
 ---
 
 <Base
+
+  section="Explore"
   title="Headquarters map"
   description={`Where international organizations are based: ${total} headquarters in ${clusters.length} cities.`}
   breadcrumbs={[
@@ -50,7 +52,7 @@ const top = clusters.slice(0, 5);
       </figcaption>
     </figure>
   </section>
-  <section class="container card-section" aria-labelledby="cities">
+  <section class="container card-section offscreen" aria-labelledby="cities">
     <h2 id="cities">Cities</h2>
     <div class="table-wrap">
       <table class="data" id="hq-table">
