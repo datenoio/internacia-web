@@ -1,0 +1,21 @@
+# Data cache and generated data
+.cache/
+site/src/generated/
+
+# Build output
+dist/
+site/dist/
+site/.astro/
+
+# Node
+node_modules/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
