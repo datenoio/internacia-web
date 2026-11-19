@@ -30,6 +30,9 @@ Every card exists in three forms with the same facts: HTML, Markdown and JSON.
 
 - Country card: ${u('countries/{code}/')} — Markdown ${u('countries/{code}.md')} — JSON ${u('api/v1/countries/{CODE}.json')}
 - Intblock card: ${u('blocks/{id}/')} — Markdown ${u('blocks/{id}.md')} — JSON ${u('api/v1/blocks/{ID}.json')}
+- Block type: ${u('types/{key}/')} — ${u('types/{key}.md')} — ${u('api/v1/types/{key}.json')}
+- Topic: ${u('topics/{key}/')} — ${u('topics/{key}.md')} — ${u('api/v1/topics/{key}.json')}
+- Continent or subregion: ${u('geography/{slug}/')} — ${u('geography/{slug}.md')} — ${u('api/v1/geography/{slug}.json')}
 - HTML and Markdown paths use lowercase codes and IDs; JSON paths use the exact code or ID.
 - Examples: ${u('blocks/asean.md')}, ${u('api/v1/countries/FR.json')}, ${u('api/v1/blocks/G-20.json')}
 
@@ -42,12 +45,18 @@ Every card exists in three forms with the same facts: HTML, Markdown and JSON.
 | Find an intblock ID by name or acronym | ${u('api/v1/blocks.json')} (${c.intblocks} records, lite) |
 | List all countries with codes | ${u('countries.md')} or ${u('api/v1/countries.json')} |
 | Every field of one record | ${u('api/v1/blocks/{ID}.json')}, ${u('api/v1/countries/{CODE}.json')} |
+| Intblocks of a type or on a topic | ${u('types/{key}.md')}, ${u('topics/{key}.md')} |
+| Countries of a continent or subregion | ${u('geography/{slug}.md')} |
+| How complete a field is; which records lack it | ${u('stats.md')}, ${u('api/v1/stats.json')} |
 | Bulk analysis (SQL) | internacia.duckdb from ${meta.data.release_url} |
 
 ## Indexes
 
 - [Countries](${u('countries.md')}): ${c.countries} records
 - [Organizations and groupings](${u('blocks.md')}): ${c.intblocks} records
+- [Block types](${u('types.md')}), [topics](${u('topics.md')}), [geography](${u('geography.md')})
+- [Statistics and coverage](${u('stats.md')})
+- [Data releases (Atom)](${u('feed.xml')})
 - [JSON API index](${u('api/v1/index.json')}) — OpenAPI 3.1: ${u('api/v1/openapi.json')}
 - [Data and downloads](${u('data.md')})
 - [About, licence and methodology](${u('about.md')})

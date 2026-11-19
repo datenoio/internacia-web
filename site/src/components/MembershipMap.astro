@@ -6,11 +6,17 @@
 import type { Block, Country } from '../lib/data';
 import { statusLabel } from '../lib/format';
 import { onMap, worldMap } from '../lib/worldmap';
+import { binFor, MEMBERSHIP_BINS } from '../lib/series';
+import { countryByCode } from '../lib/data';
 import { path } from '../lib/urls';
 
 interface Props {
   block?: Block;
   country?: Country;
+  // A set of countries to highlight (geography pages).
+  area?: { name: string; codes: string[] };
+  // A value per country, shown as a sequential choropleth (home page, SPEC §8 V2).
+  values?: { label: string; data: Record<string, number> };
 }
 
 type Group = 'm' | 'p' | 'o' | 'f';
@@ -31,8 +37,9 @@ const groupOf = (status: string): Group =>
         ? 'f'
         : 'p';
 
-const { block, country } = Astro.props;
-const data: Record<string, [Group, string, string, string]> = {};
+const { block, country, area, values } = Astro.props;
+// Entry: [CSS class, value label, joined date, name]
+const data: Record<string, [string, string, string, string]> = {};
 let caption = '';
 let summary = '';
 
@@ -41,25 +48,39 @@ if (block) {
     if (r.link !== 'country' || !onMap(r.id)) continue;
     const g: Group = block._active ? (r.current ? groupOf(r.status) : 'f') : groupOf(r.status);
     const prev = data[r.id];
-    if (!prev || RANK[g] > RANK[prev[0]]) {
-      data[r.id] = [g, statusLabel(r.status), r.joined ?? '', r.name ?? r.id];
+    if (!prev || RANK[g] > RANK[prev[0].slice(2) as Group]) {
+      data[r.id] = [`g-${g}`, statusLabel(r.status), r.joined ?? '', r.name ?? r.id];
     }
   }
   caption = block._active
     ? `Countries and territories in ${block.name}, by membership status`
     : `Countries and territories in ${block.name}, as recorded (the entity is no longer active)`;
-  const counts = Object.values(data).reduce<Record<string, number>>((acc, [g]) => ({ ...acc, [g]: (acc[g] ?? 0) + 1 }), {});
+  const counts = Object.values(data).reduce<Record<string, number>>((acc, [g]) => ({ ...acc, [g.slice(2)]: (acc[g.slice(2)] ?? 0) + 1 }), {});
   summary = (Object.keys(GROUPS) as Group[])
     .filter((g) => counts[g])
     .map((g) => `${counts[g]} ${GROUPS[g].toLowerCase()}`)
     .join(', ');
 } else if (country && onMap(country.code)) {
-  data[country.code] = ['m', 'Location', '', country.name];
+  data[country.code] = ['g-m', 'Location', '', country.name];
   caption = `Location of ${country.name}`;
   summary = caption;
+} else if (area) {
+  for (const code of area.codes) {
+    if (onMap(code)) data[code] = ['g-m', area.name, '', countryByCode().get(code)?.name ?? code];
+  }
+  caption = `Countries and territories in ${area.name}`;
+  summary = `${Object.keys(data).length} shown`;
+} else if (values) {
+  for (const [code, n] of Object.entries(values.data)) {
+    const bin = binFor(n);
+    if (bin && onMap(code)) data[code] = [bin.cls, `${n} ${values.label}`, '', countryByCode().get(code)?.name ?? code];
+  }
+  caption = `Countries and territories by number of ${values.label}`;
+  summary = MEMBERSHIP_BINS.map((b) => b.label).join(', ');
 }
 
-const present = (Object.keys(GROUPS) as Group[]).filter((g) => Object.values(data).some(([x]) => x === g));
+const present = (Object.keys(GROUPS) as Group[]).filter((g) => Object.values(data).some(([x]) => x === `g-${g}`));
+const bins = values ? MEMBERSHIP_BINS.filter((b) => Object.values(data).some(([x]) => x === b.cls)) : [];
 const show = Object.keys(data).length > 0;
 // The canvas keeps the map's aspect ratio before the SVG arrives, so nothing shifts.
 const ratio = `--map-ratio: ${worldMap().width} / ${worldMap().height}`;
@@ -81,6 +102,16 @@ const ratio = `--map-ratio: ${worldMap().width} / ${worldMap().height}`;
               <li>
                 <span class={`swatch g-${g}`} aria-hidden="true" />
                 {GROUPS[g]}
+              </li>
+            ))}
+          </ul>
+        )}
+        {values && (
+          <ul class="legend" aria-label={`Number of ${values.label}`}>
+            {bins.map((b) => (
+              <li>
+                <span class={`swatch ${b.cls}`} aria-hidden="true" />
+                {b.label}
               </li>
             ))}
           </ul>

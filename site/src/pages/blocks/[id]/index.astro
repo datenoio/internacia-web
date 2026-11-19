@@ -2,6 +2,7 @@
 import AliasPage from '../../../components/AliasPage.astro';
 import Facts from '../../../components/Facts.astro';
 import MembershipMap from '../../../components/MembershipMap.astro';
+import Cite from '../../../components/Cite.astro';
 import Base from '../../../layouts/Base.astro';
 import { aliases, blockById, blocks, type Block, type BlockRef } from '../../../lib/data';
 import {
@@ -16,7 +17,7 @@ import {
   topicLabel,
 } from '../../../lib/format';
 import { blockLd } from '../../../lib/jsonld';
-import { blockJson, blockMd, blockPath, countryPath, path, reportErrorUrl, sourceUrl, wikidataUrl } from '../../../lib/urls';
+import { blockJson, blockMd, blockPath, countryPath, path, reportErrorUrl, sourceUrl, topicPath, typePath, wikidataUrl } from '../../../lib/urls';
 
 export function getStaticPaths() {
   const pages = blocks().map((b) => ({ params: { id: b.id.toLowerCase() }, props: { id: b.id, alias: null } }));
@@ -81,17 +82,22 @@ const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.v
           {b.scope_category && <li class="badge">{enumLabel('scope_category', b.scope_category)}</li>}
           {b.geographic_scope && <li class="badge">{enumLabel('geographic_scope', b.geographic_scope)} scope</li>}
           {b.blocktype.map((t) => (
-            <li class="badge">{blocktypeLabel(t)}</li>
+            <li>
+              <a class="badge" href={typePath(t)}>{blocktypeLabel(t)}</a>
+            </li>
           ))}
         </ul>
         {(b.topics?.length ?? 0) > 0 && (
           <ul class="badges" aria-label="Topics">
             {b.topics!.map((t) => (
-              <li class="badge">{topicLabel(t.key, t.name)}</li>
+              <li>
+                <a class="badge" href={topicPath(t.key)}>{topicLabel(t.key, t.name)}</a>
+              </li>
             ))}
           </ul>
         )}
         {b.description && <p class="lead">{b.description}</p>}
+        <Cite title={b._acronym ? `${b.name} (${b._acronym})` : b.name} href={blockPath(b.id)} />
         {b._alias_notes.map((n) =>
           n.kind === 'former_id' ? (
             <p class="muted small">

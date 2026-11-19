@@ -8,7 +8,8 @@ specification disagree, raise it; do not silently follow either.
 
 M0 and M1 are in place: pipeline, country and intblock cards with Markdown and JSON twins,
 membership and locator maps, entity finder, 404 suggestions, OpenAPI and JSON Schemas, `llms.txt`,
-sitemap, post-build checks and an axe/Lighthouse audit. Next is M2
+sitemap, post-build checks and an axe/Lighthouse audit. M2a adds block type, topic, geography and
+statistics pages, the home map, the Atom feed, citations and `data-bump.yml`. Next is M2b
 ([SPEC §13](docs/SPEC.md#13-milestones)).
 
 ## Rules
@@ -37,6 +38,8 @@ sitemap, post-build checks and an axe/Lighthouse audit. Next is M2
   and their `.md` / `.json` endpoints read the same generated data.
 - `site/` — Astro project. `site/site.config.mjs` holds `SITE_URL` and `INDEXABLE`.
 - `.github/workflows/site.yml` — builds on pull requests, deploys `main` to GitHub Pages.
+- `.github/workflows/data-bump.yml` — daily; `pipeline/bump.py` moves the lock to a newer release,
+  the workflow builds and checks the site and opens a pull request.
 
 ## Commands
 
@@ -72,6 +75,10 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
 - Layout must not shift when scripts run (Lighthouse CLS): give elements that need JavaScript the
   class `js-only` (shown from first paint via `html.js`, set in `<head>`), never `hidden` +
   unhide; default filters are a table attribute matched by static CSS.
+- An element with the `hidden` attribute must not get a `display` value from CSS without a
+  matching `[hidden] { display: none }` rule (the map tooltip showed as an empty box).
+- Coverage on the Statistics page follows internacia-db's `*_completeness.yaml` gates; records
+  empty by design (`timezone_status`, `membership_applicability`) count as filled.
 - Tables with hundreds of rows use the `chunked` class: rows in `<tbody>` chunks with
   `content-visibility: auto` and explicit ARIA table roles. A plain 1,275-row table scored 0.77.
 - In `.astro` templates, build sentences that end in punctuation as one string expression:

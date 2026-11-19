@@ -1,0 +1,60 @@
+---
+import BlockTable from '../../../components/BlockTable.astro';
+import Base from '../../../layouts/Base.astro';
+import { topicByKey, topics, type Topic } from '../../../lib/data';
+import { num } from '../../../lib/format';
+import { absolute, path, topicPath } from '../../../lib/urls';
+
+export function getStaticPaths() {
+  return topics().map((t) => ({ params: { key: t.key }, props: { key: t.key } }));
+}
+
+const t = topicByKey().get(Astro.props.key) as Topic;
+const ld = {
+  '@type': 'DefinedTerm',
+  '@id': `${absolute(topicPath(t.key))}#entity`,
+  name: t.name,
+  termCode: t.key,
+  url: absolute(topicPath(t.key)),
+  inDefinedTermSet: { '@type': 'DefinedTermSet', name: 'Internacia topics', url: absolute(path('topics/')) },
+};
+---
+
+<Base
+  title={`${t.name} (topic)`}
+  description={`${t.name}: ${t._count} international organizations and groupings on this topic in internacia-db.`}
+  breadcrumbs={[
+    { name: 'Topics', href: path('topics/') },
+    { name: t.name, href: topicPath(t.key) },
+  ]}
+  markdown={path(`topics/${t.key}.md`)}
+  json={path(`api/v1/topics/${t.key}.json`)}
+  jsonld={[ld]}
+>
+  <section class="container page-head">
+    <h1>{t.name}</h1>
+    <p class="subtitle">Topic <code>{t.key}</code></p>
+    <p class="lead">{num(t._count)} intblocks ({num(t._active_count)} active).</p>
+  </section>
+  <div class="container">
+    {
+      t._related.length > 0 && (
+        <section class="card-section" aria-labelledby="related">
+          <h2 id="related">Related topics</h2>
+          <p class="muted small">Topics that appear on the same intblocks most often.</p>
+          <ul class="list-inline">
+            {t._related.map((r) => (
+              <li>
+                <a href={topicPath(r.key)}>{r.name}</a> <span class="muted small">{num(r.shared)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )
+    }
+    <section class="card-section" aria-labelledby="list">
+      <h2 id="list">Intblocks on this topic ({num(t._count)})</h2>
+      <BlockTable ids={t._blocks} id="topic-blocks" caption={`Intblocks on ${t.name}`} />
+    </section>
+  </div>
+</Base>

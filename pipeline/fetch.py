@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -178,12 +179,36 @@ def fetch_source(lock: Lock, source_dir: Path, log=print) -> str:
     return head
 
 
+def fetch_release_list(lock: Lock, target: Path, log=print) -> None:
+    """Release names and dates for the Atom feed (SPEC §7.6). Metadata only, not verified; a
+    failure leaves the previous list (or none) and never fails the build."""
+    url = f"https://api.github.com/repos/{lock.repository}/releases?per_page=100"
+    headers = {"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=TIMEOUT_S) as resp:
+            releases = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, TimeoutError, ConnectionError, json.JSONDecodeError) as exc:
+        log(f"  skipped  release list ({exc})")
+        return
+    keep = [
+        {"tag": r["tag_name"], "name": r.get("name") or r["tag_name"], "published_at": r.get("published_at"), "url": r.get("html_url"), "body": (r.get("body") or "")[:2000]}
+        for r in releases
+        if not r.get("draft") and not r.get("prerelease")
+    ]
+    (target / "releases.json").write_text(json.dumps(keep, indent=2) + "\n", encoding="utf-8")
+    log(f"  fetched  release list ({len(keep)} releases)")
+
+
 def run(lock_path: Path, cache_root: Path, log=print) -> Path:
     lock = load_lock(lock_path)
     target = cache_root / lock.tag
     log(f"internacia-db {lock.tag} → {target}")
     verified = fetch_assets(lock, target / "assets", log=log)
     commit = fetch_source(lock, target / "source", log=log)
+    fetch_release_list(lock, target, log=log)
     record = {
         "repository": lock.repository,
         "tag": lock.tag,

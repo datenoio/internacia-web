@@ -49,6 +49,8 @@ class Release:
     intblock_aliases: list[dict]
     country_aliases: list[dict]
     downloads: list[dict] = field(default_factory=list)
+    # Completeness gates from data/schemas/{countries,intblocks}_completeness.yaml (`fields`).
+    completeness_rules: dict[str, dict[str, dict]] = field(default_factory=dict)
 
 
 def _downloads(assets: Path, repository: str, tag: str) -> list[dict]:
@@ -125,4 +127,9 @@ def load_release(cache_dir: Path, repository: str, tag: str) -> Release:
         intblock_aliases=json.loads((assets / "intblocks_aliases.json").read_text(encoding="utf-8")),
         country_aliases=json.loads((assets / "countries_aliases.json").read_text(encoding="utf-8")),
         downloads=_downloads(assets, repository, tag),
+        completeness_rules={
+            name: (_yaml(source / "schemas" / f"{name}_completeness.yaml") or {}).get("fields") or {}
+            for name in ("countries", "intblocks")
+            if (source / "schemas" / f"{name}_completeness.yaml").exists()
+        },
     )

@@ -3,7 +3,7 @@ import { text } from '../lib/api';
 import { meta } from '../lib/meta';
 import { absolute, path } from '../lib/urls';
 
-export const SECTIONS = ['pages', 'countries', 'blocks'] as const;
+export const SECTIONS = ['pages', 'countries', 'blocks', 'types', 'topics', 'geography'] as const;
 
 export const GET: APIRoute = () =>
   text(

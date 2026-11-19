@@ -774,6 +774,11 @@ table.chunked td {
   stroke: var(--color-text);
 }
 
+/* display: flex below would otherwise override the hidden attribute. */
+.map-tip[hidden] {
+  display: none;
+}
+
 .map-tip {
   position: absolute;
   z-index: 5;
@@ -826,4 +831,121 @@ table.chunked td {
   .map .has {
     fill: Highlight;
   }
+}
+
+table.chunked.block-table {
+  --cols: minmax(14rem, 3fr) minmax(6rem, 1fr) minmax(8rem, 1.4fr) 6rem 5.5rem 6rem;
+  min-width: 48rem;
+}
+
+/* Column charts */
+.chart {
+  margin: var(--space-3) 0;
+}
+
+.chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.chart .tick line {
+  stroke: var(--chart-track);
+  stroke-width: 1;
+}
+
+.chart .baseline {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.chart text {
+  fill: var(--color-muted);
+  font-size: 11px;
+  font-family: var(--font-sans);
+}
+
+.chart text.value {
+  fill: var(--color-text);
+  font-weight: 600;
+}
+
+.chart .bar {
+  fill: var(--series-1);
+}
+
+.chart .hit {
+  fill: transparent;
+}
+
+.chart .col:hover .bar,
+.chart .col:focus .bar {
+  fill: var(--color-accent);
+}
+
+.chart .col:focus {
+  outline: none;
+}
+
+.chart .col:focus .hit {
+  stroke: var(--color-text);
+  stroke-width: 1;
+}
+
+/* Sequential choropleth (memberships per country) */
+.map .s1,
+.swatch.s1 {
+  fill: light-dark(#cde2fb, #184f95);
+  background: light-dark(#cde2fb, #184f95);
+}
+
+.map .s2,
+.swatch.s2 {
+  fill: light-dark(#86b6ef, #256abf);
+  background: light-dark(#86b6ef, #256abf);
+}
+
+.map .s3,
+.swatch.s3 {
+  fill: light-dark(#3987e5, #3987e5);
+  background: light-dark(#3987e5, #3987e5);
+}
+
+.map .s4,
+.swatch.s4 {
+  fill: light-dark(#1c5cab, #6da7ec);
+  background: light-dark(#1c5cab, #6da7ec);
+}
+
+.map .s5,
+.swatch.s5 {
+  fill: light-dark(#0d366b, #b7d3f6);
+  background: light-dark(#0d366b, #b7d3f6);
+}
+
+.map .dot.s1 .mark { fill: light-dark(#cde2fb, #184f95); }
+.map .dot.s2 .mark { fill: light-dark(#86b6ef, #256abf); }
+.map .dot.s3 .mark { fill: #3987e5; }
+.map .dot.s4 .mark { fill: light-dark(#1c5cab, #6da7ec); }
+.map .dot.s5 .mark { fill: light-dark(#0d366b, #b7d3f6); }
+
+/* Coverage heat cells: five sequential steps; the percentage is always printed. */
+table.coverage td.heat {
+  font-weight: 600;
+}
+
+table.coverage td.h1 { background: light-dark(#f2f7fe, #16233a); }
+table.coverage td.h2 { background: light-dark(#cde2fb, #173a6b); }
+table.coverage td.h3 { background: light-dark(#9ec5f4, #1c4f8f); }
+table.coverage td.h4 { background: light-dark(#6da7ec, #1f5fae); }
+table.coverage td.h5 { background: #3987e5; color: #0b0b0b; }
+
+/* Cite */
+.cite {
+  margin: var(--space-2) 0;
+}
+
+.cite pre {
+  font-size: 0.8rem;
 }

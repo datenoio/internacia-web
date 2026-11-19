@@ -6,7 +6,8 @@ for AI agents alike. Part of the [Dateno](https://dateno.io) open-source project
 
 **Status:** milestone M1 — country and organization cards with Markdown and JSON twins,
 membership maps, a multilingual finder, OpenAPI, `llms.txt`, post-build checks and an
-accessibility/performance audit. Explorers and topic pages arrive in M2.
+accessibility/performance audit, plus block type, topic, geography and statistics pages (M2a).
+Explorers arrive in M2b.
 Temporary address: <https://datenoio.github.io/internacia-web/> (not indexed).
 
 - Specification: [docs/SPEC.md](docs/SPEC.md)

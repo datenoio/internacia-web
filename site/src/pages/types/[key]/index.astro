@@ -1,0 +1,73 @@
+---
+import BlockTable from '../../../components/BlockTable.astro';
+import ColumnChart from '../../../components/ColumnChart.astro';
+import Base from '../../../layouts/Base.astro';
+import { types, typeById, type TypeRecord } from '../../../lib/data';
+import { num } from '../../../lib/format';
+import { decadeSeries } from '../../../lib/series';
+import { absolute, path, typePath } from '../../../lib/urls';
+
+export function getStaticPaths() {
+  return types().map((t) => ({ params: { key: t.id }, props: { key: t.id } }));
+}
+
+const t = typeById().get(Astro.props.key) as TypeRecord;
+const series = decadeSeries(t._founded_decades);
+const ld = {
+  '@type': 'DefinedTerm',
+  '@id': `${absolute(typePath(t.id))}#entity`,
+  name: t.name,
+  termCode: t.id,
+  url: absolute(typePath(t.id)),
+  alternateName: t.other_names.map((n) => n.name).filter((n) => n !== t.name),
+  inDefinedTermSet: { '@type': 'DefinedTermSet', name: 'Internacia block types', url: absolute(path('types/')) },
+};
+---
+
+<Base
+  title={`${t.name} (block type)`}
+  description={`${t.name}: ${t._count} international organizations and groupings of this block type in internacia-db.`}
+  breadcrumbs={[
+    { name: 'Block types', href: path('types/') },
+    { name: t.name, href: typePath(t.id) },
+  ]}
+  markdown={path(`types/${t.id}.md`)}
+  json={path(`api/v1/types/${t.id}.json`)}
+  jsonld={[ld]}
+>
+  <section class="container page-head">
+    <h1>{t.name}</h1>
+    <p class="subtitle">Block type <code>{t.id}</code></p>
+    <p class="lead">
+      {num(t._count)} intblocks have this type ({num(t._active_count)} active); for {num(t._primary_count)} it is the
+      first type.
+    </p>
+    {
+      t.other_names.length > 0 && (
+        <ul class="names">
+          {t.other_names.map((n) => (
+            <li>
+              <span class="lang">{n.lang}</span>
+              <bdi lang={n.lang}>{n.name}</bdi>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </section>
+  <div class="container">
+    {
+      series.length > 1 && (
+        <section class="card-section" aria-labelledby="founded">
+          <h2 id="founded">Founded by decade</h2>
+          <ColumnChart items={series} label={`${t.name} intblocks founded by decade`} labelEvery={series.length > 16 ? 2 : 1} />
+          {t._undated > 0 && <p class="muted small">{num(t._undated)} without a founding date are not shown.</p>}
+        </section>
+      )
+    }
+    <section class="card-section" aria-labelledby="list">
+      <h2 id="list">Intblocks of this type ({num(t._count)})</h2>
+      <BlockTable ids={t._blocks} id="type-blocks" caption={`Intblocks of type ${t.name}`} />
+    </section>
+  </div>
+</Base>

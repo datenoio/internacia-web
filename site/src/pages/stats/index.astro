@@ -1,0 +1,145 @@
+---
+import BarList from '../../components/BarList.astro';
+import ColumnChart from '../../components/ColumnChart.astro';
+import Base from '../../layouts/Base.astro';
+import { stats, type CompletenessRow } from '../../lib/data';
+import { enumLabel, humanize, num, statusLabel } from '../../lib/format';
+import { meta } from '../../lib/meta';
+import { decadeSeries } from '../../lib/series';
+import { blockPath, countryPath, path } from '../../lib/urls';
+
+const s = stats();
+const pct = (v: number) => `${(v * 100).toFixed(v === 1 || v === 0 ? 0 : 1)}%`;
+// Five sequential steps for the completeness heat cells (dataviz sequential blue).
+const heat = (share: number) => `h${Math.min(5, Math.floor(share * 5) + (share === 1 ? 0 : 1))}`;
+const MAX_LISTED = 60;
+const months = Object.entries(s.intblocks.last_verified_months)
+  .filter(([m]) => m !== 'never')
+  .map(([m, n]) => ({ label: m, value: n }));
+const never = s.intblocks.last_verified_months.never ?? 0;
+const sections: { id: string; title: string; rows: CompletenessRow[]; link: (id: string) => string }[] = [
+  { id: 'countries', title: 'Country records', rows: s.countries.completeness, link: countryPath },
+  { id: 'intblocks', title: 'Intblock records', rows: s.intblocks.completeness, link: blockPath },
+];
+const bars = (counts: Record<string, number>, label: (k: string) => string) =>
+  Object.entries(counts).map(([k, v]) => ({ label: label(k), value: v }));
+---
+
+<Base
+  title="Statistics and coverage"
+  description="How complete internacia-db is: field coverage for countries and intblocks, verification dates, and record counts."
+  breadcrumbs={[{ name: 'Statistics', href: path('stats/') }]}
+  markdown={path('stats.md')}
+  json={path('api/v1/stats.json')}
+>
+  <section class="container page-head">
+    <h1>Statistics and coverage</h1>
+    <p class="lead">
+      internacia-db v{meta.data.version}: {num(meta.counts.countries)} country records, {num(meta.counts.intblocks)} intblocks
+      ({num(s.intblocks.active)} active), {num(meta.counts.memberships)} membership records ({num(s.memberships.with_joined)}
+      with a joining date).
+    </p>
+  </section>
+
+  <div class="container">
+    {
+      sections.map((sec) => (
+        <section class="card-section" aria-labelledby={`completeness-${sec.id}`}>
+          <h2 id={`completeness-${sec.id}`}>Field coverage: {sec.title.toLowerCase()}</h2>
+          <p class="muted small">
+            Share of records with a value. Fields with a gate are checked by internacia-db on every build (maximum share of
+            records without a value). Other fields are optional or apply only to some records, such as <code>dissolved</code>.
+            Records that are empty by design (an uninhabited territory's time zones) count as filled.
+          </p>
+          <div class="table-wrap">
+            <table class="data coverage" id={`coverage-${sec.id}`}>
+              <thead>
+                <tr>
+                  <th scope="col">Field</th>
+                  <th scope="col" class="num">Filled</th>
+                  <th scope="col" class="num">Records</th>
+                  <th scope="col">Gate</th>
+                  <th scope="col">Missing</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sec.rows.map((r) => (
+                  <tr data-field={r.field}>
+                    <td>
+                      <code>{r.field}</code>
+                    </td>
+                    <td class={`num heat ${heat(r.share)}`}>{pct(r.share)}</td>
+                    <td class="num">
+                      {num(r.filled)} / {num(r.total)}
+                    </td>
+                    <td>
+                      {r.gate ? (
+                        <>
+                          {r.gate.met ? '✓ met' : '✗ not met'}
+                          <span class="muted small">
+                            {' '}
+                            (≤ {pct(r.gate.max_null_rate)} missing, {r.gate.mode})
+                          </span>
+                        </>
+                      ) : (
+                        <span class="muted small">optional</span>
+                      )}
+                    </td>
+                    <td>
+                      {r.missing.length === 0 ? (
+                        <span class="muted small">none</span>
+                      ) : r.missing.length <= MAX_LISTED ? (
+                        <details>
+                          <summary class="small">{num(r.missing.length)} records</summary>
+                          <ul class="list-inline small">
+                            {r.missing.map((id) => (
+                              <li>
+                                <a href={sec.link(id)}>
+                                  <code>{id}</code>
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      ) : (
+                        <span class="small">{num(r.missing.length)} records (listed in the JSON form)</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ))
+    }
+
+    <div class="grid-2">
+      <section class="card-section" aria-labelledby="verified">
+        <h2 id="verified">Intblocks last verified, by month</h2>
+        <ColumnChart items={months} label="Intblocks by month of last verification" />
+        <p class="muted small">{num(never)} intblocks have no verification date.</p>
+      </section>
+      <section class="card-section" aria-labelledby="founded">
+        <h2 id="founded">Intblocks founded, by decade</h2>
+        <ColumnChart items={decadeSeries(s.intblocks.founded_decades)} label="Intblocks founded by decade" labelEvery={2} />
+      </section>
+      <section class="card-section" aria-labelledby="status">
+        <h2 id="status">Intblocks by status</h2>
+        <BarList items={bars(s.intblocks.by_status, (k) => enumLabel('status', k))} label="Intblocks by status" />
+        <h3>By scope category</h3>
+        <BarList items={bars(s.intblocks.by_scope_category, (k) => (k === 'unclassified' ? 'Unclassified' : enumLabel('scope_category', k)))} label="Intblocks by scope category" />
+        <h3>By geographic scope</h3>
+        <BarList items={bars(s.intblocks.by_geographic_scope, (k) => (k === 'unclassified' ? 'Unclassified' : enumLabel('geographic_scope', k)))} label="Intblocks by geographic scope" />
+      </section>
+      <section class="card-section" aria-labelledby="memberships">
+        <h2 id="memberships">Membership records by status</h2>
+        <BarList items={bars(s.memberships.by_status, statusLabel)} label="Membership records by status" />
+        <h3>Country records by entity type</h3>
+        <BarList items={bars(s.countries.by_entity_type, (k) => enumLabel('entity_type', k))} label="Country records by entity type" />
+        <h3>By code status</h3>
+        <BarList items={bars(s.countries.by_code_status, (k) => enumLabel('code_status', k) || humanize(k))} label="Country records by code status" />
+      </section>
+    </div>
+  </div>
+</Base>
