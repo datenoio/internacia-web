@@ -1,0 +1,68 @@
+---
+import Base from '../../layouts/Base.astro';
+import { blocks, geography } from '../../lib/data';
+import { displayName, num } from '../../lib/format';
+import { areaPath, blockPath, path } from '../../lib/urls';
+
+const continents = geography().filter((a) => a.kind === 'continent');
+const subregions = geography().filter((a) => a.kind === 'subregion');
+const wbgroups = blocks()
+  .filter((b) => b.blocktype.includes('wbgroup'))
+  .sort((a, b) => a.name.localeCompare(b.name));
+---
+
+<Base
+  title="Geography"
+  description="Continents and subregions with their countries and territories, and the organizations that cover them."
+  breadcrumbs={[{ name: 'Geography', href: path('geography/') }]}
+  markdown={path('geography.md')}
+  json={path('api/v1/geography.json')}
+>
+  <section class="container page-head">
+    <h1>Geography</h1>
+    <p class="lead">
+      Continents and subregions as the country records name them (UN M49 subregions, with a few regional labels). Each page
+      lists its countries and the intblocks whose regions name the same area.
+    </p>
+  </section>
+  <div class="container grid-2">
+    <section class="card-section" aria-labelledby="continents">
+      <h2 id="continents">Continents</h2>
+      <ul>
+        {
+          continents.map((a) => (
+            <li data-area={a.slug}>
+              <a href={areaPath(a.slug)}>{a.name}</a>{' '}
+              <span class="muted small">
+                {num(a._countries.length)} countries and territories, {num(a._blocks.length)} intblocks
+              </span>
+              <ul>
+                {subregions
+                  .filter((s) => s._continent === a.name)
+                  .map((s) => (
+                    <li data-area={s.slug}>
+                      <a href={areaPath(s.slug)}>{s.name}</a> <span class="muted small">{num(s._countries.length)}</span>
+                    </li>
+                  ))}
+              </ul>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+    <section class="card-section" aria-labelledby="wb">
+      <h2 id="wb">World Bank regions and income groups</h2>
+      <p class="muted small">These are intblocks in the data (block type <code>wbgroup</code>).</p>
+      <ul>
+        {
+          wbgroups.map((b) => (
+            <li>
+              <a href={blockPath(b.id)}>{displayName(b.name, b._acronym)}</a>{' '}
+              <span class="muted small">{num(b._current_member_count)}</span>
+            </li>
+          ))
+        }
+      </ul>
+    </section>
+  </div>
+</Base>

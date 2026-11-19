@@ -103,6 +103,11 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
     countries = json.loads((generated / "countries.json").read_text(encoding="utf-8"))
     blocks = json.loads((generated / "blocks.json").read_text(encoding="utf-8"))
     aliases = json.loads((generated / "aliases.json").read_text(encoding="utf-8"))["pages"]
+    browse = {
+        "types": (json.loads((generated / "types.json").read_text(encoding="utf-8")), "id", "type-blocks"),
+        "topics": (json.loads((generated / "topics.json").read_text(encoding="utf-8")), "key", "topic-blocks"),
+        "geography": (json.loads((generated / "geography.json").read_text(encoding="utf-8")), "slug", "area-blocks"),
+    }
 
     # Count parity
     problems = []
@@ -116,6 +121,15 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
         built = sum(1 for p in (dist / section).iterdir() if (p / "index.html").is_file())
         if built != expected:
             problems.append(f"{section}: {built} card folders, expected {expected} ({len(items)} records + aliases)")
+    for section, (items, key, _) in browse.items():
+        for item in items:
+            ident = item[key]
+            for rel in (f"{section}/{ident}/index.html", f"{section}/{ident}.md", f"api/v1/{section}/{ident}.json"):
+                if not (dist / rel).is_file():
+                    problems.append(f"missing {rel}")
+        built = sum(1 for p in (dist / section).iterdir() if (p / "index.html").is_file())
+        if built != len(items):
+            problems.append(f"{section}: {built} page folders, expected {len(items)}")
     report.check("count parity", problems)
 
     # Roster parity against the release's own view
@@ -155,6 +169,15 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
         m = md_section_ids((dist / f"countries/{code.lower()}.md").read_text(encoding="utf-8"), "Current memberships")
         if not (j == h == m):
             problems.append(f"country {code}: JSON {len(j)}, HTML {len(h)}, Markdown {len(m)} current memberships differ")
+    for section, (items, key, table_id) in browse.items():
+        for item in items:
+            ident = item[key]
+            doc = json.loads((dist / f"api/v1/{section}/{ident}.json").read_text(encoding="utf-8"))
+            j = set(doc["data"]["_blocks"])
+            h = {r["block"] for r in table_rows((dist / f"{section}/{ident}/index.html").read_text(encoding="utf-8"), table_id) if "block" in r}
+            m = md_section_ids((dist / f"{section}/{ident}.md").read_text(encoding="utf-8"), "Intblocks")
+            if not (j == h == m):
+                problems.append(f"{section} {ident}: JSON {len(j)}, HTML {len(h)}, Markdown {len(m)} intblocks differ")
     report.check("twin parity", problems)
 
     # JSON validity and schemas (the schemas are the published ones, read from dist)
@@ -172,8 +195,12 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
             return "index"
         if rel in ("countries.json", "blocks.json"):
             return f"{rel.removesuffix('.json')}-list"
-        if rel in ("aliases.json", "search-index.json"):
+        if rel in ("aliases.json", "search-index.json", "stats.json"):
             return rel.removesuffix(".json")
+        if rel in ("types.json", "topics.json", "geography.json"):
+            return f"{rel.removesuffix('.json')}-list"
+        if len(parts) == 2 and parts[0] in ("types", "topics", "geography"):
+            return {"types": "type", "topics": "topic", "geography": "area"}[parts[0]]
         if len(parts) == 2 and parts[0] in ("countries", "blocks"):
             ident = parts[1].removesuffix(".json")
             if (parts[0], ident) in alias_ids:

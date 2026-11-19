@@ -1,0 +1,50 @@
+---
+// "Cite" (SPEC §7.7): the card cited through internacia-db's concept DOI and version.
+import { meta } from '../lib/meta';
+import { DOI } from '../lib/pages';
+import { absolute } from '../lib/urls';
+
+interface Props {
+  title: string;
+  href: string;
+}
+
+const { title, href } = Astro.props;
+const url = absolute(href);
+const year = meta.data.build_date.slice(0, 4);
+const released = meta.data.build_date.slice(0, 10);
+const plain = `Dateno (Common Data Index). (${year}). ${title}. In Internacia Datasets (Version ${meta.data.version}). Zenodo. https://doi.org/${DOI}. ${url}`;
+const key = `internacia_${title.replace(/[^A-Za-z0-9]+/g, '_').toLowerCase().slice(0, 40)}`;
+const bibtex = `@misc{${key},
+  author       = {{Dateno (Common Data Index)}},
+  title        = {${title}},
+  howpublished = {Internacia Datasets, version ${meta.data.version}},
+  year         = {${year}},
+  doi          = {${DOI}},
+  url          = {${url}}
+}`;
+const csl = JSON.stringify(
+  {
+    type: 'dataset',
+    title,
+    author: [{ literal: 'Dateno (Common Data Index)' }],
+    'container-title': 'Internacia Datasets',
+    version: meta.data.version,
+    issued: { 'date-parts': [released.split('-').map(Number)] },
+    DOI,
+    URL: url,
+  },
+  null,
+  2,
+);
+---
+
+<details class="cite">
+  <summary class="small">Cite this record</summary>
+  <p class="small">{plain}</p>
+  <pre><code>{bibtex}</code></pre>
+  <details>
+    <summary class="small">CSL-JSON</summary>
+    <pre><code>{csl}</code></pre>
+  </details>
+</details>

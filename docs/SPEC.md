@@ -723,6 +723,17 @@ with ISO codes" by fetching one file.
 
 ### M2 — Explore and browse
 
+Delivered in three parts. **M2a**: block type, topic and geography pages with Markdown and JSON
+twins; Statistics & coverage (V10, using internacia-db's completeness gates); the home map of
+memberships per country (V2); Atom feed; citation; `data-bump.yml`. **M2b**: explorers V2–V8.
+**M2c**: full-text search (Pagefind) and social images.
+
+Decisions taken in M2a: block types are shown as a bar chart, not a treemap (V9), because bars
+compare 78 magnitudes more precisely; the feed lists internacia-db releases from the GitHub API,
+with record counts for the release the site is built from (per-release diffs are not published);
+pull requests opened by `data-bump.yml` with `GITHUB_TOKEN` do not start the Site workflow, so
+the bump workflow builds and checks the site itself.
+
 - Block type, topic and geography pages.
 - Explorers V2–V10, home page map and treemap, Statistics & coverage page.
 - Full-text search (Pagefind), social images, Atom feed, citation button.

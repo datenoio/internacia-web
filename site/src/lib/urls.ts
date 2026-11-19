@@ -17,6 +17,10 @@ export const blockPath = (id: string) => path(`blocks/${id.toLowerCase()}/`);
 export const blockMd = (id: string) => path(`blocks/${id.toLowerCase()}.md`);
 export const blockJson = (id: string) => path(`api/v1/blocks/${id}.json`);
 
+export const typePath = (key: string) => path(`types/${key}/`);
+export const topicPath = (key: string) => path(`topics/${key}/`);
+export const areaPath = (slug: string) => path(`geography/${slug}/`);
+
 export const REPO_DATA = `https://github.com/${meta.data.repository}`;
 export const REPO_SITE = 'https://github.com/datenoio/internacia-web';
 

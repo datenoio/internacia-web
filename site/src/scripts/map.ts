@@ -49,7 +49,7 @@ async function setup(figure: HTMLElement) {
   canvas.querySelectorAll<SVGElement>('[data-code]').forEach((el) => {
     const entry = data[el.dataset.code!];
     if (!entry) return;
-    el.classList.add('has', `g-${entry[0]}`);
+    el.classList.add('has', entry[0]);
     el.setAttribute('tabindex', '0');
     el.setAttribute('role', 'img');
     el.setAttribute('aria-label', `${entry[3]}: ${entry[1]}${entry[2] ? `, joined ${entry[2]}` : ''}`);

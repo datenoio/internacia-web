@@ -1,0 +1,65 @@
+---
+import BarList from '../../components/BarList.astro';
+import Base from '../../layouts/Base.astro';
+import { types } from '../../lib/data';
+import { num } from '../../lib/format';
+import { path, typePath } from '../../lib/urls';
+
+const rows = types()
+  .filter((t) => t._count > 0)
+  .sort((a, b) => b._count - a._count || a.name.localeCompare(b.name));
+const empty = types().filter((t) => t._count === 0);
+---
+
+<Base
+  title="Block types"
+  description={`The ${types().length} block types internacia-db uses to classify international organizations and groupings, with counts.`}
+  breadcrumbs={[{ name: 'Block types', href: path('types/') }]}
+  markdown={path('types.md')}
+  json={path('api/v1/types.json')}
+>
+  <section class="container page-head">
+    <h1>Block types</h1>
+    <p class="lead">
+      {types().length} types classify the {num(rows.reduce((n, t) => n + t._primary_count, 0))} intblocks. A record can have several
+      types; its first type decides where it is filed.
+    </p>
+  </section>
+  <div class="container grid-2">
+    <section class="card-section" aria-labelledby="largest">
+      <h2 id="largest">Largest block types</h2>
+      <BarList items={rows.slice(0, 20).map((t) => ({ label: t.name, value: t._count, href: typePath(t.id) }))} label="Intblocks per block type, largest 20" />
+    </section>
+    <section class="card-section" aria-labelledby="all">
+      <h2 id="all">All block types</h2>
+      <div class="table-wrap">
+        <table class="data" id="types-table">
+          <thead>
+            <tr>
+              <th scope="col">Block type</th>
+              <th scope="col">Key</th>
+              <th scope="col" class="num">Intblocks</th>
+              <th scope="col" class="num">Active</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              [...rows, ...empty].map((t) => (
+                <tr data-type={t.id}>
+                  <td>
+                    <a href={typePath(t.id)}>{t.name}</a>
+                  </td>
+                  <td>
+                    <code>{t.id}</code>
+                  </td>
+                  <td class="num">{num(t._count)}</td>
+                  <td class="num">{num(t._active_count)}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</Base>

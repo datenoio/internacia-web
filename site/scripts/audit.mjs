@@ -40,9 +40,16 @@ const AXE_PAGES = [
   'blocks/jcpoa/',
   'data/',
   'about/',
+  'types/',
+  'types/intorg/',
+  'topics/',
+  'topics/trade/',
+  'geography/',
+  'geography/europe/',
+  'stats/',
   'blocks/g20/', // 404 with suggestions
 ];
-const LH_PAGES = ['', 'countries/fr/', 'blocks/un/', 'blocks/eu/', 'blocks/'];
+const LH_PAGES = ['', 'countries/fr/', 'blocks/un/', 'blocks/eu/', 'blocks/', 'types/intorg/', 'stats/'];
 const LH_MIN = 0.95;
 const LCP_MAX_MS = 2500;
 

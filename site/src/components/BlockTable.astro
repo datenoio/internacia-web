@@ -1,0 +1,81 @@
+---
+// Table of intblocks for browse pages (block types, topics, geography). Large lists use the
+// chunked table layout (see global.css) so they stay fast.
+import { blockById, type Block } from '../lib/data';
+import { blocktypeLabel, enumLabel, num } from '../lib/format';
+import { blockPath } from '../lib/urls';
+
+interface Props {
+  ids: string[];
+  id: string;
+  caption: string;
+  showTypes?: boolean;
+}
+
+const { ids, id, caption, showTypes = true } = Astro.props;
+const rows = ids.map((i) => blockById().get(i)).filter((b): b is Block => Boolean(b));
+const CHUNK = 100;
+const chunked = rows.length > 150;
+const chunks = chunked
+  ? Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => rows.slice(i * CHUNK, (i + 1) * CHUNK))
+  : [rows];
+const statuses = [...new Set(rows.map((b) => b.status))].sort();
+---
+
+<div class="filters js-only" data-table-tools={id}>
+  <label>Search<input type="search" data-filter="text" placeholder="Name, acronym or ID" /></label>
+  <label
+    >Status<select data-filter="status"
+      ><option value="">All</option>{statuses.map((s) => <option value={s}>{enumLabel('status', s)}</option>)}</select
+    ></label
+  >
+  <span class="count" data-count aria-live="polite"></span>
+</div>
+<div class="table-wrap">
+  <table
+    class={chunked ? 'data chunked block-table' : 'data block-table'}
+    id={id}
+    role={chunked ? 'table' : undefined}
+    data-chunk={chunked ? CHUNK : undefined}
+  >
+    <caption class="muted small" style="text-align:left;padding:0.5rem 0.65rem">{caption}</caption>
+    <thead role={chunked ? 'rowgroup' : undefined}>
+      <tr role={chunked ? 'row' : undefined}>
+        <th role={chunked ? 'columnheader' : undefined} scope="col" data-sort="text">Name</th>
+        <th role={chunked ? 'columnheader' : undefined} scope="col" data-sort="text">ID</th>
+        {showTypes && <th role={chunked ? 'columnheader' : undefined} scope="col" data-sort="text">Block type</th>}
+        <th role={chunked ? 'columnheader' : undefined} scope="col" data-sort="text">Status</th>
+        <th role={chunked ? 'columnheader' : undefined} scope="col" class="num" data-sort="num">Founded</th>
+        <th role={chunked ? 'columnheader' : undefined} scope="col" class="num" data-sort="num">Current members</th>
+      </tr>
+    </thead>
+    {
+      chunks.map((chunk) => (
+        <tbody role={chunked ? 'rowgroup' : undefined}>
+          {chunk.map((b) => (
+            <tr role={chunked ? 'row' : undefined} data-status={b.status} data-block={b.id}>
+              <td role={chunked ? 'cell' : undefined} data-value={b.name}>
+                <a href={blockPath(b.id)}>{b.name}</a>
+                {b._acronym && <span class="muted"> ({b._acronym})</span>}
+              </td>
+              <td role={chunked ? 'cell' : undefined}>
+                <code>{b.id}</code>
+              </td>
+              {showTypes && <td role={chunked ? 'cell' : undefined}>{b.blocktype.map((t) => blocktypeLabel(t)).join(', ')}</td>}
+              <td role={chunked ? 'cell' : undefined}>{enumLabel('status', b.status)}</td>
+              <td role={chunked ? 'cell' : undefined} class="num" data-value={(b.founded ?? '').slice(0, 4)}>
+                {b.founded}
+              </td>
+              <td role={chunked ? 'cell' : undefined} class="num">
+                {num(b._current_member_count)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      ))
+    }
+  </table>
+</div>
+<script>
+  import '../scripts/tables.ts';
+</script>

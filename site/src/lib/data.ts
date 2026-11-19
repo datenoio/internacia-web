@@ -228,12 +228,84 @@ export interface Download {
   url: string;
 }
 
+export interface TypeRecord {
+  id: string;
+  name: string;
+  other_names: { lang: string; name: string }[];
+  _count: number;
+  _active_count: number;
+  _primary_count: number;
+  _blocks: string[];
+  _founded_decades: Record<string, number>;
+  _undated: number;
+}
+
+export interface Topic {
+  key: string;
+  name: string;
+  _count: number;
+  _active_count: number;
+  _blocks: string[];
+  _related: { key: string; name: string; shared: number }[];
+}
+
+export interface Area {
+  slug: string;
+  kind: 'continent' | 'subregion';
+  name: string;
+  _continent: string | null;
+  _countries: string[];
+  _iso_count: number;
+  _blocks: string[];
+}
+
+export interface CompletenessRow {
+  field: string;
+  filled: number;
+  total: number;
+  share: number;
+  missing: string[];
+  gate?: { max_null_rate: number; mode: string | null; requirement: string | null; priority: string | null; met: boolean };
+}
+
+export interface Stats {
+  countries: { completeness: CompletenessRow[]; by_entity_type: Record<string, number>; by_code_status: Record<string, number> };
+  intblocks: {
+    completeness: CompletenessRow[];
+    by_status: Record<string, number>;
+    by_scope_category: Record<string, number>;
+    by_geographic_scope: Record<string, number>;
+    founded_decades: Record<string, number>;
+    last_verified_months: Record<string, number>;
+    active: number;
+  };
+  memberships: { by_status: Record<string, number>; by_include_type: Record<string, number>; with_joined: number; with_left: number };
+}
+
+export interface ReleaseInfo {
+  tag: string;
+  name: string;
+  published_at: string | null;
+  url: string | null;
+  body: string;
+}
+
 export const countries = once(() => load<Country[]>('countries.json'));
 export const blocks = once(() => load<Block[]>('blocks.json'));
 export const blocktypes = once(() => load<BlockType[]>('blocktypes.json'));
 export const labels = once(() => load<Labels>('labels.json'));
 export const aliases = once(() => load<Aliases>('aliases.json'));
 export const downloads = once(() => load<Download[]>('downloads.json'));
+
+export const types = once(() => load<TypeRecord[]>('types.json'));
+export const topics = once(() => load<Topic[]>('topics.json'));
+export const geography = once(() => load<Area[]>('geography.json'));
+export const stats = once(() => load<Stats>('stats.json'));
+export const releases = once(() => load<ReleaseInfo[]>('releases.json'));
+
+export const typeById = once(() => new Map(types().map((t) => [t.id, t])));
+export const topicByKey = once(() => new Map(topics().map((t) => [t.key, t])));
+export const areaByName = once(() => new Map(geography().map((a) => [`${a.kind}:${a.name}`, a])));
 
 export const countryByCode = once(() => new Map(countries().map((c) => [c.code, c])));
 export const blockById = once(() => new Map(blocks().map((b) => [b.id, b])));

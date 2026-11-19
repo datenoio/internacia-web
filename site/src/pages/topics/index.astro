@@ -1,0 +1,43 @@
+---
+import Base from '../../layouts/Base.astro';
+import { topics } from '../../lib/data';
+import { num } from '../../lib/format';
+import { path, topicPath } from '../../lib/urls';
+
+const rows = topics();
+const byLetter = new Map<string, typeof rows>();
+for (const t of rows) {
+  const letter = t.name[0]?.toUpperCase() ?? '#';
+  byLetter.set(letter, [...(byLetter.get(letter) ?? []), t]);
+}
+---
+
+<Base
+  title="Topics"
+  description={`The ${rows.length} topics of international organizations and groupings in internacia-db, with counts.`}
+  breadcrumbs={[{ name: 'Topics', href: path('topics/') }]}
+  markdown={path('topics.md')}
+  json={path('api/v1/topics.json')}
+>
+  <section class="container page-head">
+    <h1>Topics</h1>
+    <p class="lead">{rows.length} topics describe what intblocks work on. Every intblock has at least one.</p>
+  </section>
+  <section class="container">
+    {
+      [...byLetter.entries()].map(([letter, list]) => (
+        <section class="card-section" aria-labelledby={`letter-${letter}`}>
+          <h2 id={`letter-${letter}`}>{letter}</h2>
+          <ul class="featured">
+            {list.map((t) => (
+              <li data-topic={t.key}>
+                <a href={topicPath(t.key)}>{t.name}</a>
+                <span class="muted small"> {num(t._count)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+  </section>
+</Base>

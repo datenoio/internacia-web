@@ -1,18 +1,21 @@
 import type { APIRoute } from 'astro';
 import { text } from '../lib/api';
-import { blocks, countries } from '../lib/data';
+import { blocks, countries, geography, topics, types } from '../lib/data';
 import { meta } from '../lib/meta';
-import { absolute, blockPath, countryPath, path } from '../lib/urls';
+import { absolute, areaPath, blockPath, countryPath, path, topicPath, typePath } from '../lib/urls';
 
 // lastmod is the data release build date: internacia-db does not publish per-record change dates.
 export function getStaticPaths() {
-  return [{ params: { section: 'pages' } }, { params: { section: 'countries' } }, { params: { section: 'blocks' } }];
+  return ['pages', 'countries', 'blocks', 'types', 'topics', 'geography'].map((section) => ({ params: { section } }));
 }
 
 const urls = (section: string): string[] => {
   if (section === 'countries') return countries().map((c) => countryPath(c.code));
   if (section === 'blocks') return blocks().map((b) => blockPath(b.id));
-  return [path(''), path('countries/'), path('blocks/'), path('data/'), path('about/')];
+  if (section === 'types') return types().map((t) => typePath(t.id));
+  if (section === 'topics') return topics().map((t) => topicPath(t.key));
+  if (section === 'geography') return geography().map((a) => areaPath(a.slug));
+  return ['', 'countries/', 'blocks/', 'types/', 'topics/', 'geography/', 'stats/', 'data/', 'about/'].map((p) => path(p));
 };
 
 export const GET: APIRoute = ({ params }) => {

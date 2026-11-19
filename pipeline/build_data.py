@@ -13,6 +13,11 @@ Files written:
 - labels.json      labels for membership statuses, topics and vocabularies
 - aliases.json     retired and renamed IDs and what the site does with each
 - downloads.json   release files with size and SHA-256
+- types.json       block types with their intblocks and founding decades
+- topics.json      topics with their intblocks and co-occurring topics
+- geography.json   continents and subregions with countries and intblocks
+- stats.json       completeness of every field and record counts
+- releases.json    internacia-db releases, for the Atom feed
 """
 
 from __future__ import annotations
@@ -34,6 +39,7 @@ from derive import (
     derive_labels,
     primary_acronym,
 )
+from browse import derive_geography, derive_stats, derive_topics, derive_types
 from lock import DEFAULT_CACHE, DEFAULT_LOCK, ROOT, Lock, LockError, load_lock
 from release import load_release
 
@@ -117,6 +123,14 @@ def _group_similar(rows: list[dict], key: str, names: dict[str, str], extra=None
     return grouped
 
 
+def load_releases(cache_dir: Path) -> list[dict]:
+    """Release list fetched by fetch.py (metadata only); empty if it could not be fetched."""
+    path = cache_dir / "releases.json"
+    if not path.exists():
+        return []
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def write_json(path: Path, data) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
 
@@ -190,6 +204,11 @@ def build(lock: Lock, cache_root: Path, out_dir: Path) -> dict:
         {"pages": aliases["pages"], "intblocks": release.intblock_aliases, "countries": release.country_aliases},
     )
     write_json(out_dir / "downloads.json", release.downloads)
+    write_json(out_dir / "types.json", derive_types(release, blocks))
+    write_json(out_dir / "topics.json", derive_topics(release, blocks))
+    write_json(out_dir / "geography.json", derive_geography(countries, blocks))
+    write_json(out_dir / "stats.json", derive_stats(release, blocks))
+    write_json(out_dir / "releases.json", load_releases(cache_dir))
     return meta
 
 

@@ -2,9 +2,10 @@
 import BarList from '../../../components/BarList.astro';
 import Facts from '../../../components/Facts.astro';
 import MembershipMap from '../../../components/MembershipMap.astro';
+import Cite from '../../../components/Cite.astro';
 import Base from '../../../layouts/Base.astro';
 import { CENTROID_NOTE } from '../../../lib/api';
-import { aliases, countries, countryByCode, type Country } from '../../../lib/data';
+import { aliases, areaByName, countries, countryByCode, type Country } from '../../../lib/data';
 import { blocktypeLabel, enumLabel, num, statusDeprecated, statusDescription, statusLabel, vocabLabel, yesNo } from '../../../lib/format';
 import { countryLd } from '../../../lib/jsonld';
 import {
@@ -17,6 +18,7 @@ import {
   reportErrorUrl,
   sourceUrl,
   wikidataUrl,
+  areaPath,
 } from '../../../lib/urls';
 import AliasPage from '../../../components/AliasPage.astro';
 
@@ -87,6 +89,7 @@ const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
           <li class="badge">{num(c._current_member_count)} current memberships</li>
         </ul>
         {c.recognition_status?.notes && <p class="notice">{c.recognition_status.notes}</p>}
+        <Cite title={c.name} href={countryPath(c.code)} />
         {c._alias_notes.map((n) =>
           n.kind === 'former_id' ? (
             <p class="muted small">
@@ -124,8 +127,8 @@ const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
             <MembershipMap country={c} />
             <Facts
               rows={[
-                { label: 'Continents', value: c.continents?.join(', ') },
-                { label: 'UN M49 subregion', value: c.subregion },
+                { label: 'Continents', value: c.continents?.join(', '), href: c.continents?.length === 1 && areaByName().get(`continent:${c.continents[0]}`) ? areaPath(areaByName().get(`continent:${c.continents[0]}`)!.slug) : undefined },
+                { label: 'Subregion', value: c.subregion, href: c.subregion && areaByName().get(`subregion:${c.subregion}`) ? areaPath(areaByName().get(`subregion:${c.subregion}`)!.slug) : undefined },
                 {
                   label: 'Capital',
                   value: c.capital_city?.name,

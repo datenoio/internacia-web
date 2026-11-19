@@ -170,7 +170,80 @@ const doc = (name: string, title: string, properties: Schema, required: string[]
   $defs: { meta: metaDef },
 });
 
+const idList = { type: 'array', items: str };
+const typeRecord: Schema = {
+  type: 'object',
+  required: ['id', 'name', '_count', '_blocks'],
+  properties: {
+    id: str,
+    name: str,
+    other_names: { type: 'array', items: { type: 'object', required: ['lang', 'name'] } },
+    _count: int,
+    _active_count: int,
+    _primary_count: int,
+    _blocks: { ...idList, description: 'IDs of the intblocks of this type, sorted by name.' },
+    _founded_decades: { type: 'object', additionalProperties: int },
+    _undated: int,
+  },
+  additionalProperties: false,
+};
+const topicRecord: Schema = {
+  type: 'object',
+  required: ['key', 'name', '_count', '_blocks'],
+  properties: {
+    key: str,
+    name: str,
+    _count: int,
+    _active_count: int,
+    _blocks: idList,
+    _related: { type: 'array', items: { type: 'object', required: ['key', 'name', 'shared'], properties: { key: str, name: str, shared: int } } },
+  },
+  additionalProperties: false,
+};
+const areaRecord: Schema = {
+  type: 'object',
+  required: ['slug', 'kind', 'name', '_countries', '_blocks'],
+  properties: {
+    slug: str,
+    kind: { enum: ['continent', 'subregion'] },
+    name: str,
+    _continent: strOrNull,
+    _countries: { ...idList, description: 'Country codes, sorted by name.' },
+    _iso_count: int,
+    _blocks: { ...idList, description: 'Intblocks whose regions list this area.' },
+  },
+  additionalProperties: false,
+};
+const coverageRow = {
+  type: 'object',
+  required: ['field', 'filled', 'total', 'share', 'missing'],
+  properties: { field: str, filled: int, total: int, share: { type: 'number', minimum: 0, maximum: 1 }, missing: idList, gate: { type: 'object' } },
+};
+
 export const SCHEMAS: Record<string, Schema> = {
+  'types-list': doc('types-list', 'All block types', { count: int, data: { type: 'array', items: typeRecord } }, ['count', 'data']),
+  type: doc('type', 'One block type with its intblocks', { data: typeRecord }, ['data']),
+  'topics-list': doc('topics-list', 'All topics', { count: int, data: { type: 'array', items: topicRecord } }, ['count', 'data']),
+  topic: doc('topic', 'One topic with its intblocks', { data: topicRecord }, ['data']),
+  'geography-list': doc('geography-list', 'Continents and subregions', { count: int, data: { type: 'array', items: areaRecord } }, ['count', 'data']),
+  area: doc('area', 'One continent or subregion', { data: areaRecord }, ['data']),
+  stats: doc(
+    'stats',
+    'Field coverage and record counts',
+    {
+      counts: { type: 'object' },
+      data: {
+        type: 'object',
+        required: ['countries', 'intblocks', 'memberships'],
+        properties: {
+          countries: { type: 'object', required: ['completeness'], properties: { completeness: { type: 'array', items: coverageRow } } },
+          intblocks: { type: 'object', required: ['completeness'], properties: { completeness: { type: 'array', items: coverageRow } } },
+          memberships: { type: 'object' },
+        },
+      },
+    },
+    ['counts', 'data'],
+  ),
   index: doc('index', 'API index', { counts: { type: 'object' }, endpoints: { type: 'object', additionalProperties: str }, notes: { type: 'array', items: str }, llms_txt: url }, ['counts', 'endpoints']),
   'countries-list': doc(
     'countries-list',
@@ -282,6 +355,13 @@ export function openapi(): Schema {
         },
       },
       '/aliases.json': { get: { operationId: 'listAliases', summary: 'Retired and renamed IDs', responses: ok('aliases', 'Alias lists') } },
+      '/types.json': { get: { operationId: 'listTypes', summary: 'All block types with their intblock IDs', responses: ok('types-list', 'Block types') } },
+      '/types/{KEY}.json': { get: { operationId: 'getType', summary: 'One block type', parameters: [{ name: 'KEY', in: 'path', required: true, schema: { type: 'string' } }], responses: ok('type', 'Block type') } },
+      '/topics.json': { get: { operationId: 'listTopics', summary: 'All topics with their intblock IDs', responses: ok('topics-list', 'Topics') } },
+      '/topics/{KEY}.json': { get: { operationId: 'getTopic', summary: 'One topic', parameters: [{ name: 'KEY', in: 'path', required: true, schema: { type: 'string' } }], responses: ok('topic', 'Topic') } },
+      '/geography.json': { get: { operationId: 'listAreas', summary: 'Continents and subregions', responses: ok('geography-list', 'Areas') } },
+      '/geography/{SLUG}.json': { get: { operationId: 'getArea', summary: 'One continent or subregion', parameters: [{ name: 'SLUG', in: 'path', required: true, schema: { type: 'string' } }], responses: ok('area', 'Area') } },
+      '/stats.json': { get: { operationId: 'getStats', summary: 'Field coverage, with the IDs of records missing each field', responses: ok('stats', 'Statistics') } },
       '/search-index.json': { get: { operationId: 'getSearchIndex', summary: 'Names, acronyms and codes in all languages', responses: ok('search-index', 'Finder index') } },
     },
   };

@@ -1,0 +1,99 @@
+---
+import BlockTable from '../../../components/BlockTable.astro';
+import MembershipMap from '../../../components/MembershipMap.astro';
+import Base from '../../../layouts/Base.astro';
+import { countryByCode, geography, type Area } from '../../../lib/data';
+import { enumLabel, num } from '../../../lib/format';
+import { absolute, areaPath, countryPath, path } from '../../../lib/urls';
+
+export function getStaticPaths() {
+  return geography().map((a) => ({ params: { slug: a.slug }, props: { slug: a.slug } }));
+}
+
+const a = geography().find((x) => x.slug === Astro.props.slug) as Area;
+const members = a._countries.map((c) => countryByCode().get(c)!).filter(Boolean);
+const subregions = a.kind === 'continent' ? geography().filter((s) => s.kind === 'subregion' && s._continent === a.name) : [];
+const parent = a._continent ? geography().find((s) => s.kind === 'continent' && s.name === a._continent) : undefined;
+const ld = {
+  '@type': a.kind === 'continent' ? 'Continent' : 'Place',
+  '@id': `${absolute(areaPath(a.slug))}#entity`,
+  name: a.name,
+  url: absolute(areaPath(a.slug)),
+  ...(parent ? { containedInPlace: { '@type': 'Continent', name: parent.name, url: absolute(areaPath(parent.slug)) } } : {}),
+};
+---
+
+<Base
+  title={a.name}
+  description={`${a.name}: ${members.length} countries and territories, and ${a._blocks.length} international organizations and groupings covering it.`}
+  breadcrumbs={[
+    { name: 'Geography', href: path('geography/') },
+    ...(parent ? [{ name: parent.name, href: areaPath(parent.slug) }] : []),
+    { name: a.name, href: areaPath(a.slug) },
+  ]}
+  markdown={path(`geography/${a.slug}.md`)}
+  json={path(`api/v1/geography/${a.slug}.json`)}
+  jsonld={[ld]}
+>
+  <section class="container page-head">
+    <h1>{a.name}</h1>
+    <p class="subtitle">{a.kind === 'continent' ? 'Continent' : 'Subregion'}{parent ? ` in ${parent.name}` : ''}</p>
+    <p class="lead">
+      {num(members.length)} countries and territories ({num(a._iso_count)} ISO 3166-1 entries).
+    </p>
+    {
+      subregions.length > 0 && (
+        <ul class="list-inline">
+          {subregions.map((s) => (
+            <li>
+              <a href={areaPath(s.slug)}>{s.name}</a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </section>
+  <div class="container">
+    <MembershipMap area={{ name: a.name, codes: a._countries }} />
+    <section class="card-section" aria-labelledby="countries">
+      <h2 id="countries">Countries and territories ({num(members.length)})</h2>
+      <div class="table-wrap">
+        <table class="data" id="area-countries">
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Code</th>
+              <th scope="col">Entity type</th>
+              <th scope="col" class="num">Current memberships</th>
+            </tr>
+          </thead>
+          <tbody>
+            {
+              members.map((c) => (
+                <tr data-country={c.code}>
+                  <td>
+                    <span aria-hidden="true">{c.flag_emoji}</span> <a href={countryPath(c.code)}>{c.name}</a>
+                  </td>
+                  <td>
+                    <code>{c.code}</code>
+                  </td>
+                  <td>{enumLabel('entity_type', c.entity_type)}</td>
+                  <td class="num">{num(c._current_member_count)}</td>
+                </tr>
+              ))
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {
+      a._blocks.length > 0 && (
+        <section class="card-section" aria-labelledby="blocks">
+          <h2 id="blocks">Intblocks covering {a.name} ({num(a._blocks.length)})</h2>
+          <p class="muted small">Intblocks whose regions list “{a.name}”.</p>
+          <BlockTable ids={a._blocks} id="area-blocks" caption={`Intblocks covering ${a.name}`} />
+        </section>
+      )
+    }
+  </div>
+</Base>
