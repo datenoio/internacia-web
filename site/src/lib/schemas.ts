@@ -221,6 +221,33 @@ const coverageRow = {
 };
 
 export const SCHEMAS: Record<string, Schema> = {
+  memberships: doc(
+    'memberships',
+    'Current membership edges',
+    {
+      format: { const: ['block_id', 'country_code', 'status', 'joined'] },
+      count: int,
+      data: { type: 'array', items: { type: 'array', prefixItems: [str, str, str, strOrNull], minItems: 4, maxItems: 4 } },
+    },
+    ['format', 'count', 'data'],
+  ),
+  headquarters: doc(
+    'headquarters',
+    'Intblock headquarters with coordinates',
+    {
+      count: int,
+      data: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['id', 'name', 'city', 'lat', 'lng', 'active'],
+          properties: { id: str, name: str, acronym: strOrNull, city: str, country: strOrNull, country_name: strOrNull, lat: { type: 'number' }, lng: { type: 'number' }, active: bool },
+          additionalProperties: false,
+        },
+      },
+    },
+    ['count', 'data'],
+  ),
   'types-list': doc('types-list', 'All block types', { count: int, data: { type: 'array', items: typeRecord } }, ['count', 'data']),
   type: doc('type', 'One block type with its intblocks', { data: typeRecord }, ['data']),
   'topics-list': doc('topics-list', 'All topics', { count: int, data: { type: 'array', items: topicRecord } }, ['count', 'data']),
@@ -361,6 +388,8 @@ export function openapi(): Schema {
       '/topics/{KEY}.json': { get: { operationId: 'getTopic', summary: 'One topic', parameters: [{ name: 'KEY', in: 'path', required: true, schema: { type: 'string' } }], responses: ok('topic', 'Topic') } },
       '/geography.json': { get: { operationId: 'listAreas', summary: 'Continents and subregions', responses: ok('geography-list', 'Areas') } },
       '/geography/{SLUG}.json': { get: { operationId: 'getArea', summary: 'One continent or subregion', parameters: [{ name: 'SLUG', in: 'path', required: true, schema: { type: 'string' } }], responses: ok('area', 'Area') } },
+      '/memberships.json': { get: { operationId: 'listMemberships', summary: 'Every current membership edge of a country or territory', responses: ok('memberships', 'Membership edges') } },
+      '/headquarters.json': { get: { operationId: 'listHeadquarters', summary: 'Intblock headquarters with coordinates', responses: ok('headquarters', 'Headquarters') } },
       '/stats.json': { get: { operationId: 'getStats', summary: 'Field coverage, with the IDs of records missing each field', responses: ok('stats', 'Statistics') } },
       '/search-index.json': { get: { operationId: 'getSearchIndex', summary: 'Names, acronyms and codes in all languages', responses: ok('search-index', 'Finder index') } },
     },

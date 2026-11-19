@@ -1,0 +1,155 @@
+---
+import BlockPicker from '../../../components/BlockPicker.astro';
+import MapFrame from '../../../components/MapFrame.astro';
+import Base from '../../../layouts/Base.astro';
+import { meta } from '../../../lib/meta';
+import { path } from '../../../lib/urls';
+---
+
+<Base
+  title="Accession timeline"
+  description="How an organization grew: members by year from joining and leaving dates, with a map you can play year by year."
+  breadcrumbs={[
+    { name: 'Explore', href: path('explore/') },
+    { name: 'Accession timeline', href: path('explore/timeline/') },
+  ]}
+>
+  <section class="container page-head">
+    <h1>Accession timeline</h1>
+    <p class="lead">Members of an organization by year, from the joining and leaving dates in its roster.</p>
+  </section>
+  <section class="container" data-explorer="timeline" data-base={path()} data-year={meta.data.build_date.slice(0, 4)}>
+    <div class="explorer-controls js-only">
+      <BlockPicker id="timeline-blocks" />
+      <label>Year <input type="range" data-input="year" min="1900" max="2026" step="1" value="2026" /></label>
+      <output data-year-label class="small"></output>
+      <button type="button" data-play aria-pressed="false">Play</button>
+    </div>
+    <p class="explorer-status" role="status" aria-live="polite" data-status></p>
+    <figure class="chart" data-chart></figure>
+    <MapFrame id="timeline-map" label="Members in the selected year" />
+    <details open>
+      <summary class="small">Data behind this chart</summary>
+      <div class="table-wrap" data-table>
+        <p class="muted small">This explorer needs JavaScript. Joining and leaving dates are on every organization's card.</p>
+      </div>
+    </details>
+  </section>
+  <script>
+    import { esc, n, steps } from '../../../scripts/charts';
+    import { getJson, params, setParams } from '../../../scripts/explore';
+    import { renderMap, type MapEntry } from '../../../scripts/map';
+
+    interface Roster { id: string; name: string | null; type: string; status: string; joined: string | null; left: string | null; current: boolean; link: string | null }
+
+    const root = document.querySelector<HTMLElement>('[data-explorer="timeline"]')!;
+    const base = root.dataset.base!;
+    const thisYear = Number(root.dataset.year);
+    const input = root.querySelector<HTMLInputElement>('[data-input="block"]')!;
+    const range = root.querySelector<HTMLInputElement>('[data-input="year"]')!;
+    const yearLabel = root.querySelector<HTMLOutputElement>('[data-year-label]')!;
+    const play = root.querySelector<HTMLButtonElement>('[data-play]')!;
+    const status = root.querySelector<HTMLElement>('[data-status]')!;
+    const chart = root.querySelector<HTMLElement>('[data-chart]')!;
+    const table = root.querySelector<HTMLElement>('[data-table]')!;
+    const figure = document.getElementById('timeline-map')!;
+    const legend = figure.querySelector<HTMLElement>('[data-legend]')!;
+    const caption = figure.querySelector<HTMLElement>('[data-caption]')!;
+    legend.innerHTML = '<li><span class="swatch g-m" aria-hidden="true"></span>Member in that year</li><li><span class="swatch g-f" aria-hidden="true"></span>Left before that year</li>';
+
+    const year = (d: string | null) => (d && /^\d{4}/.test(d) ? Number(d.slice(0, 4)) : null);
+    let entries: { id: string; name: string; from: number; to: number | null }[] = [];
+    let series: { year: number; value: number }[] = [];
+    let title = '';
+    let timer = 0;
+
+    function drawYear(y: number) {
+      range.value = String(y);
+      yearLabel.textContent = String(y);
+      const data: Record<string, MapEntry> = {};
+      for (const e of entries) {
+        if (e.from > y) continue;
+        if (e.to !== null && e.to <= y) data[e.id] ??= ['g-f', `left in ${e.to}`, '', e.name];
+        else data[e.id] = ['g-m', `member in ${y}`, String(e.from), e.name];
+      }
+      void renderMap(figure, data);
+      const count = series.find((p) => p.year === y)?.value ?? 0;
+      caption.textContent = `${title}: ${n(count)} members in ${y}.`;
+      chart.innerHTML = steps({ points: series, title: `${title}: members by year`, marker: y });
+    }
+
+    async function load(id: string) {
+      const doc = await getJson<{ data: { name: string; _acronym: string | null; _roster: Roster[] } }>(`${base}api/v1/blocks/${encodeURIComponent(id)}.json`).catch(() => null);
+      if (!doc) {
+        status.textContent = `No organization with ID ${id}.`;
+        return;
+      }
+      title = `${doc.data.name}${doc.data._acronym ? ` (${doc.data._acronym})` : ''}`;
+      const countries = doc.data._roster.filter((r) => r.type === 'country' || r.type === 'territory');
+      entries = countries
+        .filter((r) => year(r.joined) !== null)
+        .map((r) => ({ id: r.id, name: r.name ?? r.id, from: year(r.joined)!, to: year(r.left) }));
+      const undated = countries.length - entries.length;
+      if (entries.length < Math.max(3, countries.length * 0.3)) {
+        series = [];
+        chart.innerHTML = '';
+        void renderMap(figure, {});
+        status.innerHTML = `<a href="${esc(`${base}blocks/${id.toLowerCase()}/`)}">${esc(title)}</a>: only ${entries.length} of ${countries.length} entries have a joining date, too few for a timeline.`;
+        table.innerHTML = '';
+        setParams({ id, year: null });
+        return;
+      }
+      const first = Math.min(...entries.map((e) => e.from));
+      series = [];
+      for (let y = first; y <= thisYear; y++) series.push({ year: y, value: entries.filter((e) => e.from <= y && (e.to === null || e.to > y)).length });
+      range.min = String(first);
+      range.max = String(thisYear);
+      status.innerHTML = `<a href="${esc(`${base}blocks/${id.toLowerCase()}/`)}">${esc(title)}</a>: ${entries.length} dated entries${undated ? `; ${undated} without a joining date are not shown` : ''}.`;
+      const rows = series.filter((p, i) => i === 0 || p.value !== series[i - 1].value);
+      table.innerHTML = `<table class="data"><thead><tr><th scope="col">Year</th><th scope="col" class="num">Members</th><th scope="col">Joined</th><th scope="col">Left</th></tr></thead><tbody>${rows
+        .map((p) => {
+          const joined = entries.filter((e) => e.from === p.year).map((e) => esc(e.name)).join(', ');
+          const left = entries.filter((e) => e.to === p.year).map((e) => esc(e.name)).join(', ');
+          return `<tr><td>${p.year}</td><td class="num">${n(p.value)}</td><td>${joined}</td><td>${left}</td></tr>`;
+        })
+        .join('')}</tbody></table>`;
+      const wanted = Number(params().get('year'));
+      drawYear(wanted >= first && wanted <= thisYear ? wanted : thisYear);
+      setParams({ id });
+    }
+
+    const stop = () => {
+      window.clearInterval(timer);
+      timer = 0;
+      play.textContent = 'Play';
+      play.setAttribute('aria-pressed', 'false');
+    };
+    play.addEventListener('click', () => {
+      if (timer) return stop();
+      if (!series.length) return;
+      let y = Number(range.value) >= thisYear ? series[0].year : Number(range.value);
+      play.textContent = 'Pause';
+      play.setAttribute('aria-pressed', 'true');
+      timer = window.setInterval(() => {
+        drawYear(y);
+        setParams({ year: String(y) });
+        if (++y > thisYear) stop();
+      }, 350);
+    });
+    range.addEventListener('input', () => {
+      stop();
+      drawYear(Number(range.value));
+      setParams({ year: range.value });
+    });
+    input.addEventListener('change', () => {
+      stop();
+      const id = input.value.split(' — ')[0].trim();
+      if (id) void load(id);
+    });
+
+    const id = params().get('id') ?? 'WORLDHERITAGE';
+    const opt = [...document.querySelectorAll<HTMLOptionElement>('#timeline-blocks-list option')].find((o) => o.value.startsWith(`${id} — `));
+    input.value = opt?.value ?? id;
+    void load(id);
+  </script>
+</Base>

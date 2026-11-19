@@ -1,5 +1,10 @@
-// Colour the shared base map for each [data-map] figure, and give every coloured region a
-// keyboard-focusable tooltip. All labels are inserted with textContent.
+// Colour the shared base map and give every coloured region a keyboard-focusable tooltip.
+// All labels are inserted with textContent.
+//
+// Figures with a <script data-map-data> are coloured on load. Explorers call renderMap() again
+// with new data; each call clears the previous colouring first.
+
+export type MapEntry = [string, string, string, string]; // css class, value label, joined, name
 
 const svgCache = new Map<string, Promise<string>>();
 const fetchSvg = (url: string) => {
@@ -7,22 +12,34 @@ const fetchSvg = (url: string) => {
   return svgCache.get(url)!;
 };
 
-type Entry = [string, string, string, string]; // group, status label, joined, name
+interface Wired {
+  data: Record<string, MapEntry>;
+}
+const wired = new WeakMap<HTMLElement, Wired>();
 
-async function setup(figure: HTMLElement) {
+async function ensureSvg(figure: HTMLElement): Promise<HTMLElement | null> {
   const canvas = figure.querySelector<HTMLElement>('.map-canvas');
+  if (!canvas) return null;
+  if (!canvas.querySelector('svg')) {
+    const doc = new DOMParser().parseFromString(await fetchSvg(figure.dataset.src!), 'image/svg+xml');
+    if (doc.documentElement.nodeName !== 'svg') return null;
+    if (!canvas.querySelector('svg')) {
+      const svg = document.importNode(doc.documentElement, true);
+      svg.setAttribute('focusable', 'false');
+      canvas.append(svg);
+    }
+  }
+  return canvas;
+}
+
+function wire(figure: HTMLElement, canvas: HTMLElement) {
+  if (wired.has(figure)) return wired.get(figure)!;
+  const state: Wired = { data: {} };
+  wired.set(figure, state);
   const tip = figure.querySelector<HTMLElement>('.map-tip');
-  const raw = figure.querySelector('script[data-map-data]')?.textContent;
-  if (!canvas || !tip || !raw) return;
-  const data = JSON.parse(raw) as Record<string, Entry>;
-
-  const doc = new DOMParser().parseFromString(await fetchSvg(figure.dataset.src!), 'image/svg+xml');
-  const svg = doc.documentElement;
-  if (svg.nodeName !== 'svg') return;
-  svg.setAttribute('focusable', 'false');
-  canvas.append(document.importNode(svg, true));
-
-  const show = (el: Element, entry: Entry, x: number, y: number) => {
+  const show = (el: Element, x: number, y: number) => {
+    const entry = state.data[(el as SVGElement).dataset.code!];
+    if (!entry || !tip) return;
     const [, label, joined, name] = entry;
     const value = document.createElement('strong');
     value.textContent = label;
@@ -42,25 +59,45 @@ async function setup(figure: HTMLElement) {
     el.classList.add('hover');
   };
   const hide = (el: Element) => {
-    tip.hidden = true;
+    if (tip) tip.hidden = true;
     el.classList.remove('hover');
   };
-
   canvas.querySelectorAll<SVGElement>('[data-code]').forEach((el) => {
-    const entry = data[el.dataset.code!];
-    if (!entry) return;
-    el.classList.add('has', entry[0]);
-    el.setAttribute('tabindex', '0');
-    el.setAttribute('role', 'img');
-    el.setAttribute('aria-label', `${entry[3]}: ${entry[1]}${entry[2] ? `, joined ${entry[2]}` : ''}`);
-    el.addEventListener('pointermove', (e) => show(el, entry, e.clientX, e.clientY));
+    el.addEventListener('pointermove', (e) => el.classList.contains('has') && show(el, e.clientX, e.clientY));
     el.addEventListener('pointerleave', () => hide(el));
     el.addEventListener('focus', () => {
       const r = el.getBoundingClientRect();
-      show(el, entry, r.left + r.width / 2, r.top + r.height / 2);
+      show(el, r.left + r.width / 2, r.top + r.height / 2);
     });
     el.addEventListener('blur', () => hide(el));
   });
+  return state;
 }
 
-document.querySelectorAll<HTMLElement>('[data-map]').forEach((f) => void setup(f));
+export async function renderMap(figure: HTMLElement, data: Record<string, MapEntry>): Promise<void> {
+  const canvas = await ensureSvg(figure);
+  if (!canvas) return;
+  const state = wire(figure, canvas);
+  state.data = data;
+  canvas.querySelectorAll<SVGElement>('[data-code]').forEach((el) => {
+    const previous = el.dataset.cls;
+    if (previous) el.classList.remove(previous);
+    el.classList.remove('has');
+    el.removeAttribute('tabindex');
+    el.removeAttribute('role');
+    el.removeAttribute('aria-label');
+    delete el.dataset.cls;
+    const entry = data[el.dataset.code!];
+    if (!entry) return;
+    el.classList.add('has', entry[0]);
+    el.dataset.cls = entry[0];
+    el.setAttribute('tabindex', '0');
+    el.setAttribute('role', 'img');
+    el.setAttribute('aria-label', `${entry[3]}: ${entry[1]}${entry[2] ? `, joined ${entry[2]}` : ''}`);
+  });
+}
+
+document.querySelectorAll<HTMLElement>('[data-map]').forEach((figure) => {
+  const raw = figure.querySelector('script[data-map-data]')?.textContent;
+  if (raw) void renderMap(figure, JSON.parse(raw) as Record<string, MapEntry>);
+});

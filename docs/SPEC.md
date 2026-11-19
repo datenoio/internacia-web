@@ -734,6 +734,15 @@ with record counts for the release the site is built from (per-release diffs are
 pull requests opened by `data-bump.yml` with `GITHUB_TOKEN` do not start the Site workflow, so
 the bump workflow builds and checks the site itself.
 
+Decisions taken in M2b: the map explorer combines V1 and V2 (`/explore/map/?id=` and
+`?mode=count&type=&scope=`); count mode uses `/api/v1/memberships.json` (every current edge,
+260 KB gzip). The compare map (V6) colours countries by how many of the selected intblocks they
+belong to, not by combination, because combinations outnumber distinguishable colours; the UpSet
+chart and the table give the combinations. The headquarters map (V5) and the hierarchy (V8) are
+rendered at build time and work without JavaScript; the hierarchy places each link next to, not
+inside, the `<summary>` that opens its branch. The accession timeline (V3) is offered only for
+intblocks where at least 30 % of country entries have a joining date (the EU has none in v3.1.0).
+
 - Block type, topic and geography pages.
 - Explorers V2–V10, home page map and treemap, Statistics & coverage page.
 - Full-text search (Pagefind), social images, Atom feed, citation button.

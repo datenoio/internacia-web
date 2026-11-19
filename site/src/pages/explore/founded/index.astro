@@ -1,0 +1,166 @@
+---
+import Base from '../../../layouts/Base.astro';
+import { blocks, blocktypes } from '../../../lib/data';
+import { num } from '../../../lib/format';
+import { path } from '../../../lib/urls';
+import { columns, type Stack } from '../../../scripts/charts';
+
+// Founding timeline (SPEC §8, V4): intblocks by decade of founding, stacked by scope category.
+const SERIES = ['igo', 'treaty_body', 'policy_forum', 'reference_enumeration', 'other'] as const;
+const seriesNames = ['Intergovernmental organization', 'Treaty body', 'Policy forum', 'Reference grouping', 'Other or unclassified'];
+const seriesOf = (scope?: string) => {
+  const i = SERIES.indexOf((scope ?? 'other') as (typeof SERIES)[number]);
+  return i < 0 ? SERIES.length - 1 : i;
+};
+const decadeOf = (f?: string) => (f && /^\d{3}/.test(f) ? Number(f.slice(0, 3)) * 10 : null);
+const rows = blocks()
+  .filter((b) => decadeOf(b.founded) !== null)
+  .map((b) => ({ id: b.id, name: b.name, acronym: b._acronym, founded: b.founded!, decade: decadeOf(b.founded)!, series: seriesOf(b.scope_category), types: b.blocktype, active: b._active }));
+const undated = blocks().length - rows.length;
+
+// The default view, rendered at build time; the script redraws it for other filters.
+const build = (list: typeof rows): Stack[] => {
+  const ds = list.map((r) => r.decade);
+  const out: Stack[] = [];
+  for (let d = Math.min(...ds); d <= Math.max(...ds); d += 10) {
+    out.push({
+      label: `${d}s`,
+      key: String(d),
+      parts: SERIES.map((_, s) => ({ series: s, value: list.filter((r) => r.decade === d && r.series === s).length })),
+    });
+  }
+  return out;
+};
+const svg = columns({ stacks: build(rows), seriesNames, title: 'Intblocks founded by decade, by scope category', labelEvery: 2 });
+const types = blocktypes()
+  .filter((t) => t._count > 0)
+  .sort((a, b) => a.name.localeCompare(b.name));
+const data = JSON.stringify({ rows, seriesNames }).replace(/</g, '\\u003c');
+---
+
+<Base
+  title="Founding timeline"
+  description="International organizations and groupings by decade of founding, by scope category; pick a decade to list them."
+  breadcrumbs={[
+    { name: 'Explore', href: path('explore/') },
+    { name: 'Founding timeline', href: path('explore/founded/') },
+  ]}
+>
+  <section class="container page-head">
+    <h1>Founding timeline</h1>
+    <p class="lead">
+      {num(rows.length)} intblocks with a founding date, by decade and scope category. Choose a decade to list its intblocks
+      ({num(undated)} without a date are not shown).
+    </p>
+  </section>
+  <section class="container" data-explorer="founded" data-base={path()}>
+    <div class="explorer-controls js-only">
+      <label
+        >Block type
+        <select data-input="type"><option value="">All types</option>{types.map((t) => <option value={t.id}>{t.name}</option>)}</select>
+      </label>
+      <label class="inline"><input type="checkbox" data-input="active" /> Active only</label>
+    </div>
+    <figure class="chart">
+      <ul class="legend" aria-label="Scope category">
+        {
+          seriesNames.map((s, i) => (
+            <li>
+              <span class={`swatch series-${i + 1}`} aria-hidden="true" />
+              {s}
+            </li>
+          ))
+        }
+      </ul>
+      <div data-chart set:html={svg} />
+      <figcaption class="muted small">Select a column (click, or Tab and Enter) to list the intblocks of that decade.</figcaption>
+    </figure>
+    <p class="explorer-status" role="status" aria-live="polite" data-status></p>
+    <div class="table-wrap" data-table>
+      <table class="data">
+        <thead>
+          <tr>
+            <th scope="col">Decade</th>
+            {seriesNames.map((s) => <th scope="col" class="num">{s}</th>)}
+            <th scope="col" class="num">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            build(rows).map((s) => (
+              <tr>
+                <td>{s.label}</td>
+                {s.parts.map((p) => (
+                  <td class="num">{num(p.value)}</td>
+                ))}
+                <td class="num">{num(s.parts.reduce((a, p) => a + p.value, 0))}</td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+    <script type="application/json" data-founded set:html={data} />
+  </section>
+  <script>
+    import { columns, esc, n, type Stack } from '../../../scripts/charts';
+    import { params, setParams } from '../../../scripts/explore';
+
+    interface Row { id: string; name: string; acronym: string | null; founded: string; decade: number; series: number; types: string[]; active: boolean }
+    const root = document.querySelector<HTMLElement>('[data-explorer="founded"]')!;
+    const base = root.dataset.base!;
+    const { rows, seriesNames } = JSON.parse(root.querySelector('[data-founded]')!.textContent!) as { rows: Row[]; seriesNames: string[] };
+    const chart = root.querySelector<HTMLElement>('[data-chart]')!;
+    const table = root.querySelector<HTMLElement>('[data-table]')!;
+    const status = root.querySelector<HTMLElement>('[data-status]')!;
+    const typeSel = root.querySelector<HTMLSelectElement>('[data-input="type"]')!;
+    const activeBox = root.querySelector<HTMLInputElement>('[data-input="active"]')!;
+    let decade: string | null = null;
+
+    const filtered = () => rows.filter((r) => (!typeSel.value || r.types.includes(typeSel.value)) && (!activeBox.checked || r.active));
+    const stacks = (list: Row[]): Stack[] => {
+      if (!list.length) return [];
+      const ds = list.map((r) => r.decade);
+      const out: Stack[] = [];
+      for (let d = Math.min(...ds); d <= Math.max(...ds); d += 10)
+        out.push({ label: `${d}s`, key: String(d), parts: seriesNames.map((_, s) => ({ series: s, value: list.filter((r) => r.decade === d && r.series === s).length })) });
+      return out;
+    };
+
+    function draw() {
+      const list = filtered();
+      const st = stacks(list);
+      chart.innerHTML = columns({ stacks: st, seriesNames, title: 'Intblocks founded by decade, by scope category', labelEvery: st.length > 16 ? 2 : 1, selected: decade });
+      chart.querySelectorAll<SVGGElement>('.col').forEach((g) => {
+        const pick = () => {
+          decade = decade === g.dataset.key ? null : g.dataset.key!;
+          draw();
+          chart.querySelector<SVGGElement>(`.col[data-key="${decade}"]`)?.focus();
+        };
+        g.addEventListener('click', pick);
+        g.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), pick()));
+      });
+      if (decade) {
+        const items = list.filter((r) => String(r.decade) === decade).sort((a, b) => a.founded.localeCompare(b.founded));
+        status.textContent = `${n(items.length)} intblocks founded in the ${decade}s.`;
+        table.innerHTML = `<table class="data"><thead><tr><th scope="col">Intblock</th><th scope="col">Founded</th><th scope="col">Scope category</th><th scope="col">Active</th></tr></thead><tbody>${items
+          .map((r) => `<tr><td><a href="${esc(`${base}blocks/${r.id.toLowerCase()}/`)}">${esc(r.name)}</a>${r.acronym ? ` <span class="muted">(${esc(r.acronym)})</span>` : ''}</td><td>${esc(r.founded)}</td><td>${esc(seriesNames[r.series])}</td><td>${r.active ? 'yes' : 'no'}</td></tr>`)
+          .join('')}</tbody></table>`;
+      } else {
+        status.textContent = `${n(list.length)} intblocks.`;
+        table.innerHTML = `<table class="data"><thead><tr><th scope="col">Decade</th>${seriesNames.map((s) => `<th scope="col" class="num">${esc(s)}</th>`).join('')}<th scope="col" class="num">Total</th></tr></thead><tbody>${st
+          .map((s) => `<tr><td>${esc(s.label)}</td>${s.parts.map((p) => `<td class="num">${n(p.value)}</td>`).join('')}<td class="num">${n(s.parts.reduce((a, p) => a + p.value, 0))}</td></tr>`)
+          .join('')}</tbody></table>`;
+      }
+      setParams({ type: typeSel.value, active: activeBox.checked ? '1' : null, decade });
+    }
+
+    typeSel.addEventListener('change', () => ((decade = null), draw()));
+    activeBox.addEventListener('change', draw);
+    const p = params();
+    typeSel.value = p.get('type') ?? '';
+    activeBox.checked = p.get('active') === '1';
+    decade = p.get('decade');
+    draw();
+  </script>
+</Base>

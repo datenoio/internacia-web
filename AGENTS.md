@@ -9,7 +9,8 @@ specification disagree, raise it; do not silently follow either.
 M0 and M1 are in place: pipeline, country and intblock cards with Markdown and JSON twins,
 membership and locator maps, entity finder, 404 suggestions, OpenAPI and JSON Schemas, `llms.txt`,
 sitemap, post-build checks and an axe/Lighthouse audit. M2a adds block type, topic, geography and
-statistics pages, the home map, the Atom feed, citations and `data-bump.yml`. Next is M2b
+statistics pages, the home map, the Atom feed, citations and `data-bump.yml`. M2b adds the
+explorers under `/explore/`. Next is M2c: Pagefind and social images
 ([SPEC §13](docs/SPEC.md#13-milestones)).
 
 ## Rules
@@ -77,6 +78,11 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   unhide; default filters are a table attribute matched by static CSS.
 - An element with the `hidden` attribute must not get a `display` value from CSS without a
   matching `[hidden] { display: none }` rule (the map tooltip showed as an empty box).
+- Chart builders live in `site/src/scripts/charts.ts` and run both at build time (`set:html`)
+  and in the browser; every string from data goes through `esc()`. Text labels stay outside
+  focusable chart groups (axe: label-content-name-mismatch).
+- Explorers keep their state in the query string (`scripts/explore.ts` `setParams`); default
+  states must use intblocks that have the data the view needs.
 - Coverage on the Statistics page follows internacia-db's `*_completeness.yaml` gates; records
   empty by design (`timezone_status`, `membership_applicability`) count as filled.
 - Tables with hundreds of rows use the `chunked` class: rows in `<tbody>` chunks with

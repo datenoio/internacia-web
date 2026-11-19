@@ -1,0 +1,91 @@
+---
+import Base from '../../../layouts/Base.astro';
+import { blockById } from '../../../lib/data';
+import { displayName, num } from '../../../lib/format';
+import { headquarters, hqClusters } from '../../../lib/explore';
+import { blockPath, countryPath, path } from '../../../lib/urls';
+import { worldMap } from '../../../lib/worldmap';
+
+// Headquarters map (SPEC §8, V5). Rendered at build time: the base map inline, one focusable
+// point per city linking to that city's row in the table below. Works without JavaScript.
+const clusters = hqClusters();
+const total = headquarters().length;
+const { svg, width, height } = worldMap();
+const radius = (k: number) => Math.round((3 + Math.sqrt(k) * 1.8) * 10) / 10;
+const anchor = (key: string) => `city-${key.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+const points = [...clusters]
+  .reverse() // small points on top of big ones
+  .map((c) => {
+    const label = `${c.city}${c.country_name ? `, ${c.country_name}` : ''}: ${c.ids.length} organization${c.ids.length === 1 ? '' : 's'}`;
+    return `<a class="hq-point" href="#${anchor(c.key)}" aria-label="${label.replace(/"/g, '&quot;')}"><title>${label.replace(/</g, '&lt;')}</title><circle cx="${c.x}" cy="${c.y}" r="${radius(c.ids.length)}"/></a>`;
+  })
+  .join('');
+const mapSvg = svg.replace('</svg>', `<g class="hq">${points}</g></svg>`).replace('<svg ', '<svg role="group" aria-label="Headquarters by city" ');
+const top = clusters.slice(0, 5);
+---
+
+<Base
+  title="Headquarters map"
+  description={`Where international organizations are based: ${total} headquarters in ${clusters.length} cities.`}
+  breadcrumbs={[
+    { name: 'Explore', href: path('explore/') },
+    { name: 'Headquarters map', href: path('explore/headquarters/') },
+  ]}
+>
+  <section class="container page-head">
+    <h1>Headquarters map</h1>
+    <p class="lead">
+      {num(total)} intblocks with headquarters coordinates, in {num(clusters.length)} cities. The largest hubs:
+      {top.map((c, i) => `${c.city} (${c.ids.length})${i < top.length - 1 ? ', ' : '.'}`).join('')}
+    </p>
+  </section>
+  <section class="container">
+    <figure class="map">
+      <div class="map-canvas" style={`--map-ratio: ${width} / ${height}`} set:html={mapSvg} />
+      <figcaption>
+        <span class="muted small">
+          One point per city; its area grows with the number of organizations. Select a point to jump to the city's list.
+          Base map: Natural Earth (public domain); boundaries do not imply endorsement.
+        </span>
+      </figcaption>
+    </figure>
+  </section>
+  <section class="container card-section" aria-labelledby="cities">
+    <h2 id="cities">Cities</h2>
+    <div class="table-wrap">
+      <table class="data" id="hq-table">
+        <thead>
+          <tr>
+            <th scope="col">City</th>
+            <th scope="col">Country</th>
+            <th scope="col" class="num">Organizations</th>
+            <th scope="col">Organizations based there</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            clusters.map((c) => (
+              <tr id={anchor(c.key)}>
+                <td>{c.city}</td>
+                <td>{c.country && c.country_name ? <a href={countryPath(c.country)}>{c.country_name}</a> : (c.country ?? '')}</td>
+                <td class="num">{num(c.ids.length)}</td>
+                <td>
+                  {c.ids.map((id, i) => {
+                    const b = blockById().get(id)!;
+                    return (
+                      <>
+                        <a href={blockPath(id)}>{displayName(b.name, b._acronym)}</a>
+                        {!b._active && <span class="muted small"> (historical)</span>}
+                        {i < c.ids.length - 1 ? '; ' : ''}
+                      </>
+                    );
+                  })}
+                </td>
+              </tr>
+            ))
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+</Base>

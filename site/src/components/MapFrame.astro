@@ -1,0 +1,23 @@
+---
+// Empty base-map figure for explorers; scripts/map.ts renderMap() colours it.
+import { path } from '../lib/urls';
+import { worldMap } from '../lib/worldmap';
+
+interface Props {
+  id: string;
+  label: string;
+}
+
+const { id, label } = Astro.props;
+const ratio = `--map-ratio: ${worldMap().width} / ${worldMap().height}`;
+---
+
+<figure class="map" id={id} data-map data-src={path('assets/world.svg')}>
+  <div class="map-canvas js-only" style={ratio} role="img" aria-label={label}></div>
+  <div class="map-tip" hidden></div>
+  <figcaption>
+    <ul class="legend" data-legend></ul>
+    <span class="muted small" data-caption></span>
+    <span class="muted small">Small territories are shown as dots. Base map: Natural Earth (public domain); boundaries do not imply endorsement.</span>
+  </figcaption>
+</figure>

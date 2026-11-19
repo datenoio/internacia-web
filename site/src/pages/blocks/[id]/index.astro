@@ -51,6 +51,9 @@ const statusSummary = b
       .join(', ')
   : '';
 const orgCount = current.length - countryCount;
+const countryRows = b ? b._roster.filter((r) => r.type === 'country' || r.type === 'territory') : [];
+const dated = countryRows.filter((r) => r.joined).length;
+const hasTimeline = dated >= 3 && dated >= countryRows.length * 0.3;
 const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.value}`, a])).values()] : [];
 ---
 
@@ -234,6 +237,21 @@ const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.v
                 )}
               </p>
               <MembershipMap block={b} />
+              <p class="small js-only">
+                {hasTimeline && (
+                  <>
+                    <a href={path(`explore/timeline/?id=${encodeURIComponent(b.id)}`)}>Accession timeline</a>
+                    {' · '}
+                  </>
+                )}
+                <a href={path(`explore/map/?id=${encodeURIComponent(b.id)}`)}>Open in the map explorer</a>
+                {b._children.some((c) => c.exists) && (
+                  <>
+                    {' · '}
+                    <a href={path(`explore/hierarchy/?id=${encodeURIComponent(b.id)}`)}>Hierarchy</a>
+                  </>
+                )}
+              </p>
               {listed.length > 0 && (
                 <>
                   <div class="filters js-only" data-table-tools="roster-table">
@@ -344,7 +362,10 @@ const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.v
         {b._similar.length > 0 && (
           <section class="card-section" aria-labelledby="overlap">
             <h2 id="overlap">Overlapping organizations</h2>
-            <p class="muted small">By overlap of current member countries (Jaccard index: shared ÷ combined).</p>
+            <p class="muted small">
+              By overlap of current member countries (Jaccard index: shared ÷ combined).
+              <a href={path(`explore/compare/?ids=${encodeURIComponent([b.id, ...b._similar.slice(0, 3).map((s) => s.id)].join(','))}`)}>Compare them</a>.
+            </p>
             <div class="table-wrap">
               <table class="data">
                 <thead>

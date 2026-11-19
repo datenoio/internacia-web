@@ -195,7 +195,7 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
             return "index"
         if rel in ("countries.json", "blocks.json"):
             return f"{rel.removesuffix('.json')}-list"
-        if rel in ("aliases.json", "search-index.json", "stats.json"):
+        if rel in ("aliases.json", "search-index.json", "stats.json", "memberships.json", "headquarters.json"):
             return rel.removesuffix(".json")
         if rel in ("types.json", "topics.json", "geography.json"):
             return f"{rel.removesuffix('.json')}-list"
