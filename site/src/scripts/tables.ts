@@ -97,23 +97,26 @@ function setup(tools: HTMLElement) {
     }),
   );
 
-  // Sorting applies to single-body tables only; grouped tables keep their grouping.
-  const body = table.tBodies.length === 1 ? table.tBodies[0] : null;
+  // Sorting applies to single-body tables and to chunked tables (rows are redistributed over the
+  // chunks); grouped tables keep their grouping.
+  const chunk = Number(table.dataset.chunk ?? 0);
+  const body = table.tBodies.length === 1 || chunk ? table.tBodies[0] : null;
   table.querySelectorAll<HTMLTableCellElement>('thead th[data-sort]').forEach((th) => {
     if (!body) return;
     const index = th.cellIndex;
     const numeric = th.dataset.sort === 'num';
+    // Same text as the header; the sort arrow is CSS on th[data-sort], present from first paint.
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'sort';
-    button.textContent = th.textContent ?? '';
+    button.textContent = (th.textContent ?? '').trim();
     th.textContent = '';
     th.append(button);
     button.addEventListener('click', () => {
       const ascending = th.getAttribute('aria-sort') !== 'ascending';
       table.querySelectorAll('thead th[aria-sort]').forEach((other) => other.removeAttribute('aria-sort'));
       th.setAttribute('aria-sort', ascending ? 'ascending' : 'descending');
-      const all = Array.from(body.rows);
+      const all = Array.from(table.querySelectorAll<HTMLTableRowElement>(rowSelector));
       const key = (row: HTMLTableRowElement) => {
         const cell = row.cells[index];
         const raw = cell?.dataset.value ?? cell?.textContent ?? '';
@@ -124,12 +127,16 @@ function setup(tools: HTMLElement) {
         const order = a < b ? -1 : a > b ? 1 : 0;
         return ascending ? order : -order;
       });
-      body.append(...keyed.map(([, r]) => r));
+      const sorted = keyed.map(([, r]) => r);
+      if (chunk) {
+        Array.from(table.tBodies).forEach((tb, i) => tb.append(...sorted.slice(i * chunk, (i + 1) * chunk)));
+      } else {
+        body.append(...sorted);
+      }
     });
   });
 
   syncChecks();
-  tools.hidden = false;
   updateCount();
 }
 

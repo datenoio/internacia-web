@@ -357,21 +357,32 @@ table.data th button.sort {
   cursor: pointer;
 }
 
-table.data th button.sort::after {
+html.js table.data th[data-sort]::after {
   content: ' ↕';
   color: var(--color-muted);
   font-weight: 400;
 }
 
-table.data th[aria-sort='ascending'] button.sort::after {
+html.js table.data th[aria-sort='ascending']::after {
   content: ' ↑';
 }
 
-table.data th[aria-sort='descending'] button.sort::after {
+html.js table.data th[aria-sort='descending']::after {
   content: ' ↓';
 }
 
-/* Filters (progressive enhancement: hidden until the script runs) */
+/* Elements that only work with JavaScript. html.js is set in <head>, so they are laid out from the
+   first paint and never shift the page when scripts attach. */
+html:not(.js) .js-only {
+  display: none !important;
+}
+
+/* Default checkbox filters, applied from the first paint (the table carries data-only-<attr>). */
+html.js table[data-only-active] tbody tr:not(.group):not([data-active='yes']) {
+  display: none;
+}
+
+/* Filters */
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -546,8 +557,44 @@ pre {
   padding: 0;
 }
 
-#blocks-table td:first-child {
-  min-width: 16rem;
+/* Chunked tables: one table, rows in <tbody> chunks laid out as grids so that off-screen chunks
+   skip rendering (content-visibility). Explicit ARIA roles keep the table semantics that a
+   changed display value would otherwise drop. */
+table.chunked {
+  display: block;
+  min-width: 62rem;
+}
+
+table.chunked caption {
+  display: block;
+}
+
+table.chunked thead,
+table.chunked tbody {
+  display: block;
+}
+
+table.chunked tbody {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 4200px;
+}
+
+table.chunked tr {
+  display: grid;
+  grid-template-columns: var(--cols);
+}
+
+table.chunked tr[hidden] {
+  display: none;
+}
+
+table.chunked th,
+table.chunked td {
+  display: block;
+}
+
+#blocks-table {
+  --cols: minmax(14rem, 2.6fr) minmax(6rem, 0.9fr) minmax(8rem, 1.3fr) 6rem 7rem 5.5rem minmax(7rem, 1fr) 6rem;
 }
 
 .visually-hidden {
@@ -630,6 +677,10 @@ pre {
 .map {
   position: relative;
   margin: var(--space-3) 0;
+}
+
+.map-canvas {
+  aspect-ratio: var(--map-ratio, 2);
 }
 
 .map-canvas svg {

@@ -5,7 +5,7 @@
 // all-pairs in light and dark), plus a hatched neutral for former members.
 import type { Block, Country } from '../lib/data';
 import { statusLabel } from '../lib/format';
-import { onMap } from '../lib/worldmap';
+import { onMap, worldMap } from '../lib/worldmap';
 import { path } from '../lib/urls';
 
 interface Props {
@@ -61,12 +61,14 @@ if (block) {
 
 const present = (Object.keys(GROUPS) as Group[]).filter((g) => Object.values(data).some(([x]) => x === g));
 const show = Object.keys(data).length > 0;
+// The canvas keeps the map's aspect ratio before the SVG arrives, so nothing shifts.
+const ratio = `--map-ratio: ${worldMap().width} / ${worldMap().height}`;
 ---
 
 {
   show && (
     <figure class={`map${country ? ' map-locator' : ''}`} data-map data-src={path('assets/world.svg')}>
-      <div class="map-canvas" role="img" aria-label={`${caption}: ${summary}. The table on this page lists every entry.`} />
+      <div class="map-canvas js-only" style={ratio} role="img" aria-label={`${caption}: ${summary}. The table on this page lists every entry.`} />
       <noscript>
         <p class="muted small">The map needs JavaScript; the table on this page lists the same data.</p>
       </noscript>

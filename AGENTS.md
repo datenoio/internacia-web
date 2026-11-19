@@ -69,5 +69,10 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
 - The base map is one static SVG (`/assets/world.svg`, Natural Earth 1:110m); records without a
   polygon are dots at their centroid. Map colours are the dataviz palette's first three slots,
   validated all-pairs in both themes; do not add a fourth colour to the map.
+- Layout must not shift when scripts run (Lighthouse CLS): give elements that need JavaScript the
+  class `js-only` (shown from first paint via `html.js`, set in `<head>`), never `hidden` +
+  unhide; default filters are a table attribute matched by static CSS.
+- Tables with hundreds of rows use the `chunked` class: rows in `<tbody>` chunks with
+  `content-visibility: auto` and explicit ARIA table roles. A plain 1,275-row table scored 0.77.
 - In `.astro` templates, build sentences that end in punctuation as one string expression:
   JSX-style whitespace otherwise leaves a space before the period.

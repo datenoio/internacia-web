@@ -14,7 +14,7 @@ import { countries } from './data';
 const WIDTH = 1000;
 const NAME_JOINS: Record<string, string> = { Kosovo: 'XK' };
 
-let cached: { svg: string; polygons: Set<string>; dots: Set<string> } | null = null;
+let cached: { svg: string; width: number; height: number; polygons: Set<string>; dots: Set<string> } | null = null;
 
 export function worldMap() {
   if (cached) return cached;
@@ -64,7 +64,7 @@ export function worldMap() {
 <g class="dots">${marks.join('')}</g>
 </svg>
 `;
-  cached = { svg, polygons, dots };
+  cached = { svg, width: WIDTH, height, polygons, dots };
   return cached;
 }
 

@@ -18,6 +18,9 @@ const topics = [...new Map(rows.flatMap((b) => (b.topics ?? []).map((t) => [t.ke
   (a, b) => a[1].localeCompare(b[1]),
 );
 const active = rows.filter((b) => b._active).length;
+// Rows go into <tbody> chunks so the browser can skip off-screen chunks (content-visibility).
+const CHUNK = 100;
+const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => rows.slice(i * CHUNK, (i + 1) * CHUNK));
 ---
 
 <Base
@@ -37,7 +40,7 @@ const active = rows.filter((b) => b._active).length;
   </section>
 
   <section class="container">
-    <div class="filters" data-table-tools="blocks-table" hidden>
+    <div class="filters js-only" data-table-tools="blocks-table">
       <label>Search<input type="search" data-filter="text" placeholder="Name, acronym or ID" /></label>
       <label
         >Block type<select data-filter="types"
@@ -69,26 +72,28 @@ const active = rows.filter((b) => b._active).length;
     </div>
 
     <div class="table-wrap">
-      <table class="data" id="blocks-table">
+      <table class="data chunked" id="blocks-table" role="table" data-chunk={CHUNK} data-only-active>
         <caption class="muted small" style="text-align:left;padding:0.5rem 0.65rem">
           International organizations and groupings in internacia-db v{meta.data.version}
         </caption>
-        <thead>
-          <tr>
-            <th scope="col" data-sort="text">Name</th>
-            <th scope="col" data-sort="text">ID</th>
-            <th scope="col" data-sort="text">Block type</th>
-            <th scope="col" data-sort="text">Status</th>
-            <th scope="col" data-sort="text">Geographic scope</th>
-            <th scope="col" class="num" data-sort="num">Founded</th>
-            <th scope="col" data-sort="text">Headquarters</th>
-            <th scope="col" class="num" data-sort="num">Current members</th>
+        <thead role="rowgroup">
+          <tr role="row">
+            <th role="columnheader" scope="col" data-sort="text">Name</th>
+            <th role="columnheader" scope="col" data-sort="text">ID</th>
+            <th role="columnheader" scope="col" data-sort="text">Block type</th>
+            <th role="columnheader" scope="col" data-sort="text">Status</th>
+            <th role="columnheader" scope="col" data-sort="text">Geographic scope</th>
+            <th role="columnheader" scope="col" class="num" data-sort="num">Founded</th>
+            <th role="columnheader" scope="col" data-sort="text">Headquarters</th>
+            <th role="columnheader" scope="col" class="num" data-sort="num">Current members</th>
           </tr>
         </thead>
-        <tbody>
-          {
-            rows.map((b) => (
+        {
+          chunks.map((chunk) => (
+            <tbody role="rowgroup">
+              {chunk.map((b) => (
               <tr
+                role="row"
                 data-types={b.blocktype.join('|')}
                 data-status={b.status}
                 data-scope={b.scope_category ?? ''}
@@ -96,25 +101,26 @@ const active = rows.filter((b) => b._active).length;
                 data-topics={(b.topics ?? []).map((t) => t.key).join('|')}
                 data-active={b._active ? 'yes' : 'no'}
               >
-                <td data-value={b.name}>
+                <td role="cell" data-value={b.name}>
                   <a href={blockPath(b.id)}>{b.name}</a>
                   {b._acronym && <span class="muted"> ({b._acronym})</span>}
                 </td>
-                <td>
+                <td role="cell">
                   <code>{b.id}</code>
                 </td>
-                <td>{b.blocktype.map((t) => blocktypeLabel(t)).join(', ')}</td>
-                <td>{enumLabel('status', b.status)}</td>
-                <td>{enumLabel('geographic_scope', b.geographic_scope)}</td>
-                <td class="num" data-value={(b.founded ?? '').slice(0, 4)}>
+                <td role="cell">{b.blocktype.map((t) => blocktypeLabel(t)).join(', ')}</td>
+                <td role="cell">{enumLabel('status', b.status)}</td>
+                <td role="cell">{enumLabel('geographic_scope', b.geographic_scope)}</td>
+                <td role="cell" class="num" data-value={(b.founded ?? '').slice(0, 4)}>
                   {b.founded}
                 </td>
-                <td>{b.headquarters?.city ? [b.headquarters.city, b.headquarters.country].filter(Boolean).join(', ') : ''}</td>
-                <td class="num">{num(b._current_member_count)}</td>
+                <td role="cell">{b.headquarters?.city ? [b.headquarters.city, b.headquarters.country].filter(Boolean).join(', ') : ''}</td>
+                <td role="cell" class="num">{num(b._current_member_count)}</td>
               </tr>
-            ))
-          }
-        </tbody>
+              ))}
+            </tbody>
+          ))
+        }
       </table>
     </div>
   </section>

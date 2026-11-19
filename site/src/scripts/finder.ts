@@ -79,5 +79,4 @@ if (root) {
   document.addEventListener('click', (e) => {
     if (!root.contains(e.target as Node)) close();
   });
-  root.hidden = false;
 }

@@ -230,7 +230,7 @@ const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.v
               <MembershipMap block={b} />
               {listed.length > 0 && (
                 <>
-                  <div class="filters" data-table-tools="roster-table" hidden>
+                  <div class="filters js-only" data-table-tools="roster-table">
                     <label>
                       Search
                       <input type="search" data-filter="text" placeholder="Country or code" />
