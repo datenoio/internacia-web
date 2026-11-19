@@ -92,7 +92,7 @@ internacia-db **git tag** that matches the pinned release (sparse checkout of `d
 |------|-----|
 | `data/schemas/includes_status.yaml` | Membership status labels, descriptions, deprecations |
 | `data/schemas/topics.yaml` | Topic labels |
-| `data/vocabs/*.yaml` | Labels for writing systems, legal systems, broadcast systems, rail gauges, DVD regions, writing directions, language codes |
+| `data/vocabs/*.yaml` | Labels for writing systems, legal systems, broadcast systems, rail gauges, DVD regions, writing directions; language codes (`language_codes.yaml`, in releases after v3.1.0) |
 | `data/schemas/*.schema.json` | Field descriptions for tooltips and the field glossary |
 
 ### 4.2 Pinning
@@ -103,10 +103,18 @@ The repository commits a lock file, `internacia.lock.json`:
 {
   "repository": "datenoio/internacia-db",
   "tag": "v3.1.0",
+  "git_commit": "930121d1b83655ef2fdb4379d8aa506111918dca",
   "contract_major": 3,
-  "sha256sums_sha256": "<sha256 of the release's SHA256SUMS file>"
+  "sha256sums_sha256": "c243b0b2ee0de10436f42b48599f74b00953662cb03bf8d7dfa0e3f9c8b6ac59"
 }
 ```
+
+| Field | Meaning |
+|-------|---------|
+| `repository`, `tag` | Release to read |
+| `git_commit` | Full commit the tag points to; vocabulary files are read at this commit |
+| `contract_major` | Contract MAJOR the pipeline supports |
+| `sha256sums_sha256` | SHA-256 of the release's `SHA256SUMS` file: anchors every other checksum |
 
 - A build always uses the pinned tag. "Latest" is never resolved at build time.
 - A scheduled workflow checks for a newer release and opens a pull request that bumps the pin
@@ -120,8 +128,11 @@ The build fails when any of these checks fails:
 2. Every downloaded asset matches its line in `SHA256SUMS`.
 3. `contract.json` → `contract_version` has the MAJOR in `contract_major`. A newer MINOR is
    accepted (additive changes).
-4. `_meta.version` in DuckDB equals the pinned tag without `v`.
-5. Generated page counts equal table row counts (see [§12](#12-quality-assurance-and-acceptance)).
+4. The tag checks out at `git_commit`.
+5. In DuckDB `_meta`, every dataset row has `version` equal to the pinned tag without `v`,
+   `git_commit` that is a prefix of the pinned commit, the supported contract MAJOR, and
+   `row_count` equal to the table's row count. The installed DuckDB is at least `min_duckdb`.
+6. Generated page counts equal table row counts (see [§12](#12-quality-assurance-and-acceptance)).
 
 ### 4.4 Data rules inherited from internacia-db
 
@@ -155,9 +166,9 @@ For sizing only; the site computes all figures at build time.
 | Country records / ISO 3166-1 entries | 256 / 249 |
 | Intblocks | 1,275 |
 | Block types / topics | 78 / 153 |
-| Membership edges / with `joined` date / with `left` date | 59,094 / 17,271 / 343 |
+| Membership edges / current / with `joined` date / with `left` date | 59,496 / 58,417 / 17,236 / 333 |
 | Intblocks with `founded` / headquarters / `partof` | 1,178 / 875 / 348 |
-| Intblocks with Wikidata ID / `last_verified` | 1,104 / 1,189 |
+| Intblocks with Wikidata ID / `last_verified` | 1,104 / 977 |
 | Languages in intblock `other_names` | 78 |
 | Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 4.7 MB / 690 KB / 98 KB |
 
@@ -565,11 +576,13 @@ This keeps the two stages testable on their own.
 internacia-web/
 ├── internacia.lock.json        # pinned internacia-db release (§4.2)
 ├── pipeline/                   # Python data stage
+│   ├── lock.py                 # read and check the lock file
 │   ├── fetch.py                # download + verify release assets and vocab files
 │   ├── build_data.py           # DuckDB → site JSON (cards, indexes, stats, search index)
 │   ├── sql/                    # one .sql file per derived dataset
 │   └── tests/
 ├── site/                       # Astro project
+│   ├── site.config.mjs         # SITE_URL and INDEXABLE (§11.2)
 │   ├── src/pages/              # routes (§5.1), including .md and .json endpoints
 │   ├── src/components/         # cards, tables, chart islands
 │   ├── src/content/            # hand-written About and methodology pages
@@ -630,8 +643,9 @@ Steps, in order, once the domain is registered:
 2. Create DNS records: for the apex, `A` records `185.199.108.153`, `185.199.109.153`,
    `185.199.110.153`, `185.199.111.153` and `AAAA` records `2606:50c0:8000::153` to
    `2606:50c0:8003::153`; for `www`, a `CNAME` to `datenoio.github.io`.
-3. Commit `site/public/CNAME` with the domain and set `SITE_URL` in the site config. `SITE_URL` is
-   the only place the domain is written; canonical URLs, sitemap, JSON `meta` and `llms.txt` read it.
+3. Commit `site/public/CNAME` with the domain. In `site/site.config.mjs`, set `SITE_URL` to
+   `https://<DOMAIN>/` and `INDEXABLE` to `true`. `SITE_URL` is the only place the domain is
+   written; canonical URLs, sitemap, JSON `meta` and `llms.txt` read it.
 4. Set the custom domain in repository settings and enable "Enforce HTTPS" when the certificate
    is issued.
 

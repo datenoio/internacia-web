@@ -6,7 +6,8 @@ specification disagree, raise it; do not silently follow either.
 
 ## Current stage
 
-Specification only. Implementation starts with milestone M0 ([SPEC §13](docs/SPEC.md#13-milestones)).
+Milestone M0 is in place: lock file, data pipeline, placeholder site, CI. Next is M1
+([SPEC §13](docs/SPEC.md#13-milestones)).
 
 ## Rules
 
@@ -23,7 +24,30 @@ Specification only. Implementation starts with milestone M0 ([SPEC §13](docs/SP
 - **Do not hard-code the domain.** Read `SITE_URL` from the site config.
 - **Neutral wording** for disputed entities: use internacia-db's labels and classifications as they are.
 
+## Layout
+
+- `internacia.lock.json` — pinned release; bump it only through a pull request that builds.
+- `pipeline/` — Python data stage. `fetch.py` downloads and verifies; `build_data.py` writes
+  `site/src/generated/` (not committed). One SQL file per derived dataset in `pipeline/sql/`.
+- `site/` — Astro project. `site/site.config.mjs` holds `SITE_URL` and `INDEXABLE`.
+- `.github/workflows/site.yml` — builds on pull requests, deploys `main` to GitHub Pages.
+
 ## Commands
 
-None yet. M0 adds `pipeline/fetch.py`, `pipeline/build_data.py` and the Astro build; list their
-commands here when they exist.
+Run from the repository root, in this order:
+
+```bash
+.venv/bin/pip install -r pipeline/requirements-dev.txt   # once, after python -m venv .venv
+.venv/bin/python pipeline/fetch.py
+.venv/bin/python -m pytest pipeline/tests
+.venv/bin/python pipeline/build_data.py
+(cd site && npm ci && npm run build)
+```
+
+The site build fails if `site/src/generated/meta.json` is missing: run the pipeline first.
+
+## Gotchas
+
+- `compressHTML` is off in `site/astro.config.mjs`: Astro's compression drops the space between
+  text and a link on the next line.
+- `_meta.git_commit` in the release is a short hash; the lock file holds the full one.
