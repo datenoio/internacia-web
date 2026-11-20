@@ -33,7 +33,7 @@ const statuses = [...new Set(rows.map((b) => b.status))].sort();
 </div>
 <div class="table-wrap">
   <table
-    class={chunked ? 'data chunked block-table' : 'data block-table'}
+    class={`data${chunked ? ' chunked' : ''} block-table${showTypes ? '' : ' no-types'}`}
     id={id}
     role={chunked ? 'table' : undefined}
     data-chunk={chunked ? CHUNK : undefined}
@@ -42,7 +42,6 @@ const statuses = [...new Set(rows.map((b) => b.status))].sort();
     <thead role={chunked ? 'rowgroup' : undefined}>
       <tr role={chunked ? 'row' : undefined}>
         <th role={chunked ? 'columnheader' : undefined} scope="col" data-sort="text">Name</th>
-        <th role={chunked ? 'columnheader' : undefined} scope="col" data-sort="text">ID</th>
         {showTypes && <th role={chunked ? 'columnheader' : undefined} scope="col" data-sort="text">Block type</th>}
         <th role={chunked ? 'columnheader' : undefined} scope="col" data-sort="text">Status</th>
         <th role={chunked ? 'columnheader' : undefined} scope="col" class="num" data-sort="num">Founded</th>
@@ -57,9 +56,7 @@ const statuses = [...new Set(rows.map((b) => b.status))].sort();
               <td role={chunked ? 'cell' : undefined} data-value={b.name}>
                 <a href={blockPath(b.id)}>{b.name}</a>
                 {b._acronym && <span class="muted"> ({b._acronym})</span>}
-              </td>
-              <td role={chunked ? 'cell' : undefined}>
-                <code>{b.id}</code>
+                {b.id !== b._acronym && <code class="inline-id">{b.id}</code>}
               </td>
               {showTypes && <td role={chunked ? 'cell' : undefined}>{b.blocktype.map((t) => blocktypeLabel(t)).join(', ')}</td>}
               <td role={chunked ? 'cell' : undefined}>{enumLabel('status', b.status)}</td>

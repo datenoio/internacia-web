@@ -12,8 +12,8 @@ const { id, label } = Astro.props;
 const ratio = `--map-ratio: ${worldMap().width} / ${worldMap().height}`;
 ---
 
-<figure class="map" id={id} data-map data-src={path('assets/world.svg')}>
-  <div class="map-canvas js-only" style={ratio} role="img" aria-label={label}></div>
+<figure class="map" id={id} data-map data-src={path('assets/world.svg')} data-card-base={path('countries/')}>
+  <div class="map-canvas js-only" style={ratio} role="group" aria-label={label}></div>
   <div class="map-tip" hidden></div>
   <figcaption>
     <ul class="legend" data-legend></ul>

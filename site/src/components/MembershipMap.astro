@@ -5,7 +5,7 @@
 // all-pairs in light and dark), plus a hatched neutral for former members.
 import type { Block, Country } from '../lib/data';
 import { statusLabel } from '../lib/format';
-import { onMap, worldMap } from '../lib/worldmap';
+import { onMap, viewFor, worldMap } from '../lib/worldmap';
 import { binFor, MEMBERSHIP_BINS } from '../lib/series';
 import { countryByCode } from '../lib/data';
 import { path } from '../lib/urls';
@@ -19,6 +19,8 @@ interface Props {
   values?: { label: string; data: Record<string, number> };
   // In an embedded widget, the full list is on the card rather than on the same page.
   cardHref?: string;
+  // ID of the roster table on the same page: hovering a row highlights its country and back.
+  table?: string;
 }
 
 type Group = 'm' | 'p' | 'o' | 'f';
@@ -39,7 +41,7 @@ const groupOf = (status: string): Group =>
         ? 'f'
         : 'p';
 
-const { block, country, area, values, cardHref } = Astro.props;
+const { block, country, area, values, cardHref, table } = Astro.props;
 // Entry: [CSS class, value label, joined date, name]
 const data: Record<string, [string, string, string, string]> = {};
 let caption = '';
@@ -81,6 +83,16 @@ if (block) {
   summary = MEMBERSHIP_BINS.map((b) => b.label).join(', ');
 }
 
+// Zoom to the coloured records when they cover only part of the world (members, not former
+// members, of an active block). The world stays one click away.
+const zoomCodes = block
+  ? Object.entries(data)
+      .filter(([, [g]]) => !block._active || g !== 'g-f')
+      .map(([code]) => code)
+  : Object.keys(data);
+const view = values ? null : viewFor(zoomCodes);
+const zoomIn = block ? 'Zoom to the members' : country ? `Zoom to ${country.name}` : 'Zoom to the countries shown';
+
 const present = (Object.keys(GROUPS) as Group[]).filter((g) => Object.values(data).some(([x]) => x === `g-${g}`));
 const bins = values ? MEMBERSHIP_BINS.filter((b) => Object.values(data).some(([x]) => x === b.cls)) : [];
 const show = Object.keys(data).length > 0;
@@ -90,11 +102,23 @@ const ratio = `--map-ratio: ${worldMap().width} / ${worldMap().height}`;
 
 {
   show && (
-    <figure class={`map${country ? ' map-locator' : ''}`} data-map data-src={path('assets/world.svg')}>
+    <figure
+      class={`map${country ? ' map-locator' : ''}`}
+      data-map
+      data-src={path('assets/world.svg')}
+      data-card-base={country ? undefined : path('countries/')}
+      data-view={view ?? undefined}
+      data-link-table={table}
+    >
+      {view && (
+        <button type="button" class="map-zoom js-only" data-map-zoom data-in={zoomIn} data-out="Show the whole world">
+          Show the whole world
+        </button>
+      )}
       <div
         class="map-canvas js-only"
         style={ratio}
-        role="img"
+        role={country ? 'img' : 'group'}
         aria-label={`${caption}: ${summary}. ${cardHref ? 'The full list is on the Internacia card.' : 'The table on this page lists every entry.'}`}
       />
       <noscript>

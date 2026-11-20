@@ -1,0 +1,35 @@
+---
+// In-page navigation for long cards: a row of section links that sticks to the top of the
+// window. Plain anchors work without JavaScript; scripts/toc.ts (bundled for every page through
+// scripts/site.ts) marks the section in view.
+import { num } from '../lib/format';
+
+interface Item {
+  id: string;
+  label: string;
+  count?: number;
+}
+
+interface Props {
+  items: Item[];
+}
+
+const { items } = Astro.props;
+---
+
+<nav class="page-toc" aria-label="On this page" data-toc>
+  <div class="container">
+    <ul>
+      {
+        items.map((item) => (
+          <li>
+            <a href={`#${item.id}`}>
+              {item.label}
+              {item.count !== undefined && <span class="toc-count">{num(item.count)}</span>}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</nav>

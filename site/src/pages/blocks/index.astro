@@ -18,6 +18,49 @@ const topics = [...new Map(rows.flatMap((b) => (b.topics ?? []).map((t) => [t.ke
   (a, b) => a[1].localeCompare(b[1]),
 );
 const active = rows.filter((b) => b._active).length;
+
+// Facet options with counts. The counts in the HTML are for the default view (active records
+// only); scripts/tables.ts recounts them after every change with the same rule: a value counts
+// the rows that pass every other filter.
+const NONE = '_none';
+const activeRows = rows.filter((b) => b._active);
+const countBy = (values: (b: (typeof rows)[number]) => string[]) => {
+  const m = new Map<string, number>();
+  for (const b of activeRows) for (const v of values(b)) m.set(v, (m.get(v) ?? 0) + 1);
+  return m;
+};
+const facetOptions = (counts: Map<string, number>, all: string[], label: (v: string) => string, byCount = true) =>
+  all
+    .map((value) => ({ value, label: label(value), count: counts.get(value) ?? 0 }))
+    .sort((a, b) => (byCount ? b.count - a.count : 0) || a.label.localeCompare(b.label));
+const valuesOf = {
+  status: (b: (typeof rows)[number]) => [b.status],
+  types: (b: (typeof rows)[number]) => b.blocktype,
+  scope: (b: (typeof rows)[number]) => [b.scope_category ?? NONE],
+  geo: (b: (typeof rows)[number]) => [b.geographic_scope ?? NONE],
+  topics: (b: (typeof rows)[number]) => (b.topics ?? []).map((t) => t.key),
+};
+const notSet = (label: (v: string) => string) => (v: string) => (v === NONE ? 'Not set' : label(v));
+const facets = [
+  { key: 'status', legend: 'Status', options: facetOptions(countBy(valuesOf.status), statuses, (v) => enumLabel('status', v), false), top: 0 },
+  { key: 'types', legend: 'Block type', options: facetOptions(countBy(valuesOf.types), types.map((t) => t.id), (v) => types.find((t) => t.id === v)?.name ?? v), top: 8 },
+  {
+    key: 'scope',
+    legend: 'Scope category',
+    options: facetOptions(countBy(valuesOf.scope), [...scopes, ...(rows.some((b) => !b.scope_category) ? [NONE] : [])], notSet((v) => enumLabel('scope_category', v))),
+    top: 0,
+  },
+  {
+    key: 'geo',
+    legend: 'Geographic scope',
+    options: facetOptions(countBy(valuesOf.geo), [...geo, ...(rows.some((b) => !b.geographic_scope) ? [NONE] : [])], notSet((v) => enumLabel('geographic_scope', v))),
+    top: 0,
+  },
+  { key: 'topics', legend: 'Topic', options: facetOptions(countBy(valuesOf.topics), topics.map(([k]) => k), (v) => topics.find(([k]) => k === v)?.[1] ?? v), top: 8 },
+];
+const years = rows.map((b) => Number((b.founded ?? '').slice(0, 4))).filter((y) => y > 0);
+const minYear = Math.min(...years);
+const maxYear = Math.max(...years);
 // Rows go into <tbody> chunks so the browser can skip off-screen chunks (content-visibility).
 const CHUNK = 100;
 const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => rows.slice(i * CHUNK, (i + 1) * CHUNK));
@@ -42,35 +85,69 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
   </section>
 
   <section class="container">
-    <div class="filters js-only" data-table-tools="blocks-table">
+    <div class="list-layout">
+      <aside class="facets js-only" id="block-facets" aria-label="Filters">
+        <div class="facets-body" data-facets-body>
+          {
+            facets.map((f) => (
+              <fieldset class="facet" data-facet-group={f.key}>
+                <legend>{f.legend}</legend>
+                {f.top > 0 && f.options.length > f.top && (
+                  <input type="search" class="facet-filter" data-facet-filter placeholder={`Filter ${f.options.length} values`} aria-label={`Filter ${f.legend.toLowerCase()} values`} />
+                )}
+                {f.options.map((o, i) => (
+                  <label class={`cb${f.top > 0 && i >= f.top ? ' extra' : ''}${o.count === 0 ? ' is-zero' : ''}`}>
+                    <input type="checkbox" data-facet={f.key} value={o.value} data-label={o.label} />
+                    <span class="cb-label">{o.label}</span>
+                    <span class="facet-count">{num(o.count)}</span>
+                  </label>
+                ))}
+                {f.key === 'status' && (
+                  <label class="cb">
+                    <input type="checkbox" data-filter="active" data-value="yes" checked />
+                    <span class="cb-label">Active only</span>
+                  </label>
+                )}
+                {f.top > 0 && f.options.length > f.top && (
+                  <button type="button" class="facet-more" data-facet-more data-more={`Show all ${f.options.length}`} data-less={`Show top ${f.top}`}>
+                    {`Show all ${f.options.length}`}
+                  </button>
+                )}
+              </fieldset>
+            ))
+          }
+          <fieldset class="facet facet-range">
+            <legend>Founded</legend>
+            <label>
+              From
+              <input type="number" inputmode="numeric" data-range="founded" data-bound="min" min={minYear} max={maxYear} placeholder={String(minYear)} />
+            </label>
+            <label>
+              To
+              <input type="number" inputmode="numeric" data-range="founded" data-bound="max" min={minYear} max={maxYear} placeholder={String(maxYear)} />
+            </label>
+          </fieldset>
+        </div>
+      </aside>
+
+      <div class="list-main">
+    <div class="filters js-only" data-table-tools="blocks-table" data-facets="block-facets" data-url-state>
       <label>Search<input type="search" data-filter="text" placeholder="Name, acronym or ID" /></label>
-      <label
-        >Block type<select data-filter="types"
-          ><option value="">All</option>{types.map((t) => <option value={t.id}>{t.name} ({t._count})</option>)}</select
-        ></label
-      >
-      <label
-        >Status<select data-filter="status"
-          ><option value="">All</option>{statuses.map((v) => <option value={v}>{enumLabel('status', v)}</option>)}</select
-        ></label
-      >
-      <label
-        >Scope category<select data-filter="scope"
-          ><option value="">All</option>{scopes.map((v) => <option value={v}>{enumLabel('scope_category', v)}</option>)}</select
-        ></label
-      >
-      <label
-        >Geographic scope<select data-filter="geo"
-          ><option value="">All</option>{geo.map((v) => <option value={v}>{enumLabel('geographic_scope', v)}</option>)}</select
-        ></label
-      >
-      <label
-        >Topic<select data-filter="topics"
-          ><option value="">All</option>{topics.map(([k, v]) => <option value={k}>{v}</option>)}</select
-        ></label
-      >
-      <label class="inline"><input type="checkbox" data-filter="active" data-value="yes" checked /> Active only</label>
+      <button type="button" class="filters-open" data-facets-open aria-haspopup="dialog">Filters</button>
       <span class="count" data-count aria-live="polite"></span>
+      <div class="active-filters" hidden></div>
+      <script is:inline>
+        // A shared link with filters gets its chip row before the first paint (tables.ts fills it),
+        // and the rows stay invisible until the filters are applied, so they do not jump. Should
+        // the script not run, the rows show after three seconds anyway.
+        if (location.search.length > 1) {
+          const row = document.currentScript.previousElementSibling;
+          row.hidden = false;
+          row.classList.add('reserve');
+          document.documentElement.classList.add('list-pending');
+          setTimeout(() => document.documentElement.classList.remove('list-pending'), 3000);
+        }
+      </script>
     </div>
 
     <div class="table-wrap">
@@ -81,7 +158,6 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
         <thead role="rowgroup">
           <tr role="row">
             <th role="columnheader" scope="col" data-sort="text">Name</th>
-            <th role="columnheader" scope="col" data-sort="text">ID</th>
             <th role="columnheader" scope="col" data-sort="text">Block type</th>
             <th role="columnheader" scope="col" data-sort="text">Status</th>
             <th role="columnheader" scope="col" data-sort="text">Geographic scope</th>
@@ -98,26 +174,23 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
                 role="row"
                 data-types={b.blocktype.join('|')}
                 data-status={b.status}
-                data-scope={b.scope_category ?? ''}
-                data-geo={b.geographic_scope ?? ''}
+                data-scope={b.scope_category ?? NONE}
+                data-geo={b.geographic_scope ?? NONE}
                 data-topics={(b.topics ?? []).map((t) => t.key).join('|')}
                 data-active={b._active ? 'yes' : 'no'}
+                data-founded={(b.founded ?? '').slice(0, 4)}
               >
                 <td role="cell" data-value={b.name}>
                   <a href={blockPath(b.id)}>{b.name}</a>
                   {b._acronym && <span class="muted"> ({b._acronym})</span>}
+                  {b.id !== b._acronym && <code class="inline-id">{b.id}</code>}
                 </td>
-                <td role="cell">
-                  <code>{b.id}</code>
-                </td>
-                <td role="cell">{b.blocktype.map((t) => blocktypeLabel(t)).join(', ')}</td>
-                <td role="cell">{enumLabel('status', b.status)}</td>
-                <td role="cell">{enumLabel('geographic_scope', b.geographic_scope)}</td>
-                <td role="cell" class="num" data-value={(b.founded ?? '').slice(0, 4)}>
-                  {b.founded}
-                </td>
-                <td role="cell">{b.headquarters?.city ? [b.headquarters.city, b.headquarters.country].filter(Boolean).join(', ') : ''}</td>
-                <td role="cell" class="num">{num(b._current_member_count)}</td>
+                <td role="cell" data-label="Type">{b.blocktype.map((t) => blocktypeLabel(t)).join(', ')}</td>
+                <td role="cell" data-label="Status">{enumLabel('status', b.status)}</td>
+                <td role="cell" data-label="Scope">{enumLabel('geographic_scope', b.geographic_scope)}</td>
+                <td role="cell" class="num" data-label="Founded" data-value={(b.founded ?? '').slice(0, 4)}>{b.founded}</td>
+                <td role="cell" data-label="HQ">{b.headquarters?.city ? [b.headquarters.city, b.headquarters.country].filter(Boolean).join(', ') : ''}</td>
+                <td role="cell" class="num" data-label="Members">{num(b._current_member_count)}</td>
               </tr>
               ))}
             </tbody>
@@ -125,6 +198,18 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
         }
       </table>
     </div>
+      </div>
+    </div>
+    <dialog class="facet-sheet" data-facet-sheet aria-labelledby="facet-sheet-title">
+      <div class="facet-sheet-head">
+        <h2 id="facet-sheet-title">Filters</h2>
+        <button type="button" data-sheet-close>Close</button>
+      </div>
+      <div data-sheet-slot></div>
+      <div class="facet-sheet-foot">
+        <button type="button" class="pri" data-sheet-close data-sheet-done>Show results</button>
+      </div>
+    </dialog>
   </section>
   <script>
     import '../../scripts/tables.ts';
