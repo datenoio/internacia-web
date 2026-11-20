@@ -2,7 +2,7 @@
 // absolute links, so an agent can join without a second lookup.
 import { CENTROID_NOTE, LICENSE } from './api';
 import { blockById, type Block, type Country } from './data';
-import { blocktypeLabel, enumLabel, num, statusLabel, topicLabel, vocabLabel } from './format';
+import { blocktypeLabel, enumLabel, nativeNameList, num, statusDeprecated, statusLabel, topicLabel, vocabLabel } from './format';
 import { meta } from './meta';
 import { absolute, blockJson, blockPath, countryJson, countryPath } from './urls';
 
@@ -30,6 +30,9 @@ const facts = (rows: [string, unknown][]): string =>
     .filter(([, v]) => v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && !v.length))
     .map(([k, v]) => `- **${k}:** ${Array.isArray(v) ? v.join(', ') : v}`)
     .join('\n');
+
+// Same wording as the HTML cards: a status that internacia-db deprecates keeps its label.
+const status = (value: string): string => `${statusLabel(value)}${statusDeprecated(value) ? ' (deprecated label)' : ''}`;
 
 const footer = () =>
   `\n---\n\nData: internacia-db v${meta.data.version} (${meta.data.release_url}), licensed ${LICENSE}.\n`;
@@ -98,6 +101,12 @@ export function countryMarkdown(c: Country): string {
     '\n## Languages and practical reference\n',
     facts([
       ['Languages', (c.languages ?? []).map((l) => `${l.name} (${l.code})${l.official ? ', official' : ''}`)],
+      [
+        'Native names',
+        nativeNameList(c.native_names)
+          .map((n) => `${n.names.join(' — ')} (${n.language === n.lang ? n.lang : `${n.language}, ${n.lang}`})`)
+          .join('; '),
+      ],
       ['Currencies', (c.currencies ?? []).map((x) => `${x.name ?? x.code} (${x.code})`)],
       ['Time zones', c.timezones],
       ['Driving side', c.car_side],
@@ -111,12 +120,12 @@ export function countryMarkdown(c: Country): string {
     `\n## Current memberships (${current.length})\n`,
     table(
       ['ID', 'Organization', 'Type', 'Status', 'Joined'],
-      current.map((m) => [m.block_id, m.block_name, blocktypeLabel(m.blocktype), statusLabel(m.status), m.joined]),
+      current.map((m) => [m.block_id, m.block_name, blocktypeLabel(m.blocktype), status(m.status), m.joined]),
     ),
     `\n## Former memberships and memberships of historical organizations (${former.length})\n`,
     table(
       ['ID', 'Organization', 'Status', 'Joined', 'Left'],
-      former.map((m) => [m.block_id, m.block_name, statusLabel(m.status), m.joined, m.left]),
+      former.map((m) => [m.block_id, m.block_name, status(m.status), m.joined, m.left]),
     ),
     '\n## Most similar countries by shared current memberships\n',
     table(['Code', 'Country', 'Shared', 'Jaccard'], c._similar.map((s) => [s.code, s.name, s.shared, s.jaccard])),
@@ -172,12 +181,12 @@ export function blockMarkdown(b: Block): string {
       ? 'This record has no country or organization roster by design (membership not applicable).'
       : table(
           ['Code', 'Name', 'Type', 'Status', 'Joined'],
-          (b._active ? current : b._roster).map((r) => [r.id, r.name, enumLabel('include_type', r.type), statusLabel(r.status), r.joined]),
+          (b._active ? current : b._roster).map((r) => [r.id, r.name, enumLabel('include_type', r.type), status(r.status), r.joined]),
         ),
     b._active && other.length
       ? `\n## Former participants (${other.length})\n\n${table(
           ['Code', 'Name', 'Type', 'Status', 'Joined', 'Left'],
-          other.map((r) => [r.id, r.name, enumLabel('include_type', r.type), statusLabel(r.status), r.joined, r.left]),
+          other.map((r) => [r.id, r.name, enumLabel('include_type', r.type), status(r.status), r.joined, r.left]),
         )}`
       : '',
     '\n## Structure\n',

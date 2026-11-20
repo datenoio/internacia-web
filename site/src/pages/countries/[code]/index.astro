@@ -8,7 +8,7 @@ import EmbedCode from '../../../components/EmbedCode.astro';
 import Base from '../../../layouts/Base.astro';
 import { CENTROID_NOTE } from '../../../lib/api';
 import { aliases, areaByName, countries, countryByCode, type Country } from '../../../lib/data';
-import { blocktypeLabel, enumLabel, num, statusDeprecated, statusDescription, statusLabel, vocabLabel, yesNo } from '../../../lib/format';
+import { blocktypeLabel, enumLabel, nativeNameList, num, statusDeprecated, statusDescription, statusLabel, vocabLabel, yesNo } from '../../../lib/format';
 import { countryEmbeddable } from '../../../lib/embed';
 import { countryLd } from '../../../lib/jsonld';
 import {
@@ -58,7 +58,7 @@ const indicatorNote = (v: Country['population']) =>
 const wb = (v?: { id: string; value: string }) => (v ? `${v.value} (${v.id})` : undefined);
 const vocabList = (vocab: string, items?: { id: string }[]) =>
   items?.length ? items.map((i) => vocabLabel(vocab, i.id)).join(', ') : undefined;
-const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
+const nativeNames = nativeNameList(c?.native_names);
 // In-page navigation, in page order: memberships first, reference sections after them.
 const toc = c
   ? [
@@ -232,7 +232,10 @@ const toc = c
                           {m.block_status === 'historical' && <span class="muted small"> (historical)</span>}
                           {m.note && <div class="muted small">{m.note}</div>}
                         </td>
-                        <td>{statusLabel(m.status)}</td>
+                        <td>
+                          {statusLabel(m.status)}
+                          {statusDeprecated(m.status) && <span class="muted small"> (deprecated label)</span>}
+                        </td>
                         <td class="date">{m.joined}</td>
                         <td class="date">{m.left}</td>
                       </tr>
@@ -415,10 +418,11 @@ const toc = c
               <>
                 <h3>Native names</h3>
                 <ul class="names">
-                  {nativeNames.map(([lang, n]) => (
+                  {nativeNames.map((n) => (
                     <li>
-                      <span class="lang">{lang}</span>
-                      <bdi lang={lang}>{[n.official, n.common].filter((v, i, a) => v && a.indexOf(v) === i).join(' — ')}</bdi>
+                      <span class="lang">{n.lang}</span>
+                      <bdi lang={n.lang}>{n.names.join(' — ')}</bdi>
+                      {n.language !== n.lang && <span class="muted small"> ({n.language})</span>}
                     </li>
                   ))}
                 </ul>

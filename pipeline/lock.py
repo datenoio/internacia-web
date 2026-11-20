@@ -11,6 +11,10 @@ ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_LOCK = ROOT / "internacia.lock.json"
 DEFAULT_CACHE = ROOT / ".cache" / "internacia"
 
+# Contract MAJOR this pipeline reads (SPEC §4.3). Raise it only together with the code changes a
+# new MAJOR needs; bump.py writes it into the lock file and refuses releases with another MAJOR.
+CONTRACT_MAJOR = 4
+
 _TAG = re.compile(r"^v\d+\.\d+\.\d+$")
 _SHA1 = re.compile(r"^[0-9a-f]{40}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -46,7 +50,9 @@ class Lock:
         return f"https://github.com/{self.repository}/releases/tag/{self.tag}"
 
 
-def load_lock(path: Path = DEFAULT_LOCK) -> Lock:
+def load_lock(path: Path = DEFAULT_LOCK, pipeline_major: int | None = CONTRACT_MAJOR) -> Lock:
+    """Read and check the lock file. Unless pipeline_major is None, its contract_major must equal
+    the MAJOR this pipeline reads; only bump.py, which replaces the lock, reads it without."""
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError as exc:
@@ -69,4 +75,9 @@ def load_lock(path: Path = DEFAULT_LOCK) -> Lock:
     unknown = sorted(set(raw) - set(checks))
     if unknown:
         raise LockError(f"{path}: unknown fields {unknown}")
+    if pipeline_major is not None and raw["contract_major"] != pipeline_major:
+        raise LockError(
+            f"{path}: contract_major is {raw['contract_major']}, but this pipeline reads contract MAJOR "
+            f"{pipeline_major}. Move the lock with pipeline/bump.py update, which writes the pipeline's MAJOR."
+        )
     return Lock(**raw)

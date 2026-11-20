@@ -5,8 +5,9 @@
     python pipeline/bump.py update [--tag T]   rewrite the lock file for T (default: latest)
     python pipeline/bump.py summary OLD NEW    Markdown summary from two meta.json files
 
-`update` keeps contract_major: a release with a new contract MAJOR then fails fetch.py on
-purpose, because the pipeline must be updated before the site can move to it. The data-bump
+`update` writes the contract MAJOR this pipeline reads (lock.CONTRACT_MAJOR) and first checks the
+release's contract.json: a release with another contract MAJOR leaves the lock as it is and fails
+on purpose, because the pipeline must be updated before the site can move to it. The data-bump
 workflow runs these steps, builds and checks the site, and opens a pull request.
 """
 
@@ -21,7 +22,8 @@ import sys
 import urllib.request
 from pathlib import Path
 
-from lock import DEFAULT_LOCK, Lock, LockError, load_lock
+from fetch import FetchError, contract_major, parse_sha256sums
+from lock import CONTRACT_MAJOR, DEFAULT_LOCK, Lock, LockError, load_lock
 
 USER_AGENT = "internacia-web-bump"
 
@@ -77,9 +79,25 @@ def new_lock(lock: Lock, tag: str, commit: str, sums_sha256: str) -> dict:
         "repository": lock.repository,
         "tag": tag,
         "git_commit": commit,
-        "contract_major": lock.contract_major,
+        "contract_major": CONTRACT_MAJOR,
         "sha256sums_sha256": sums_sha256,
     }
+
+
+def check_contract(tag: str, sums: bytes, contract: bytes) -> str:
+    """Contract version of a release, after checking contract.json against its SHA256SUMS and its
+    MAJOR against the one this pipeline reads (SPEC §4.3)."""
+    listed = parse_sha256sums(sums.decode("utf-8")).get("contract.json")
+    if listed != hashlib.sha256(contract).hexdigest():
+        raise LockError(f"contract.json of {tag} does not match its SHA256SUMS")
+    data = json.loads(contract)
+    major = contract_major(data)
+    if major != CONTRACT_MAJOR:
+        raise LockError(
+            f"contract_version {data['contract_version']} of {tag} has MAJOR {major}; "
+            f"the site supports MAJOR {CONTRACT_MAJOR}. Update the pipeline before bumping the lock."
+        )
+    return data["contract_version"]
 
 
 def summary(old: dict, new: dict) -> str:
@@ -128,7 +146,8 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(summary(old, new))
         return 0
 
-    lock = load_lock(args.lock)
+    # The lock is about to be replaced, so it may still pin an older contract MAJOR.
+    lock = load_lock(args.lock, pipeline_major=None)
     if args.command == "check":
         tag = latest_tag(lock.repository)
         newer = version_key(tag) > version_key(lock.tag)
@@ -141,11 +160,17 @@ def main(argv: list[str] | None = None) -> int:
     if tag == lock.tag:
         print(f"already pinned to {tag}")
         return 0
-    sums = _get(f"https://github.com/{lock.repository}/releases/download/{tag}/SHA256SUMS")
+    base = f"https://github.com/{lock.repository}/releases/download/{tag}/"
+    sums = _get(base + "SHA256SUMS")
+    try:
+        contract_version = check_contract(tag, sums, _get(base + "contract.json"))
+    except (LockError, FetchError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
     data = new_lock(lock, tag, tag_commit(lock.repository, tag), hashlib.sha256(sums).hexdigest())
     args.lock.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     load_lock(args.lock)  # validate what was written
-    print(f"lock file now pins {tag} ({data['git_commit'][:12]})")
+    print(f"lock file now pins {tag} ({data['git_commit'][:12]}, contract {contract_version})")
     _output("tag", tag)
     return 0
 

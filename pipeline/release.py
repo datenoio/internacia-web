@@ -51,6 +51,9 @@ class Release:
     downloads: list[dict] = field(default_factory=list)
     # Completeness gates from data/schemas/{countries,intblocks}_completeness.yaml (`fields`).
     completeness_rules: dict[str, dict[str, dict]] = field(default_factory=dict)
+    # Language names by countries.native_names key (ISO 639-1, else 639-3), from
+    # data/vocabs/language_codes.yaml. Since contract 4 the keys are each entity's own languages.
+    native_name_languages: dict[str, str] = field(default_factory=dict)
 
 
 def _downloads(assets: Path, repository: str, tag: str) -> list[dict]:
@@ -114,6 +117,12 @@ def load_release(cache_dir: Path, repository: str, tag: str) -> Release:
         path = source / "vocabs" / f"{name}.yaml"
         if path.exists():
             vocabs[name] = {str(item["id"]): item.get("name", str(item["id"])) for item in _yaml(path)}
+    language_codes = source / "vocabs" / "language_codes.yaml"
+    native_name_languages = (
+        {str(item["key"]): item.get("name", str(item["key"])) for item in _yaml(language_codes) if item.get("key")}
+        if language_codes.exists()
+        else {}
+    )
 
     return Release(
         countries=read_jsonl_zst(assets / "countries.jsonl.zst"),
@@ -132,4 +141,5 @@ def load_release(cache_dir: Path, repository: str, tag: str) -> Release:
             for name in ("countries", "intblocks")
             if (source / "schemas" / f"{name}_completeness.yaml").exists()
         },
+        native_name_languages=native_name_languages,
     )

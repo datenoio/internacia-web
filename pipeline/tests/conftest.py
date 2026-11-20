@@ -10,9 +10,9 @@ from lock import Lock  # noqa: E402
 
 VALID_LOCK = {
     "repository": "datenoio/internacia-db",
-    "tag": "v3.1.0",
-    "git_commit": "930121d1b83655ef2fdb4379d8aa506111918dca",
-    "contract_major": 3,
+    "tag": "v4.0.0",
+    "git_commit": "88a0a27f0384c3a7aa8fcfd91ffe99e23ca06521",
+    "contract_major": 4,
     "sha256sums_sha256": "0" * 64,
 }
 
