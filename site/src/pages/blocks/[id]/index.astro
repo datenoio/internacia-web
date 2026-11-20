@@ -8,10 +8,13 @@ import EmbedCode from '../../../components/EmbedCode.astro';
 import Base from '../../../layouts/Base.astro';
 import { aliases, blockById, blocks, type Block, type BlockRef } from '../../../lib/data';
 import {
+  blocktypeDeprecated,
   blocktypeLabel,
   enumLabel,
   humanize,
   num,
+  roleDescription,
+  roleLabel,
   splitCode,
   statusDeprecated,
   statusDescription,
@@ -19,6 +22,7 @@ import {
   topicLabel,
 } from '../../../lib/format';
 import { blockEmbeddable } from '../../../lib/embed';
+import { designRows } from '../../../lib/design';
 import { meta } from '../../../lib/meta';
 import { steps } from '../../../scripts/charts';
 import { blockLd } from '../../../lib/jsonld';
@@ -72,20 +76,24 @@ const seriesChanges = series.filter((p, i) => i === 0 || p.value !== series[i - 
 // Columns that would be empty or the same in every row are left out.
 const cols = (rows: typeof listed) => ({
   type: new Set(rows.map((r) => r.type)).size > 1,
+  role: rows.some((r) => r.role),
   joined: rows.some((r) => r.joined),
   left: rows.some((r) => r.left),
 });
 const listedCols = cols(listed);
 const otherCols = cols(other);
 const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.value}`, a])).values()] : [];
+// Institutional design (contract 4.1): absent subfields are unknown and left out.
+const design = b ? designRows(b.institutional_design) : [];
 const hasStructure = b ? b._parents.length > 0 || b._children.length > 0 || Boolean(b._predecessor) || Boolean(b._successor) || (b.previous_names?.length ?? 0) > 0 : false;
 // In-page navigation, in page order.
 const toc = b
   ? [
       { id: 'facts', label: 'Key facts' },
       ...(hasStructure ? [{ id: 'structure', label: 'Structure' }] : []),
+      ...(design.length > 0 ? [{ id: 'design', label: 'Institutional design' }] : []),
       ...(b.notes ? [{ id: 'notes', label: 'Notes' }] : []),
-      { id: 'roster', label: 'Members', count: b._active ? countryCount : undefined },
+      { id: 'roster', label: 'Members', count: b._active && !(b.membership_applicability === 'not_applicable' && b._roster.length === 0) ? countryCount : undefined },
       ...(b._similar.length > 0 ? [{ id: 'overlap', label: 'Overlapping organizations' }] : []),
       ...(acronyms.length > 0 || (b.other_names?.length ?? 0) > 0 ? [{ id: 'names', label: 'Names' }] : []),
       ...(links.length > 0 ? [{ id: 'links', label: 'Links' }] : []),
@@ -132,7 +140,10 @@ const toc = b
           <ul class="badges" aria-labelledby="types-label">
             {b.blocktype.map((t) => (
               <li>
-                <a class="badge badge-type" href={typePath(t)}>{blocktypeLabel(t)}</a>
+                <a class="badge badge-type" href={typePath(t)}>
+                  {blocktypeLabel(t)}
+                  {blocktypeDeprecated(t) && <span class="muted"> (deprecated)</span>}
+                </a>
               </li>
             ))}
           </ul>
@@ -256,6 +267,29 @@ const toc = b
               )}
             </section>
           )}
+
+          {design.length > 0 && (
+            <section class="card-section" aria-labelledby="design">
+              <h2 id="design">Institutional design</h2>
+              <p class="muted small">
+                What the founding instrument lets the organization decide and enforce. A field that is not listed is unknown;
+                the sources are under Provenance.
+              </p>
+              <dl class="facts">
+                {design.map((row) => (
+                  <>
+                    <dt title={row.description || undefined}>{row.label}</dt>
+                    <dd data-design={row.field}>
+                      {/* One line per value: JSX-style line breaks would put a space before each comma. */}
+                      {row.values.map((v, i) => (
+                        <>{i > 0 && ', '}{v.country ? v.country.exists ? <a href={countryPath(v.key)}>{v.label}</a> : <code>{v.key}</code> : <span title={v.description || undefined}>{v.label}</span>}</>
+                      ))}
+                    </dd>
+                  </>
+                ))}
+              </dl>
+            </section>
+          )}
         </div>
 
         {b.notes && (
@@ -339,13 +373,14 @@ const toc = b
                           <th scope="col" data-sort="text">Code</th>
                           {listedCols.type && <th scope="col" data-sort="text">Type</th>}
                           <th scope="col" data-sort="text">Status</th>
+                          {listedCols.role && <th scope="col" data-sort="text">Route role</th>}
                           {listedCols.joined && <th scope="col" data-sort="text">Joined</th>}
                           {!b._active && listedCols.left && <th scope="col" data-sort="text">Left</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {listed.map((r) => (
-                          <tr data-status={r.status} data-member={r.id} data-type={r.type} data-current={r.current ? 'yes' : 'no'}>
+                          <tr data-status={r.status} data-member={r.id} data-type={r.type} data-current={r.current ? 'yes' : 'no'} data-role={r.role ?? undefined}>
                             <td data-value={r.name ?? r.id}>
                               {r.flag_emoji && <span aria-hidden="true">{r.flag_emoji} </span>}
                               {r.link === 'country' ? (
@@ -365,6 +400,7 @@ const toc = b
                               {statusLabel(r.status)}
                               {statusDeprecated(r.status) && <span class="muted small"> (deprecated label)</span>}
                             </td>
+                            {listedCols.role && <td title={roleDescription(r.role) || undefined}>{roleLabel(r.role)}</td>}
                             {listedCols.joined && <td class="date">{r.joined}</td>}
                             {!b._active && listedCols.left && <td class="date">{r.left}</td>}
                           </tr>
@@ -385,13 +421,14 @@ const toc = b
                           <th scope="col">Code</th>
                           {otherCols.type && <th scope="col">Type</th>}
                           <th scope="col">Status</th>
+                          {otherCols.role && <th scope="col">Route role</th>}
                           {otherCols.joined && <th scope="col">Joined</th>}
                           {otherCols.left && <th scope="col">Left</th>}
                         </tr>
                       </thead>
                       <tbody>
                         {other.map((r) => (
-                          <tr data-member={r.id} data-type={r.type} data-current="no">
+                          <tr data-member={r.id} data-type={r.type} data-current="no" data-role={r.role ?? undefined}>
                             <td>
                               {r.link === 'country' ? (
                                 <a href={countryPath(r.id)}>{r.name}</a>
@@ -410,6 +447,7 @@ const toc = b
                               {statusLabel(r.status)}
                               {statusDeprecated(r.status) && <span class="muted small"> (deprecated label)</span>}
                             </td>
+                            {otherCols.role && <td title={roleDescription(r.role) || undefined}>{roleLabel(r.role)}</td>}
                             {otherCols.joined && <td class="date">{r.joined}</td>}
                             {otherCols.left && <td class="date">{r.left}</td>}
                           </tr>

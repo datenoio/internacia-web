@@ -50,6 +50,8 @@ const empty = types().filter((t) => t._count === 0);
                 <tr data-type={t.id}>
                   <td>
                     <a href={typePath(t.id)}>{t.name}</a>
+                    {t.deprecated && <span class="muted small"> (deprecated)</span>}
+                    {t.description && <div class="muted small">{t.description}</div>}
                   </td>
                   <td>
                     <code>{t.id}</code>

@@ -54,6 +54,59 @@ class Release:
     # Language names by countries.native_names key (ISO 639-1, else 639-3), from
     # data/vocabs/language_codes.yaml. Since contract 4 the keys are each entity's own languages.
     native_name_languages: dict[str, str] = field(default_factory=dict)
+    # Land-border crossing status (contract 4.1): rows of the border_status table. The
+    # country_borders view is not read: it needs DuckDB 2.0, although contract.json says
+    # min_duckdb 1.5.4. derive.py applies the view's rule (a row without `until` is current).
+    border_status: list[dict] = field(default_factory=list)
+    # Labels of includes[].role (data/schemas/include_roles.yaml) and of the institutional_design
+    # subfields and values (data/schemas/institutional_design.yaml), contract 4.1.
+    include_roles: dict[str, dict] = field(default_factory=dict)
+    institutional_design: dict[str, dict] = field(default_factory=dict)
+
+
+def _text(value) -> str:
+    return " ".join(str(value or "").split())
+
+
+def _include_roles(path: Path) -> dict[str, dict]:
+    """Role labels by key; each role lists the block types (route kinds) it applies to."""
+    if not path.exists():
+        return {}
+    raw = _yaml(path) or {}
+    kinds = raw.get("kinds") or {}
+    out = {}
+    for key, role in (raw.get("roles") or {}).items():
+        out[str(key)] = {
+            "name": role.get("name", key),
+            "description": _text(role.get("description")),
+            "blocktypes": sorted({t for k in kinds.values() if key in (k.get("roles") or []) for t in k.get("blocktypes") or []}),
+        }
+    return out
+
+
+def _institutional_design(path: Path) -> dict[str, dict]:
+    """Subfield labels and their value labels, in the catalog's order."""
+    if not path.exists():
+        return {}
+    fields = (_yaml(path) or {}).get("fields") or {}
+    return {
+        str(key): {
+            "name": f.get("name", key),
+            "kind": f.get("kind"),
+            "description": _text(f.get("description")),
+            "values": {
+                str(v): {"name": val.get("name", v), "description": _text(val.get("description"))}
+                for v, val in (f.get("values") or {}).items()
+            },
+        }
+        for key, f in fields.items()
+    }
+
+
+def _rows(con, sql: str) -> list[dict]:
+    cursor = con.execute(sql)
+    columns = [d[0] for d in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
 def _downloads(assets: Path, repository: str, tag: str) -> list[dict]:
@@ -94,21 +147,23 @@ def load_release(cache_dir: Path, repository: str, tag: str) -> Release:
     source = cache_dir / "source" / "data"
 
     with duckdb.connect(str(assets / "internacia.duckdb"), read_only=True) as con:
+        # description and deprecated: contract 4.1. A deprecated block type stays valid in 4.x.
         blocktypes = [
-            {"id": r[0], "name": r[1], "other_names": r[2] or []}
-            for r in con.execute("SELECT id, name, other_names FROM blocktypes ORDER BY id").fetchall()
+            {**r, "other_names": r["other_names"] or []}
+            for r in _rows(con, "SELECT id, name, description, deprecated, other_names FROM blocktypes ORDER BY id")
         ]
-        cols = ["intblock_id", "country_code", "include_type", "status", "joined", "left"]
-        memberships = [
-            dict(zip(cols, r))
-            for r in con.execute(
-                'SELECT intblock_id, country_code, include_type, status, joined, "left" FROM memberships'
-            ).fetchall()
-        ]
+        memberships = _rows(
+            con, 'SELECT intblock_id, country_code, include_type, status, joined, "left", role FROM memberships'
+        )
         current = {
             (r[0], r[1], r[2])
             for r in con.execute("SELECT intblock_id, country_code, include_type FROM current_memberships").fetchall()
         }
+        border_status = _rows(
+            con,
+            'SELECT country_a, country_b, status, since, "until", note, last_verified, provenance '
+            "FROM border_status ORDER BY country_a, country_b",
+        )
 
     statuses = _yaml(source / "schemas" / "includes_status.yaml")["statuses"]
     topics = {k: v.get("name", k) for k, v in _yaml(source / "schemas" / "topics.yaml")["topics"].items()}
@@ -142,4 +197,7 @@ def load_release(cache_dir: Path, repository: str, tag: str) -> Release:
             if (source / "schemas" / f"{name}_completeness.yaml").exists()
         },
         native_name_languages=native_name_languages,
+        border_status=border_status,
+        include_roles=_include_roles(source / "schemas" / "include_roles.yaml"),
+        institutional_design=_institutional_design(source / "schemas" / "institutional_design.yaml"),
     )

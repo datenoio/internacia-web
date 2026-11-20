@@ -110,7 +110,7 @@ const scopes = ['igo', 'treaty_body', 'policy_forum', 'reference_enumeration', '
     async function showCount(type: string, scope: string) {
       const [lite, edges, countries] = await Promise.all([
         getJson<{ data: Lite[] }>(api('blocks.json')),
-        getJson<{ data: [string, string, string, string | null][] }>(api('memberships.json')),
+        getJson<{ data: [string, string, string, string | null, string | null][] }>(api('memberships.json')),
         getJson<{ data: { code: string; name: string }[] }>(api('countries.json')),
       ]);
       const keep = new Set(lite.data.filter((b) => (!type || b.blocktype.includes(type)) && (!scope || b.scope_category === scope)).map((b) => b.id));

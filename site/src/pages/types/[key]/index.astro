@@ -3,7 +3,7 @@ import BlockTable from '../../../components/BlockTable.astro';
 import ColumnChart from '../../../components/ColumnChart.astro';
 import Base from '../../../layouts/Base.astro';
 import { types, typeById, type TypeRecord } from '../../../lib/data';
-import { num } from '../../../lib/format';
+import { blocktypeLabel, num } from '../../../lib/format';
 import { decadeSeries } from '../../../lib/series';
 import { absolute, path, typePath } from '../../../lib/urls';
 
@@ -13,6 +13,8 @@ export function getStaticPaths() {
 
 const t = typeById().get(Astro.props.key) as TypeRecord;
 const series = decadeSeries(t._founded_decades);
+// The deprecation note is left out when the scope note already says it (intorg in v4.1.0).
+const deprecationNote = t.deprecated?.note && !(t.description ?? '').includes(t.deprecated.note) ? t.deprecated.note : null;
 const ld = {
   '@type': 'DefinedTerm',
   '@id': `${absolute(typePath(t.id))}#entity`,
@@ -40,7 +42,22 @@ const ld = {
   <section class="container page-head">
     <h1>{t.name}</h1>
     <p class="subtitle">Block type <code>{t.id}</code></p>
-    <p class="lead">
+    {t.description && <p class="lead">{t.description}</p>}
+    {
+      t.deprecated && (
+        <p class="notice">
+          {`This block type is deprecated in internacia-db${t.deprecated.removal ? ` and will be removed no earlier than the ${t.deprecated.removal} release` : ''}. Records keep it until then.`}
+          {deprecationNote && ` ${deprecationNote}`}
+          {(t.deprecated.replacements?.length ?? 0) > 0 && (
+            <>
+              {' Replacements: '}
+              {t.deprecated.replacements!.map((r, i) => <>{i > 0 && ', '}<a href={typePath(r)}>{blocktypeLabel(r)}</a></>)}{'.'}
+            </>
+          )}
+        </p>
+      )
+    }
+    <p>
       {num(t._count)} intblocks have this type ({num(t._active_count)} active); for {num(t._primary_count)} it is the
       first type.
     </p>

@@ -8,7 +8,20 @@ import EmbedCode from '../../../components/EmbedCode.astro';
 import Base from '../../../layouts/Base.astro';
 import { CENTROID_NOTE } from '../../../lib/api';
 import { aliases, areaByName, countries, countryByCode, type Country } from '../../../lib/data';
-import { blocktypeLabel, enumLabel, nativeNameList, num, statusDeprecated, statusDescription, statusLabel, vocabLabel, yesNo } from '../../../lib/format';
+import {
+  blocktypeLabel,
+  enumLabel,
+  nativeNameList,
+  num,
+  roleDescription,
+  roleLabel,
+  statusDeprecated,
+  statusDescription,
+  statusLabel,
+  vocabLabel,
+  yesNo,
+} from '../../../lib/format';
+import { borderStatusText } from '../../../lib/design';
 import { countryEmbeddable } from '../../../lib/embed';
 import { countryLd } from '../../../lib/jsonld';
 import {
@@ -50,6 +63,11 @@ const statusSummary = c
       .join(', ')
   : '';
 const statusOptions = [...new Set(current.map((m) => m.status))];
+// Route roles (contract 4.1) apply to pipelines and corridors only: the column appears when used.
+const currentRoles = current.some((m) => m.role);
+const formerRoles = former.some((m) => m.role);
+// Land-border crossing status (contract 4.1). No entry means no closure is recorded.
+const borderNotes = c ? c._borders.filter((b) => b.border_status) : [];
 
 const indicator = (v: Country['population'], unit = '') =>
   v && v.value !== null && v.value !== undefined ? `${num(v.value)}${unit}` : undefined;
@@ -177,18 +195,19 @@ const toc = c
                     <tr>
                       <th scope="col">Organization or grouping</th>
                       <th scope="col">Status</th>
+                      {currentRoles && <th scope="col">Route role</th>}
                       <th scope="col">Joined</th>
                     </tr>
                   </thead>
                   {typeGroups.map(([t, ms]) => (
                     <tbody>
                       <tr class="group">
-                        <th scope="rowgroup" colspan="3">
+                        <th scope="rowgroup" colspan={currentRoles ? 4 : 3}>
                           {blocktypeLabel(t)} ({ms.length})
                         </th>
                       </tr>
                       {ms.map((m) => (
-                        <tr data-status={m.status} data-type={m.blocktype} data-block={m.block_id}>
+                        <tr data-status={m.status} data-type={m.blocktype} data-block={m.block_id} data-role={m.role ?? undefined}>
                           <td>
                             <a href={blockPath(m.block_id)}>{m.block_name}</a>
                             {m.acronym && <span class="muted"> ({m.acronym})</span>}
@@ -199,6 +218,7 @@ const toc = c
                             {statusLabel(m.status)}
                             {statusDeprecated(m.status) && <span class="muted small"> (deprecated label)</span>}
                           </td>
+                          {currentRoles && <td title={roleDescription(m.role) || undefined}>{roleLabel(m.role)}</td>}
                           <td class="date">{m.joined}</td>
                         </tr>
                       ))}
@@ -218,13 +238,14 @@ const toc = c
                     <tr>
                       <th scope="col">Organization or grouping</th>
                       <th scope="col">Status</th>
+                      {formerRoles && <th scope="col">Route role</th>}
                       <th scope="col">Joined</th>
                       <th scope="col">Left</th>
                     </tr>
                   </thead>
                   <tbody>
                     {former.map((m) => (
-                      <tr data-block={m.block_id}>
+                      <tr data-block={m.block_id} data-role={m.role ?? undefined}>
                         <td>
                           <a href={blockPath(m.block_id)}>{m.block_name}</a>
                           {m.acronym && <span class="muted"> ({m.acronym})</span>}
@@ -236,6 +257,7 @@ const toc = c
                           {statusLabel(m.status)}
                           {statusDeprecated(m.status) && <span class="muted small"> (deprecated label)</span>}
                         </td>
+                        {formerRoles && <td title={roleDescription(m.role) || undefined}>{roleLabel(m.role)}</td>}
                         <td class="date">{m.joined}</td>
                         <td class="date">{m.left}</td>
                       </tr>
@@ -326,18 +348,33 @@ const toc = c
               <>
                 <h3>Land borders ({c._borders.length})</h3>
                 <ul class="list-inline">
-                  {c._borders.map((b) =>
-                    b.code ? (
-                      <li>
-                        <a href={countryPath(b.code)}>{b.name}</a>
-                      </li>
-                    ) : (
-                      <li>
-                        <code>{b.iso3code}</code>
-                      </li>
-                    ),
-                  )}
+                  {c._borders.map((b) => (
+                    <li data-border={b.iso3code} data-status={b.status ?? undefined}>
+                      {b.code ? <a href={countryPath(b.code)}>{b.name}</a> : <code>{b.iso3code}</code>}
+                      {b.border_status && <span class="muted small">{` (${borderStatusText(b.border_status).toLowerCase()})`}</span>}
+                    </li>
+                  ))}
                 </ul>
+                {borderNotes.length > 0 && (
+                  <>
+                    <h3>Border crossing status</h3>
+                    <ul class="small">
+                      {borderNotes.map((b) => (
+                        <li>
+                          <strong>{`${b.name ?? b.iso3code}: ${borderStatusText(b.border_status!)}.`}</strong>
+                          {b.border_status!.note && ` ${b.border_status!.note}`}
+                          <span class="muted">
+                            {' Sources: '}
+                            {b.border_status!.provenance.map((p, i) => <>{i > 0 && '; '}{p.url ? <a href={p.url}>{p.source}</a> : p.source}</>)}{b.border_status!.last_verified ? `. Verified ${b.border_status!.last_verified}.` : '.'}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <p class="muted small">
+                      Borders without a status have no recorded closure; that does not mean they were verified open.
+                    </p>
+                  </>
+                )}
               </>
             )}
           </section>

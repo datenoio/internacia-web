@@ -17,7 +17,7 @@ Address: <https://internacia.io/> (the old <https://datenoio.github.io/internaci
 
 ## What the site will offer
 
-- A card for every country and territory (256), organization or grouping (1,275), block type (78)
+- A card for every country and territory (256), organization or grouping (1,279), block type (82)
   and topic (153) in internacia-db.
 - Membership maps, accession and founding timelines, a headquarters map, organization comparison
   and hierarchy views, and a statistics and coverage page.

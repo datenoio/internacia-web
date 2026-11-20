@@ -140,10 +140,45 @@ def classify_aliases(release: Release) -> dict:
     return {"pages": pages, "notes": notes}
 
 
+def border_status_by_pair(release: Release) -> dict[frozenset, dict]:
+    """border_status rows keyed on their alpha-3 pair (SPEC §4.4). Fail if a row names a pair
+    that is not a land border on both country records, or if a pair has two rows."""
+    by_iso3 = {c["iso3code"]: c for c in release.countries if c.get("iso3code")}
+    pairs = {}
+    for row in release.border_status:
+        a, b = row["country_a"], row["country_b"]
+        if b not in (by_iso3.get(a, {}).get("borders") or []) or a not in (by_iso3.get(b, {}).get("borders") or []):
+            raise DeriveError(f"border_status {a}-{b} is not a land border on both country records")
+        key = frozenset((a, b))
+        if key in pairs:
+            raise DeriveError(f"border_status lists {a}-{b} twice")
+        pairs[key] = row
+    return pairs
+
+
+def border_is_current(row: dict | None) -> bool:
+    """Same rule as the country_borders view in contract.json: a row without `until` is current."""
+    return bool(row) and not row.get("until")
+
+
+def _border_entry(row: dict | None) -> dict | None:
+    if not row:
+        return None
+    return {
+        "status": row.get("status"),
+        "since": row.get("since"),
+        "until": row.get("until"),
+        "note": row.get("note"),
+        "last_verified": row.get("last_verified"),
+        "provenance": row.get("provenance") or [],
+    }
+
+
 def derive_countries(release: Release, similar: dict[str, list[dict]], alias_notes: dict) -> list[dict]:
     blocks = {b["id"]: b for b in release.intblocks}
     by_code = {c["code"]: c for c in release.countries}
     by_iso3 = {c["iso3code"]: c for c in release.countries if c.get("iso3code")}
+    border_rows = border_status_by_pair(release)
 
     memberships = defaultdict(list)
     for block in release.intblocks:
@@ -160,6 +195,7 @@ def derive_countries(release: Release, similar: dict[str, list[dict]], alias_not
                     "status": inc.get("status"),
                     "joined": inc.get("joined"),
                     "left": inc.get("left"),
+                    "role": inc.get("role"),
                     "note": inc.get("note"),
                     "current": include_is_current(inc, block),
                 }
@@ -179,8 +215,18 @@ def derive_countries(release: Release, similar: dict[str, list[dict]], alias_not
         borders = []
         for iso3 in country.get("borders") or []:
             neighbour = by_iso3.get(iso3)
-            borders.append({"iso3code": iso3, "code": neighbour["code"] if neighbour else None,
-                            "name": neighbour["name"] if neighbour else None})
+            row = border_rows.get(frozenset((country["iso3code"], iso3)))
+            borders.append(
+                {
+                    "iso3code": iso3,
+                    "code": neighbour["code"] if neighbour else None,
+                    "name": neighbour["name"] if neighbour else None,
+                    # Current crossing status (closed, restricted) or None when no closure is
+                    # recorded, which does not mean the border is verified open.
+                    "status": row["status"] if border_is_current(row) else None,
+                    "border_status": _border_entry(row),
+                }
+            )
         parent = (country.get("parent_entity") or {}).get("code")
         out.append(
             {
@@ -243,6 +289,7 @@ def derive_blocks(release: Release, similar: dict[str, list[dict]], alias_notes:
                     "status": inc.get("status"),
                     "joined": inc.get("joined"),
                     "left": inc.get("left"),
+                    "role": inc.get("role"),
                     "note": inc.get("note"),
                     "current": include_is_current(inc, block),
                     "link": link,
@@ -293,4 +340,6 @@ def derive_labels(release: Release) -> dict:
         "topics": release.topics,
         "vocabs": release.vocabs,
         "native_name_languages": release.native_name_languages,
+        "include_roles": release.include_roles,
+        "institutional_design": release.institutional_design,
     }

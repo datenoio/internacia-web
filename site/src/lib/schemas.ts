@@ -46,6 +46,7 @@ const membership: Schema = {
     status: str,
     joined: strOrNull,
     left: strOrNull,
+    role: { ...strOrNull, description: 'includes[].role: origin, transit, destination (pipelines) or terminal, transit (corridors); open enum. Null elsewhere.' },
     note: strOrNull,
     current: bool,
   },
@@ -62,6 +63,7 @@ const rosterEntry: Schema = {
     status: str,
     joined: strOrNull,
     left: strOrNull,
+    role: { ...strOrNull, description: 'includes[].role: origin, transit, destination (pipelines) or terminal, transit (corridors); open enum. Null elsewhere.' },
     note: strOrNull,
     current: bool,
     link: { enum: ['country', 'block', null], description: 'Which card the entry links to, if any. historical-country entries never link.' },
@@ -117,7 +119,27 @@ const country: Schema = {
     },
     _borders: {
       type: 'array',
-      items: { type: 'object', required: ['iso3code', 'code', 'name'], properties: { iso3code: str, code: strOrNull, name: strOrNull } },
+      items: {
+        type: 'object',
+        required: ['iso3code', 'code', 'name', 'status', 'border_status'],
+        properties: {
+          iso3code: str,
+          code: strOrNull,
+          name: strOrNull,
+          status: {
+            ...strOrNull,
+            description: 'Current crossing status from border_status (closed, restricted; open enum). Null when no closure is recorded, which does not mean the border is verified open.',
+          },
+          border_status: {
+            type: ['object', 'null'],
+            description: 'The border_status row of this pair, current or ended; null when there is none.',
+            required: ['status', 'since', 'until', 'note', 'last_verified', 'provenance'],
+            properties: { status: strOrNull, since: strOrNull, until: strOrNull, note: strOrNull, last_verified: strOrNull, provenance: { type: 'array' } },
+            additionalProperties: false,
+          },
+        },
+        additionalProperties: false,
+      },
     },
     _parent_exists: bool,
     _dependents: { type: 'array', items: { type: 'object', required: ['code', 'name'] } },
@@ -136,6 +158,11 @@ const block: Schema = {
     blocktype: { type: 'array', items: str, minItems: 1 },
     status: str,
     includes: { type: 'array', description: 'Roster exactly as exported by internacia-db.' },
+    institutional_design: {
+      type: ['object', 'null'],
+      description:
+        'What the founding instrument lets the organization decide and enforce (contract 4.1): mandate, decision_rule, decision_force, independent_organs, enforcement, mutual_defence, veto_holders (alpha-2 codes). Open enums; an absent object or subfield means unknown.',
+    },
     _acronym: strOrNull,
     _active: { type: 'boolean', description: 'False when status is historical or the entity is dissolved.' },
     _current_member_count: { ...int, description: 'Rows of current_memberships for this intblock (countries and territories).' },
@@ -177,6 +204,12 @@ const typeRecord: Schema = {
   properties: {
     id: str,
     name: str,
+    description: { ...strOrNull, description: 'Scope note: what the type covers and its boundary with overlapping types.' },
+    deprecated: {
+      type: ['object', 'null'],
+      description: 'Set when internacia-db deprecates the type; it stays valid until the release named in removal.',
+      properties: { replacements: { type: ['array', 'null'], items: str }, removal: strOrNull, note: strOrNull },
+    },
     other_names: { type: 'array', items: { type: 'object', required: ['lang', 'name'] } },
     _count: int,
     _active_count: int,
@@ -225,9 +258,9 @@ export const SCHEMAS: Record<string, Schema> = {
     'memberships',
     'Current membership edges',
     {
-      format: { const: ['block_id', 'country_code', 'status', 'joined'] },
+      format: { const: ['block_id', 'country_code', 'status', 'joined', 'role'] },
       count: int,
-      data: { type: 'array', items: { type: 'array', prefixItems: [str, str, str, strOrNull], minItems: 4, maxItems: 4 } },
+      data: { type: 'array', items: { type: 'array', prefixItems: [str, str, str, strOrNull, strOrNull], minItems: 5, maxItems: 5 } },
     },
     ['format', 'count', 'data'],
   ),

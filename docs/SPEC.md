@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft 0.1 — for review |
 | **Date** | 2026-11-19 |
-| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v4.0.0 (contract 4.0) |
+| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v4.1.0 (contract 4.1) |
 | **Owner** | Dateno ([datenoio](https://github.com/datenoio)) |
 | **Hosting** | GitHub Pages, custom domain (to be registered; written as `<DOMAIN>` below) |
 
@@ -29,7 +29,7 @@ All corrections go to internacia-db.
 
 1. **Make the product visible.** Anyone can see what internacia-db contains, how complete it is
    and how current it is, without installing anything.
-2. **One card per entity.** Every country (256), intblock (1,275), block type (78) and topic
+2. **One card per entity.** Every country (256), intblock (1,279), block type (82) and topic
    (153) has its own permanent page.
 3. **Answer common questions visually.** Who belongs to X? What does country Y belong to? What do
    X and Z have in common? When were these organizations founded? Where are they based?
@@ -77,7 +77,7 @@ Assets used:
 
 | Asset | Use |
 |-------|-----|
-| `internacia.duckdb` | Main query source: tables `countries`, `intblocks`, `blocktypes`, `memberships`, `_meta`, alias tables; views `current_memberships`, `country_currencies`, `country_languages`, `country_timezones` |
+| `internacia.duckdb` | Main query source: tables `countries`, `intblocks`, `blocktypes`, `memberships`, `border_status` (from v4.1.0), `_meta`, alias tables; views `current_memberships`, `country_currencies`, `country_languages`, `country_timezones`. The `country_borders` view (v4.1.0) is not read: it needs DuckDB 2.0, although `contract.json` gives `min_duckdb` 1.5.4; the pipeline applies its rule to `border_status` instead |
 | `countries.jsonl.zst`, `intblocks.jsonl.zst` | Entity records as cards and JSON twins show them, with every field, including those exported to full JSON only (`suborganizations`, `founding_members`, `membership_applicability`, `notes`, `recognition_status`, `previous_names`, `official_documents`, `social_media`, `secretariat`). Intblock rosters come from `includes[]`: the `memberships` table leaves out organization members |
 | `contract.json` | Contract version check, enum values, deprecated enum values (`deprecated[]`), table schemas |
 | `SHA256SUMS` | Integrity check of every downloaded asset |
@@ -92,6 +92,8 @@ internacia-db **git tag** that matches the pinned release (sparse checkout of `d
 |------|-----|
 | `data/schemas/includes_status.yaml` | Membership status labels, descriptions, deprecations |
 | `data/schemas/topics.yaml` | Topic labels |
+| `data/schemas/include_roles.yaml` | Route role labels and descriptions (`includes[].role`, from v4.1.0) |
+| `data/schemas/institutional_design.yaml` | Labels and descriptions of the `institutional_design` subfields and values (from v4.1.0) |
 | `data/vocabs/*.yaml` | Labels for writing systems, legal systems, broadcast systems, rail gauges, DVD regions, writing directions; language codes (`language_codes.yaml`, from v4.0.0), which also name the languages of the `native_names` keys |
 | `data/schemas/*.schema.json` | Field descriptions for tooltips and the field glossary |
 
@@ -102,10 +104,10 @@ The repository commits a lock file, `internacia.lock.json`:
 ```json
 {
   "repository": "datenoio/internacia-db",
-  "tag": "v4.0.0",
-  "git_commit": "88a0a27f0384c3a7aa8fcfd91ffe99e23ca06521",
+  "tag": "v4.1.0",
+  "git_commit": "65576f970ab63a8d826856f1fd435a13364ca4e3",
   "contract_major": 4,
-  "sha256sums_sha256": "263d31c4be3343c4a0df9e3b67af296eb817fb1ed65e58b372716c44a842b6a8"
+  "sha256sums_sha256": "868896de74358c3f408ff6cbf36fd5cd755076d20604b79cf70ad3ea6f8e8723"
 }
 ```
 
@@ -168,24 +170,40 @@ The site's data code must follow them.
   `deprecated` in `includes_status.yaml`) stay valid until the next MAJOR. Card membership and
   roster tables and their Markdown twins show the status's own label with a "deprecated label"
   note; never remap them to a replacement.
+- Deprecated block types (`intorg` from v4.1.0; `deprecated` in the `blocktypes` table) stay on
+  their records until the next MAJOR. Cards and type pages mark them deprecated; the type page shows
+  the deprecation note. Intergovernmental organizations are selected by `scope_category = 'igo'`,
+  never by block type.
+- `includes[].role` (v4.1.0) is set only on pipelines and corridors: `origin`, `transit`,
+  `destination`, `terminal` (open enum, labels from `include_roles.yaml`). It says what a country does
+  on the route; `status` still says how it relates to the record. Rosters, country membership
+  tables, their Markdown twins and the roster CSV show it in a column that appears only when used.
+- `institutional_design` (v4.1.0) is optional: an absent object or subfield means unknown, never
+  "none". `none` in `independent_organs` or `enforcement` is a value and is shown. `veto_holders`
+  are country alpha-2 codes.
+- `border_status` (v4.1.0) lists recorded closures and restrictions of land borders, one row per
+  pair of alpha-3 codes. A row without `until` is current (the `country_borders` view's rule). No
+  row means no closure is recorded, not that the border is verified open; the card says so.
 - Aliases with `reason = disambiguated` must not become redirects: the old ID now names a
   different entity. Show a disambiguation page instead.
 
-### 4.5 Baseline figures (v4.0.0)
+### 4.5 Baseline figures (v4.1.0)
 
 For sizing only; the site computes all figures at build time.
 
 | Measure | Value |
 |---------|------:|
 | Country records / ISO 3166-1 entries | 256 / 249 |
-| Intblocks | 1,275 |
-| Block types / topics | 78 / 153 |
-| Membership edges / current / with `joined` date / with `left` date | 59,102 / 57,918 / 17,269 / 343 |
-| Intblocks with `founded` / headquarters / `partof` | 1,178 / 874 / 348 |
-| Intblocks with Wikidata ID / `last_verified` | 1,103 / 1,190 |
+| Intblocks | 1,279 |
+| Block types (deprecated) / topics | 82 (1) / 153 |
+| Membership edges / current / with `joined` date / with `left` date | 57,311 / 56,241 / 17,264 / 342 |
+| Membership edges with a route `role` / intblocks with roles | 49 / 20 |
+| Intblocks with `founded` / headquarters / `partof` | 1,181 / 874 / 345 |
+| Intblocks with Wikidata ID / `last_verified` / `institutional_design` | 1,107 / 1,199 / 34 |
+| `border_status` rows | 6 |
 | Languages in intblock `other_names` | 78 |
 | Country `native_names` entries / languages | 388 / 126 |
-| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 4.7 MB / 702 KB / 99 KB |
+| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 5.0 MB / 710 KB / 98 KB |
 
 ## 5. Information architecture and URLs
 
@@ -216,7 +234,7 @@ All paths end with a slash for HTML. Machine twins use the same slug with an ext
 - `{code}`: country alpha-2 code in lowercase (`/countries/fr/`).
 - `{id}`: intblock ID in lowercase (`/blocks/nato/`, `/blocks/g-20/`, `/blocks/afcfta/`). IDs use
   letters, digits, `-`, `_` and `+` (`G8+5`; GitHub Pages serves `/blocks/g8+5/` as is). The build
-  fails if two IDs collide after lowercasing (none do in v4.0.0).
+  fails if two IDs collide after lowercasing (none do in v4.1.0).
 - JSON paths keep the **exact** ID (`/api/v1/blocks/AfCFTA.json`) so agents can build URLs from
   data without transformation. A lowercase JSON alias is not generated.
 - `{key}`: block type or topic key as in the data (snake_case).
@@ -274,7 +292,8 @@ the header sticks to the top of the window (also on the intblock card).
 2. **Memberships** (main section):
    - Count of current memberships, with a breakdown by status.
    - Grouped by block type; each row: block name and acronym (link; the ID only where it differs
-     from the acronym), status label, joined, left.
+     from the acronym), status label, route role (pipelines and corridors; the column appears only
+     when used), joined, left.
    - Filter by status and block type; search within the list.
    - Former memberships in a separate, collapsed list.
    - Mini chart: memberships by block type.
@@ -284,7 +303,9 @@ the header sticks to the top of the window (also on the intblock card).
    legacy), TLD, calling codes. Each value has a copy button. Wikidata and GeoNames link out.
 5. **Geography**: continent(s), UN M49 subregion, capital with coordinates, landlocked flag,
    centroid and bounding box on a small locator map, land borders as links to neighbour cards
-   (alpha-3 resolved to alpha-2).
+   (alpha-3 resolved to alpha-2). A border with a `border_status` row shows its status and period
+   next to the link, and a list below gives the note, sources and verification date, with the
+   statement that a border without a status has no recorded closure (not that it is open).
 6. **Status and classification**: UN status, independence flag, `recognition_status` notes,
    parent entity for dependent territories (link), World Bank region, administrative region,
    income level, lending type — each with the World Bank ID.
@@ -299,7 +320,7 @@ the header sticks to the top of the window (also on the intblock card).
 
 ### 6.4 Intblocks index
 
-- Table of all 1,275 intblocks: name, acronym, block type(s), status, scope category, geographic
+- Table of all 1,279 intblocks: name, acronym, block type(s), status, scope category, geographic
   scope, founded, headquarters country, number of current member countries.
 - Filters: block type, status (formal / informal / de-facto / historical), scope category,
   geographic scope, region, topic, founded range, "active only" (default on, with a visible
@@ -321,8 +342,8 @@ the header sticks to the top of the window (also on the intblock card).
 4. **Membership map**: world choropleth coloured by status (member, founding member, associate
    member, observer, partner, former member, …). Legend uses labels from `includes_status.yaml`.
    Small or point-like territories are drawn as dots at their centroid.
-5. **Roster**: table of every `includes[]` entry — country or intblock (link), status, joined,
-   left. Filters by status. Download the roster as CSV (`/blocks/{id}/members.csv`, every entry
+5. **Roster**: table of every `includes[]` entry — country or intblock (link), status, route role
+   (pipelines and corridors; the column appears only when used), joined, left. Filters by status. Download the roster as CSV (`/blocks/{id}/members.csv`, every entry
    with a `current` column) and JSON (the card's JSON, `_roster`). Hovering a row highlights its
    country on the map, and the other way round.
    When `membership_applicability = not_applicable`, show the explanation instead of an empty table.
@@ -331,6 +352,10 @@ the header sticks to the top of the window (also on the intblock card).
    entries lack a date.
 7. **Structure**: parent organization(s) (`partof`), suborganizations, predecessor and successor
    chain, previous names with periods.
+   Next to it, **Institutional design** (when `institutional_design` is set): mandate, decision
+   rule, decision force, independent organs, enforcement, mutual defence, veto holders (links to
+   country cards), with labels and descriptions from `institutional_design.yaml`. Absent subfields
+   are unknown and left out; the section says so.
 8. **Overlap**: the five intblocks with the highest overlap of current member countries, with a
    link to the Compare explorer prefilled.
 9. **Names**: `other_names` in all languages, grouped by script.
@@ -339,9 +364,12 @@ the header sticks to the top of the window (also on the intblock card).
 
 ### 6.6 Block types
 
-- Index: all 78 types with count of intblocks, as a treemap and a table.
-- Type page: definition (from the blocktypes record and its `other_names`), list of intblocks of
-  this type (same columns as the intblocks index), founding decades histogram for the type.
+- Index: all 82 types with count of intblocks and scope note, as a treemap and a table; deprecated
+  types are marked.
+- Type page: definition (from the blocktypes record: `description`, the scope note, and
+  `other_names`), a notice when the type is deprecated (`deprecated`: removal and note), list of
+  intblocks of this type (same columns as the intblocks index), founding decades histogram for the
+  type.
 
 ### 6.7 Topics
 
@@ -469,7 +497,7 @@ Formal intergovernmental organization, regional scope. Founded 1967. Headquarter
 - Described by `/api/v1/openapi.json` (OpenAPI 3.1). Response bodies have JSON Schemas under
   `/api/v1/schemas/`.
 - Every document has a `meta` object:
-  `{"data_version": "4.0.0", "contract_version": "4.0", "built_at": "…", "license": "CC-BY-4.0", "source": "https://github.com/datenoio/internacia-db/releases/tag/v4.0.0", "html": "…", "markdown": "…"}`.
+  `{"data_version": "4.1.0", "contract_version": "4.1", "built_at": "…", "license": "CC-BY-4.0", "source": "https://github.com/datenoio/internacia-db/releases/tag/v4.1.0", "html": "…", "markdown": "…"}`.
   `built_at` is the build time of the data release, so output is reproducible. Country documents
   add `license_notes`: `centroid` values come from mledoze/countries under ODbL-1.0.
 - Entity documents have the shape `{"meta": {…}, "data": {…}}`; lists add `count`. The JSON at a
@@ -642,7 +670,7 @@ Generated data (`.cache/`, `site/src/generated/`) is not committed.
 ### 10.3 Build pipeline
 
 ```text
-fetch.py ──► .cache/internacia/v4.0.0/  (assets + vocab files, verified)
+fetch.py ──► .cache/internacia/v4.1.0/  (assets + vocab files, verified)
    │
 build_data.py ──► site/src/generated/*.json  (cards, indexes, stats, search index, aliases)
    │
@@ -720,9 +748,9 @@ The build fails when any of these checks fails.
 | Check | Rule |
 |-------|------|
 | Integrity | [§4.3](#43-verification) checks pass |
-| Count parity | Country cards = rows in `countries` (256 in v4.0.0); intblock cards = rows in `intblocks` (1,275); type pages = 78; topic pages = distinct topic keys |
+| Count parity | Country cards = rows in `countries` (256 in v4.1.0); intblock cards = rows in `intblocks` (1,279); type pages = 82; topic pages = distinct topic keys |
 | Roster parity | For every intblock, the number of current members on the card = rows in `current_memberships` for it |
-| Twin parity | For a sample of 50 entities (and all featured ones), HTML, Markdown and JSON carry the same codes, names, statuses and dates |
+| Twin parity | For a sample of 50 entities (and all featured ones), HTML, Markdown and JSON carry the same codes, names, statuses and dates; for every entity, route roles (HTML, Markdown, JSON, CSV) and border status (HTML, Markdown, JSON) agree |
 | JSON validity | Every `/api/v1/` file validates against its schema in `/api/v1/schemas/` and against `openapi.json` |
 | Links | No broken internal links (lychee, offline mode); external links checked weekly, not on every build |
 | Redirects | Every non-disambiguated alias has a redirect page that points to an existing page |
@@ -788,7 +816,7 @@ belong to, not by combination, because combinations outnumber distinguishable co
 chart and the table give the combinations. The headquarters map (V5) and the hierarchy (V8) are
 rendered at build time and work without JavaScript; the hierarchy places each link next to, not
 inside, the `<summary>` that opens its branch. The accession timeline (V3) is offered only for
-intblocks where at least 30 % of country entries have a joining date (the EU has none in v4.0.0).
+intblocks where at least 30 % of country entries have a joining date (the EU has none in v4.1.0).
 
 Decisions taken in M2c: Pagefind indexes the text of every page that names a search section, but
 not tables, charts, maps, link lists or provenance, so a search for an organization finds its card

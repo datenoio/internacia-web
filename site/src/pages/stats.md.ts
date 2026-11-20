@@ -25,6 +25,7 @@ export const GET: APIRoute = () => {
       `## Intblocks founded by decade\n\n${counts(s.intblocks.founded_decades)}\n`,
       `## Intblocks by month of last verification\n\n${counts(s.intblocks.last_verified_months)}\n`,
       `## Membership records by status\n\n${counts(s.memberships.by_status)}\n`,
+      `## Membership records by route role (pipelines and corridors)\n\n${counts(s.memberships.by_role ?? {})}\n`,
       `## Country records by entity type\n\n${counts(s.countries.by_entity_type)}\n`,
     ].join('\n'),
   );

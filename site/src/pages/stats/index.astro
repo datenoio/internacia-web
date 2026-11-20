@@ -3,7 +3,7 @@ import BarList from '../../components/BarList.astro';
 import ColumnChart from '../../components/ColumnChart.astro';
 import Base from '../../layouts/Base.astro';
 import { stats, type CompletenessRow } from '../../lib/data';
-import { enumLabel, humanize, num, statusLabel } from '../../lib/format';
+import { enumLabel, humanize, num, roleLabel, statusLabel } from '../../lib/format';
 import { meta } from '../../lib/meta';
 import { decadeSeries } from '../../lib/series';
 import { blockPath, countryPath, path } from '../../lib/urls';
@@ -137,6 +137,14 @@ const bars = (counts: Record<string, number>, label: (k: string) => string) =>
       <section class="card-section" aria-labelledby="memberships">
         <h2 id="memberships">Membership records by status</h2>
         <BarList items={bars(s.memberships.by_status, statusLabel)} label="Membership records by status" />
+        {
+          Object.keys(s.memberships.by_role ?? {}).length > 0 && (
+            <>
+              <h3>By route role (pipelines and corridors)</h3>
+              <BarList items={bars(s.memberships.by_role, roleLabel)} label="Membership records by route role" />
+            </>
+          )
+        }
         <h3>Country records by entity type</h3>
         <BarList items={bars(s.countries.by_entity_type, (k) => enumLabel('entity_type', k))} label="Country records by entity type" />
         <h3>By code status</h3>

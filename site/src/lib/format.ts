@@ -15,6 +15,24 @@ export const statusDescription = (status: string): string => labels().statuses[s
 export const statusDeprecated = (status: string): boolean => labels().statuses[status]?.deprecated ?? false;
 
 export const blocktypeLabel = (id: string): string => blocktypeById().get(id)?.name ?? humanize(id);
+// Deprecated block types (contract 4.1, `intorg`) stay valid until the next MAJOR.
+export const blocktypeDeprecated = (id: string): boolean => Boolean(blocktypeById().get(id)?.deprecated);
+
+// Route roles (contract 4.1, includes[].role) from include_roles.yaml; open enum.
+export const roleLabel = (role: string | null | undefined): string =>
+  role ? (labels().include_roles?.[role]?.name ?? humanize(role)) : '';
+export const roleDescription = (role: string | null | undefined): string =>
+  role ? (labels().include_roles?.[role]?.description ?? '') : '';
+
+// Institutional design (contract 4.1) from institutional_design.yaml: subfields in the catalog's
+// order, values with their labels. Open enums: an unknown value shows as its humanized key.
+export const designFields = (): string[] => Object.keys(labels().institutional_design ?? {});
+export const designFieldLabel = (field: string): string => labels().institutional_design?.[field]?.name ?? humanize(field);
+export const designFieldDescription = (field: string): string => labels().institutional_design?.[field]?.description ?? '';
+export const designValueLabel = (field: string, value: string): string =>
+  labels().institutional_design?.[field]?.values[value]?.name ?? humanize(value);
+export const designValueDescription = (field: string, value: string): string =>
+  labels().institutional_design?.[field]?.values[value]?.description ?? '';
 export const topicLabel = (key: string, fallback?: string): string => labels().topics[key] ?? fallback ?? humanize(key);
 export const vocabLabel = (vocab: string, id: string | number): string =>
   labels().vocabs[vocab]?.[String(id)] ?? humanize(String(id));
@@ -60,6 +78,7 @@ const ENUM_LABELS: Record<string, Record<string, string>> = {
     non_state_organization: 'Non-state organization',
   },
   geographic_scope: { global: 'Global', regional: 'Regional', 'sub-regional': 'Sub-regional', bilateral: 'Bilateral' },
+  border_status: { closed: 'Closed', restricted: 'Restricted' },
   include_type: {
     country: 'Country',
     territory: 'Territory',

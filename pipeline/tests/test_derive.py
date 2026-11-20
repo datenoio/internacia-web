@@ -2,6 +2,7 @@ import pytest
 
 from derive import (
     DeriveError,
+    border_status_by_pair,
     check_current_rule,
     classify_aliases,
     derive_blocks,
@@ -157,8 +158,8 @@ def test_derive_countries():
     assert de["_current_member_count"] == 1
     assert [m["block_id"] for m in de["_memberships"]] == ["EU"]  # GDR row of WEU is not Germany's
     assert de["_borders"] == [
-        {"iso3code": "FRA", "code": "FR", "name": "France"},
-        {"iso3code": "XXX", "code": None, "name": None},
+        {"iso3code": "FRA", "code": "FR", "name": "France", "status": None, "border_status": None},
+        {"iso3code": "XXX", "code": None, "name": None, "status": None, "border_status": None},
     ]
     fr = countries["FR"]
     assert {m["block_id"]: m["current"] for m in fr["_memberships"]} == {"EU": True, "WEU": False}
@@ -186,3 +187,67 @@ def test_labels_carry_deprecated_statuses_and_native_name_languages():
     assert labels["statuses"]["associate"]["deprecated"] is True
     assert labels["statuses"]["associate_member"]["deprecated"] is False
     assert labels["native_name_languages"] == {"prs": "Dari", "de": "German"}
+
+
+BORDER_ROW = {
+    "country_a": "DEU", "country_b": "FRA", "status": "closed", "since": "1994", "until": None,
+    "note": "Closed.", "last_verified": "2026-11-20",
+    "provenance": [{"source": "Gov", "url": "https://example.org", "retrieved_at": "2026-11-20", "license": None}],
+}
+
+
+def test_border_status_on_both_cards():
+    countries = {c["code"]: c for c in derive_countries(make_release(border_status=[BORDER_ROW]), {}, {})}
+    de_fr = next(b for b in countries["DE"]["_borders"] if b["iso3code"] == "FRA")
+    fr_de = next(b for b in countries["FR"]["_borders"] if b["iso3code"] == "DEU")
+    assert de_fr["status"] == fr_de["status"] == "closed"
+    assert de_fr["border_status"]["since"] == "1994"
+    assert de_fr["border_status"]["provenance"][0]["source"] == "Gov"
+    # No row: no closure recorded (not "open").
+    assert next(b for b in countries["DE"]["_borders"] if b["iso3code"] == "XXX")["status"] is None
+
+
+def test_ended_border_status_is_not_current():
+    ended = {**BORDER_ROW, "until": "2001"}
+    countries = {c["code"]: c for c in derive_countries(make_release(border_status=[ended]), {}, {})}
+    de_fr = next(b for b in countries["DE"]["_borders"] if b["iso3code"] == "FRA")
+    assert de_fr["status"] is None and de_fr["border_status"]["until"] == "2001"
+
+
+@pytest.mark.parametrize(
+    ("rows", "message"),
+    [
+        ([{**BORDER_ROW, "country_b": "HKG"}], "not a land border"),
+        ([BORDER_ROW, {**BORDER_ROW, "country_a": "FRA", "country_b": "DEU"}], "twice"),
+    ],
+)
+def test_border_status_rejects_bad_rows(rows, message):
+    with pytest.raises(DeriveError, match=message):
+        border_status_by_pair(make_release(border_status=rows))
+
+
+def test_roles_on_roster_and_memberships():
+    pipe = {
+        "id": "PIPE", "name": "Pipe", "blocktype": ["gaspipeline"], "status": "formal",
+        "includes": [
+            {"id": "DE", "type": "country", "status": "member", "role": "destination"},
+            {"id": "FR", "type": "country", "status": "member", "role": "origin"},
+        ],
+    }
+    release = make_release()
+    release.intblocks.append(pipe)
+    blocks = {b["id"]: b for b in derive_blocks(release, {}, {})}
+    assert {r["id"]: r["role"] for r in blocks["PIPE"]["_roster"]} == {"DE": "destination", "FR": "origin"}
+    assert {r["id"]: r["role"] for r in blocks["EU"]["_roster"]} == {"DE": None, "FR": None, "GB": None, "WEU": None}
+    countries = {c["code"]: c for c in derive_countries(release, {}, {})}
+    assert {m["block_id"]: m["role"] for m in countries["FR"]["_memberships"]} == {"EU": None, "PIPE": "origin", "WEU": None}
+
+
+def test_labels_carry_roles_and_institutional_design():
+    release = make_release(
+        include_roles={"transit": {"name": "Transit", "description": "Crosses.", "blocktypes": ["gaspipeline"]}},
+        institutional_design={"mandate": {"name": "Mandate", "kind": "enum", "description": "", "values": {}}},
+    )
+    labels = derive_labels(release)
+    assert labels["include_roles"]["transit"]["name"] == "Transit"
+    assert labels["institutional_design"]["mandate"]["name"] == "Mandate"

@@ -45,7 +45,7 @@ images (`/og/…png`). M3a adds embeddable widgets (`/embed/`, `public/embed/wid
 - `.github/workflows/data-bump.yml` — daily; `pipeline/bump.py` moves the lock to a newer release,
   the workflow builds and checks the site and opens a pull request.
 - The pipeline reads one internacia-db contract MAJOR, `CONTRACT_MAJOR` in `pipeline/lock.py`
-  (currently 4). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
+  (currently 4; the lock pins v4.1.0, contract 4.1). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
   is; a lock with another `contract_major` fails to load. For a new MAJOR, raise the constant
   together with the code the new contract needs, then run `bump.py update` in the same pull request.
 
@@ -84,6 +84,22 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
 - `lang: en` acronyms in the data include other languages' forms (the African Union lists "UA"
   first); use `_acronym` (`derive.primary_acronym`), never the first English acronym.
 - Intblock IDs may contain `+` (`G8+5`); JSON Schemas and URL helpers must allow it.
+- Contract 4.1 facts (`includes[].role`, `institutional_design`, `border_status`) go through
+  `lib/design.ts` so the card and its Markdown twin say the same. `check_site.py` compares route roles
+  (HTML, Markdown, JSON, CSV) and border status (HTML, Markdown, JSON) for every entity.
+- `includes[].role` is set only on pipelines and corridors: the "Route role" column appears only when
+  a row has one. The roster CSV and `/api/v1/memberships.json` append `role` as the last column, so
+  earlier column positions stay.
+- `institutional_design`: an absent object or subfield means unknown, never "none"; `none` inside
+  `independent_organs` or `enforcement` is a value. `veto_holders` are alpha-2 codes.
+- Do not read the `country_borders` view: it needs DuckDB 2.0, although `contract.json` says
+  `min_duckdb` 1.5.4 (DuckDB 1.5.4 raises "Non-inner join on correlated columns not supported").
+  `derive.py` applies its rule to the `border_status` table: a row without `until` is current. No
+  row means no closure is recorded, never "open".
+- Block type `intorg` is deprecated (contract 4.1) and stays on 358 records, always last. Never
+  select intergovernmental organizations by block type; use `scope_category = 'igo'`.
+- A list of links with separators (`, `, `; `) must be one line in `.astro`: `{xs.map((x, i) =>
+  <>{i > 0 && ', '}<a>…</a></>)}`. A line break inside the fragment puts a space before the comma.
 - The base map is one static SVG (`/assets/world.svg`, Natural Earth 1:110m); records without a
   polygon are dots at their centroid. Map colours are the dataviz palette's first three slots,
   validated all-pairs in both themes; do not add a fourth colour to the map.

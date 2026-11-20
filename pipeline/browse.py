@@ -43,6 +43,9 @@ def derive_types(release: Release, blocks: list[dict]) -> list[dict]:
             {
                 "id": bt["id"],
                 "name": bt["name"],
+                # Scope note and deprecation (contract 4.1); a deprecated type stays valid in 4.x.
+                "description": bt.get("description"),
+                "deprecated": bt.get("deprecated"),
                 "other_names": bt.get("other_names") or [],
                 "_count": len(members),
                 "_active_count": sum(1 for b in members if b["_active"]),
@@ -205,5 +208,6 @@ def derive_stats(release: Release, blocks: list[dict]) -> dict:
             "by_include_type": dict(Counter(m["include_type"] for m in release.memberships).most_common()),
             "with_joined": sum(1 for m in release.memberships if m.get("joined")),
             "with_left": sum(1 for m in release.memberships if m.get("left")),
+            "by_role": dict(Counter(m["role"] for m in release.memberships if m.get("role")).most_common()),
         },
     }
