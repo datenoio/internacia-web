@@ -1632,6 +1632,63 @@ table.coverage td.h5 { background: #3987e5; color: #0b0b0b; }
   min-width: min(22rem, 100%);
 }
 
+/* Explorer picker (components/EntityPicker.astro): label above a wide input, results below. */
+.picker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1 1 22rem;
+  max-width: 34rem;
+}
+
+.picker label {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.picker input {
+  width: 100%;
+}
+
+.picker ul {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: var(--space-1) 0;
+  list-style: none;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.15);
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+.picker li[role='option'] {
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem 0.7rem;
+  cursor: pointer;
+}
+
+.picker li[aria-selected='true'],
+.picker li[role='option']:hover {
+  background: var(--color-surface);
+}
+
+[data-for='block'] {
+  flex: 1 1 22rem;
+  max-width: 34rem;
+}
+
+[data-for='block'] .picker {
+  max-width: none;
+}
+
 .explorer-controls button {
   cursor: pointer;
   background: var(--color-surface);
@@ -1676,9 +1733,103 @@ table.coverage td.h5 { background: #3987e5; color: #0b0b0b; }
   background: var(--color-surface);
 }
 
-.explore-list h2 {
+.explore-list h2,
+.explore-list h3 {
   font-size: 1.1rem;
   margin: 0 0 var(--space-1);
+}
+
+/* Small drawing of each explorer (components/ExploreTiles.astro), in the map colours. */
+.explore-art {
+  display: block;
+  width: 100%;
+  height: 4.5rem;
+  margin-bottom: var(--space-2);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--color-bg);
+}
+
+.explore-art .t-land {
+  fill: var(--chart-track);
+}
+
+.explore-art .t-mark {
+  fill: var(--series-1);
+}
+
+.explore-art .t-soft {
+  opacity: 0.55;
+}
+
+.explore-art .t-line {
+  fill: none;
+  stroke: var(--series-1);
+  stroke-width: 2.5;
+}
+
+.explore-art .t-dot {
+  fill: var(--series-1);
+}
+
+/* Home: a large finder with ready-made questions under it. */
+.finder-hero {
+  max-width: 40rem;
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.finder-hero input {
+  font-size: 1.1rem;
+  padding: 0.65rem 0.9rem;
+  border-width: 2px;
+  border-color: var(--color-accent);
+}
+
+.intents {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.intents a {
+  display: inline-block;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.92rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.intents a:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* Shortcut hint in the header finder ("/" focuses it, scripts/site.ts), hidden once in use. */
+@media (min-width: 62rem) {
+  .site-header .finder::after {
+    content: '/';
+    position: absolute;
+    top: 50%;
+    right: 0.6rem;
+    transform: translateY(-50%);
+    padding: 0 0.35rem;
+    font-size: 0.8rem;
+    line-height: 1.3;
+    color: var(--color-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    pointer-events: none;
+  }
+
+  .site-header .finder:focus-within::after,
+  .site-header .finder:has(input:not(:placeholder-shown))::after {
+    display: none;
+  }
 }
 
 .explore-list p {
@@ -1727,6 +1878,96 @@ table.coverage td.h5 { background: #3987e5; color: #0b0b0b; }
 .map .hq-point:focus circle {
   stroke: var(--color-text);
   stroke-width: 2;
+}
+
+.map .hq-point.is-selected circle {
+  stroke: var(--color-text);
+  stroke-width: 2.5;
+}
+
+/* Headquarters: the map and the panel of the selected city side by side on wide screens. The
+   panel's content scrolls inside a box the size of the map, so filling it moves nothing. */
+.hq-panel {
+  position: relative;
+  height: 24rem;
+  margin: var(--space-3) 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
+.hq-panel-inner {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.hq-panel h2 {
+  margin: 0 0 var(--space-1);
+  font-size: 1.15rem;
+}
+
+.hq-panel h3 {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: 0.95rem;
+}
+
+.hq-panel ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.92rem;
+}
+
+.hq-panel ul.hq-hubs {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.hq-hubs button {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.25rem 0.7rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.hq-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: var(--space-2);
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.hq-filter input {
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.55rem;
+}
+
+@media (min-width: 62rem) {
+  .hq-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2.2fr) minmax(16rem, 1fr);
+    gap: var(--space-4);
+    align-items: stretch;
+  }
+
+  .hq-panel {
+    height: auto;
+    min-height: 20rem;
+  }
 }
 
 .map .hq-point:focus {
@@ -1801,7 +2042,7 @@ table.coverage td.h5 { background: #3987e5; color: #0b0b0b; }
    above the fold, so nothing in view moves when it arrives (Lighthouse CLS). The footer starts
    below the first screen; chips, the status line (two lines on a phone) and the charts above the
    map have their room. 250px is the UpSet height for the default three organizations
-   (charts.ts upset); 720 / 220 is the step chart's viewBox (charts.ts steps). */
+   (charts.ts upset); 220px is the step chart's height (charts.ts steps). */
 main:has([data-explorer], #search) {
   min-height: 100vh;
 }
@@ -1821,7 +2062,16 @@ main:has([data-explorer], #search) {
 }
 
 [data-explorer='timeline'] [data-chart] {
-  aspect-ratio: 720 / 220;
+  min-height: 220px;
+}
+
+@media (min-width: 62rem) {
+  .timeline-views {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+    gap: var(--space-4);
+    align-items: start;
+  }
 }
 
 /* Long sections below the fold: skip rendering until they come near the viewport. */

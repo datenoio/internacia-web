@@ -99,10 +99,11 @@ export function columns(opts: {
   return `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(title)}">${ticks}${marks}<g class="labels" aria-hidden="true">${labels.join('')}</g><line class="baseline" x1="${pad.left}" x2="${W - pad.right}" y1="${base}" y2="${base}"/></svg>`;
 }
 
-// Step line of a count over years (2px line, end value labelled).
-export function steps(opts: { points: { year: number; value: number }[]; title: string; marker?: number | null }): string {
+// Step line of a count over years (2px line, end value labelled). width: the drawing width in
+// pixels, so that text keeps its size when the chart sits in a narrow column (default 720).
+export function steps(opts: { points: { year: number; value: number }[]; title: string; marker?: number | null; width?: number }): string {
   const { points, title, marker = null } = opts;
-  const W = 720;
+  const W = Math.round(opts.width ?? 720);
   const H = 220;
   const pad = { top: 18, right: 40, bottom: 28, left: 40 };
   if (!points.length) return '';
@@ -117,7 +118,10 @@ export function steps(opts: { points: { year: number; value: number }[]; title: 
     .map((t) => `<g class="tick"><line x1="${pad.left}" x2="${W - pad.right}" y1="${y(t)}" y2="${y(t)}"/><text x="${pad.left - 6}" y="${y(t) + 4}" text-anchor="end">${n(t)}</text></g>`)
     .join('');
   const span = x1 - x0;
-  const every = span > 60 ? 20 : span > 30 ? 10 : span > 12 ? 5 : 1;
+  // Fewer year labels when the chart is narrow: at most about one per 70px.
+  const room = Math.max(2, Math.floor((W - pad.left - pad.right) / 70));
+  const fit = [1, 2, 5, 10, 20, 25, 50, 100].find((e) => span / e <= room) ?? 100;
+  const every = Math.max(span > 60 ? 20 : span > 30 ? 10 : span > 12 ? 5 : 1, fit);
   const years = points
     .filter((p) => p.year % every === 0 || p.year === x0)
     .map((p) => `<text class="axis" x="${x(p.year)}" y="${H - 10}" text-anchor="middle">${p.year}</text>`)

@@ -1,5 +1,5 @@
 ---
-import BlockPicker from '../../../components/BlockPicker.astro';
+import EntityPicker from '../../../components/EntityPicker.astro';
 import MapFrame from '../../../components/MapFrame.astro';
 import Base from '../../../layouts/Base.astro';
 import { path } from '../../../lib/urls';
@@ -21,8 +21,7 @@ import { path } from '../../../lib/urls';
   </section>
   <section class="container" data-explorer="compare" data-base={path()}>
     <div class="explorer-controls js-only">
-      <BlockPicker id="compare-blocks" label="Add an organization or grouping" />
-      <button type="button" data-add>Add</button>
+      <EntityPicker id="compare-blocks" label="Add an organization or grouping" />
     </div>
     <ul class="chips js-only" data-chips aria-label="Selected organizations"></ul>
     <p class="explorer-status" role="status" aria-live="polite" data-status></p>
@@ -57,9 +56,17 @@ import { path } from '../../../lib/urls';
     let selected: number | null = null;
 
     const label = (d: Doc['data']) => d._acronym ?? d.name;
-
-    async function draw() {
-      chips.innerHTML = ids.map((id) => `<li><button type="button" data-remove="${esc(id)}" aria-label="Remove ${esc(id)}">${esc(id)} ×</button></li>`).join('');
+    // Chips show the organization's acronym or name (full name on hover), once it is known.
+    const known = new Map<string, { short: string; full: string }>();
+    const renderChips = () => {
+      chips.innerHTML = ids
+        .map((id) => {
+          const k = known.get(id);
+          // The accessible name repeats the visible text (axe: label-content-name-mismatch); the full
+          // name is the button's description.
+          return `<li><button type="button" data-remove="${esc(id)}" title="${esc(k?.full ?? id)}" aria-label="Remove ${esc(k?.short ?? id)}">${esc(k?.short ?? id)} ×</button></li>`;
+        })
+        .join('');
       chips.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach((b) =>
         b.addEventListener('click', () => {
           ids = ids.filter((x) => x !== b.dataset.remove);
@@ -67,15 +74,21 @@ import { path } from '../../../lib/urls';
           void draw();
         }),
       );
+    };
+
+    async function draw() {
+      renderChips();
       setParams({ ids: ids.length ? ids : null });
       if (ids.length < 2) {
         status.textContent = 'Choose at least two organizations.';
         chart.innerHTML = '';
         table.innerHTML = '';
-        void renderMap(figure, {});
+        void renderMap(figure, {}, []);
         return;
       }
       const docs = (await Promise.all(ids.map((id) => getJson<Doc>(`${base}api/v1/blocks/${encodeURIComponent(id)}.json`).catch(() => null)))).filter(Boolean) as Doc[];
+      docs.forEach((d) => known.set(d.data.id, { short: label(d.data), full: `${d.data.name}${d.data._acronym ? ` (${d.data._acronym})` : ''}` }));
+      renderChips();
       const sets = docs.map((d) => new Map(d.data._roster.filter((r) => r.current && (r.type === 'country' || r.type === 'territory')).map((r) => [r.id, r.name ?? r.id])));
       const names = new Map<string, string>();
       sets.forEach((s) => s.forEach((v, k) => names.set(k, v)));
@@ -106,7 +119,7 @@ import { path } from '../../../lib/urls';
         const step = Math.max(1, Math.round((k / docs.length) * 5));
         data[code] = [`s${step}`, `in ${k} of ${docs.length}`, '', names.get(code) ?? code];
       }
-      void renderMap(figure, data);
+      void renderMap(figure, data, Object.keys(data));
       legend.innerHTML = Array.from({ length: docs.length }, (_, i) => i + 1)
         .map((k) => `<li><span class="swatch s${Math.max(1, Math.round((k / docs.length) * 5))}" aria-hidden="true"></span>In ${k}</li>`)
         .join('');
@@ -123,13 +136,13 @@ import { path } from '../../../lib/urls';
     }
 
     const add = () => {
-      const id = input.value.split(' — ')[0].trim();
+      const [id, name] = input.value.split(' — ').map((s) => s.trim());
+      if (id && name && !known.has(id)) known.set(id, { short: id, full: name });
       if (id && !ids.includes(id) && ids.length < MAX) ids.push(id);
       input.value = '';
       selected = null;
       void draw();
     };
-    root.querySelector('[data-add]')!.addEventListener('click', add);
     input.addEventListener('change', add);
     ids = (params().get('ids') ?? 'EU,NATO,OECD').split(',').map((s) => s.trim()).filter(Boolean).slice(0, MAX);
     void draw();

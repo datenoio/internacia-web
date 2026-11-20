@@ -58,3 +58,14 @@ document.querySelectorAll<HTMLButtonElement>('button[data-copy]').forEach((btn) 
     } catch {}
   });
 });
+
+// "/" focuses the header finder from anywhere except a text field (the hint is CSS).
+const finder = document.getElementById('finder-input') as HTMLInputElement | null;
+finder?.setAttribute('aria-keyshortcuts', '/');
+document.addEventListener('keydown', (e) => {
+  if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || !finder) return;
+  const t = e.target as HTMLElement;
+  if (t.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]')) return;
+  e.preventDefault();
+  finder.focus();
+});

@@ -1,0 +1,37 @@
+---
+// One picker for every explorer: a combobox over the finder's index (names in every language,
+// acronyms, codes), limited to organizations or to countries. Choosing a result sets the input
+// to "ID — Name" and fires `change`, which the explorers read (scripts/picker.ts).
+import { path } from '../lib/urls';
+
+interface Props {
+  id: string;
+  label?: string;
+  kind?: 'b' | 'c';
+}
+
+const { id, kind = 'b' } = Astro.props;
+const label = Astro.props.label ?? (kind === 'b' ? 'Organization or grouping' : 'Country or territory');
+const placeholder = kind === 'b' ? 'Name, acronym or ID in any language' : 'Name or code in any language';
+---
+
+<div class="picker" data-picker data-kind={kind} data-index={path('api/v1/search-index.json')}>
+  <label for={`${id}-input`}>{label}</label>
+  <input
+    id={`${id}-input`}
+    type="text"
+    role="combobox"
+    aria-autocomplete="list"
+    aria-expanded="false"
+    aria-controls={`${id}-list`}
+    data-input={kind === 'b' ? 'block' : 'country'}
+    placeholder={placeholder}
+    autocomplete="off"
+    spellcheck="false"
+  />
+  <ul id={`${id}-list`} role="listbox" aria-label="Matches" hidden></ul>
+</div>
+
+<script>
+  import '../scripts/picker.ts';
+</script>

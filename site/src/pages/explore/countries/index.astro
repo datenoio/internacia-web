@@ -1,11 +1,7 @@
 ---
+import EntityPicker from '../../../components/EntityPicker.astro';
 import Base from '../../../layouts/Base.astro';
-import { countries } from '../../../lib/data';
 import { path } from '../../../lib/urls';
-
-const options = countries()
-  .slice()
-  .sort((a, b) => a.name.localeCompare(b.name));
 ---
 
 <Base
@@ -24,13 +20,7 @@ const options = countries()
   </section>
   <section class="container" data-explorer="countries" data-base={path()}>
     <div class="explorer-controls js-only">
-      <label
-        >Add a country or territory
-        <select data-input="country">
-          <option value="">Choose…</option>
-          {options.map((c) => <option value={c.code}>{c.name} ({c.code})</option>)}
-        </select>
-      </label>
+      <EntityPicker id="compare-countries" kind="c" label="Add a country or territory" />
     </div>
     <ul class="chips js-only" data-chips aria-label="Selected countries"></ul>
     <p class="explorer-status" role="status" aria-live="polite" data-status></p>
@@ -47,7 +37,7 @@ const options = countries()
     const MAX = 4;
     const root = document.querySelector<HTMLElement>('[data-explorer="countries"]')!;
     const base = root.dataset.base!;
-    const select = root.querySelector<HTMLSelectElement>('[data-input="country"]')!;
+    const input = root.querySelector<HTMLInputElement>('[data-input="country"]')!;
     const chips = root.querySelector<HTMLElement>('[data-chips]')!;
     const status = root.querySelector<HTMLElement>('[data-status]')!;
     const result = root.querySelector<HTMLElement>('[data-result]')!;
@@ -56,9 +46,17 @@ const options = countries()
     const blockLink = (m: M) => `<a href="${esc(`${base}blocks/${m.block_id.toLowerCase()}/`)}">${esc(m.block_name)}</a>${m.acronym ? ` <span class="muted">(${esc(m.acronym)})</span>` : ''}`;
     const list = (items: M[]) => (items.length ? `<ul>${items.map((m) => `<li>${blockLink(m)}</li>`).join('')}</ul>` : '<p class="muted small">None.</p>');
 
-    async function draw() {
-      chips.innerHTML = codes.map((c) => `<li><button type="button" data-remove="${esc(c)}" aria-label="Remove ${esc(c)}">${esc(c)} ×</button></li>`).join('');
+    // Chips show the country's name once it is known (the code until then).
+    const known = new Map<string, string>();
+    const renderChips = () => {
+      chips.innerHTML = codes
+        .map((c) => `<li><button type="button" data-remove="${esc(c)}" aria-label="Remove ${esc(known.get(c) ?? c)}">${esc(known.get(c) ?? c)} ×</button></li>`)
+        .join('');
       chips.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach((b) => b.addEventListener('click', () => ((codes = codes.filter((x) => x !== b.dataset.remove)), void draw())));
+    };
+
+    async function draw() {
+      renderChips();
       setParams({ codes: codes.length ? codes : null });
       if (codes.length < 2) {
         status.textContent = 'Choose at least two countries.';
@@ -66,6 +64,8 @@ const options = countries()
         return;
       }
       const docs = (await Promise.all(codes.map((c) => getJson<Doc>(`${base}api/v1/countries/${encodeURIComponent(c)}.json`).catch(() => null)))).filter(Boolean) as Doc[];
+      docs.forEach((d) => known.set(d.data.code, d.data.name));
+      renderChips();
       const typeNames = new Map((await getJson<{ data: { id: string; name: string }[] }>(`${base}api/v1/types.json`)).data.map((t) => [t.id, t.name]));
       const sets = docs.map((d) => new Map(d.data._memberships.filter((m) => m.current).map((m) => [m.block_id, m])));
       const all = new Map<string, M>();
@@ -86,10 +86,11 @@ const options = countries()
         ${docs.map((d, i) => `<section class="card-section"><h2>Only <a href="${esc(`${base}countries/${d.data.code.toLowerCase()}/`)}">${esc(d.data.name)}</a> (${n(only[i].length)})</h2><details><summary class="small">Show the list</summary>${list(only[i])}</details></section>`).join('')}`;
     }
 
-    select.addEventListener('change', () => {
-      const c = select.value;
+    input.addEventListener('change', () => {
+      const [c, name] = input.value.split(' — ').map((s) => s.trim());
+      if (c && name) known.set(c, name);
       if (c && !codes.includes(c) && codes.length < MAX) codes.push(c);
-      select.value = '';
+      input.value = '';
       void draw();
     });
     codes = (params().get('codes') ?? 'FR,DE').split(',').map((s) => s.trim().toUpperCase()).filter(Boolean).slice(0, MAX);

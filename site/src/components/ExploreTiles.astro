@@ -1,0 +1,73 @@
+---
+// The explorers as tiles with a small drawing of each view (decorative). Used on /explore/ and
+// on the home page.
+import { path } from '../lib/urls';
+
+interface Props {
+  // Heading level of the tile titles: 2 on /explore/, 3 under a section heading.
+  level?: 2 | 3;
+}
+
+const { level = 2 } = Astro.props;
+const Heading = level === 2 ? 'h2' : 'h3';
+
+const bars = (hs: number[], x0: number, w: number) => hs.map((h, i) => `<rect class="t-mark" x="${x0 + i * (w + 4)}" y="${56 - h}" width="${w}" height="${h}" rx="1"/>`).join('');
+const explorers = [
+  {
+    href: 'explore/map/',
+    title: 'Membership map',
+    text: 'Members of any organization by status, or the number of memberships per country by block type or scope.',
+    art: '<path class="t-land" d="M8 20q14-10 30-4t26-2 30 4 18 10-10 16-34 8-40 2-22-14z"/><path class="t-mark" d="M38 16q10-4 20 0t10 8-12 8-18 0-4-10z"/><path class="t-mark t-soft" d="M76 22q10 0 14 8t-6 10-12-4z"/>',
+  },
+  {
+    href: 'explore/timeline/',
+    title: 'Accession timeline',
+    text: 'Members by year from joining and leaving dates, with a map you can play year by year.',
+    art: '<path class="t-line" d="M8 54H22V46H34V40H48V30H62V24H78V18H112"/><circle class="t-dot" cx="112" cy="18" r="3"/>',
+  },
+  {
+    href: 'explore/founded/',
+    title: 'Founding timeline',
+    text: 'Intblocks by decade of founding, by scope category; pick a decade to list them.',
+    art: bars([4, 6, 8, 7, 14, 22, 30, 38, 34, 20], 8, 7),
+  },
+  {
+    href: 'explore/headquarters/',
+    title: 'Headquarters map',
+    text: 'Where organizations are based, city by city.',
+    art: '<path class="t-land" d="M8 20q14-10 30-4t26-2 30 4 18 10-10 16-34 8-40 2-22-14z"/><circle class="t-mark" cx="52" cy="20" r="7"/><circle class="t-mark t-soft" cx="34" cy="28" r="4"/><circle class="t-mark t-soft" cx="80" cy="30" r="3"/><circle class="t-mark t-soft" cx="66" cy="38" r="2.5"/>',
+  },
+  {
+    href: 'explore/compare/',
+    title: 'Compare organizations',
+    text: 'What the member countries of two to six organizations share and what sets them apart.',
+    art: `${bars([30, 18, 10, 6, 4], 46, 9)}${[0, 1, 2].map((r) => `<rect class="t-mark t-soft" x="8" y="${8 + r * 8}" width="${30 - r * 8}" height="4" rx="1"/>`).join('')}`,
+  },
+  {
+    href: 'explore/countries/',
+    title: 'Compare countries',
+    text: 'Shared and exclusive memberships of two to four countries, by block type.',
+    art: '<circle class="t-mark t-soft" cx="48" cy="32" r="20"/><circle class="t-mark t-soft" cx="72" cy="32" r="20"/><path class="t-mark" d="M60 16a20 20 0 0 1 0 32a20 20 0 0 1 0-32z"/>',
+  },
+  {
+    href: 'explore/hierarchy/',
+    title: 'Organization hierarchy',
+    text: 'Parent organizations and their bodies, agencies and programmes.',
+    art: '<path class="t-line" d="M60 14V26M30 26H90M30 26V38M60 26V38M90 26V38"/><rect class="t-mark" x="50" y="6" width="20" height="10" rx="2"/><rect class="t-mark t-soft" x="20" y="38" width="20" height="10" rx="2"/><rect class="t-mark t-soft" x="50" y="38" width="20" height="10" rx="2"/><rect class="t-mark t-soft" x="80" y="38" width="20" height="10" rx="2"/>',
+  },
+];
+---
+
+<ul class="explore-list">
+  {
+    explorers.map((e) => (
+      <li>
+        <svg class="explore-art" viewBox="0 0 120 64" aria-hidden="true" focusable="false" set:html={e.art} />
+        <Heading>
+          <a href={path(e.href)}>{e.title}</a>
+        </Heading>
+        <p>{e.text}</p>
+      </li>
+    ))
+  }
+</ul>

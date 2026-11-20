@@ -1,16 +1,8 @@
 ---
+import ExploreTiles from '../../components/ExploreTiles.astro';
 import Base from '../../layouts/Base.astro';
 import { path } from '../../lib/urls';
 
-const explorers = [
-  { href: 'explore/map/', title: 'Membership map', text: 'Members of any organization by status, or the number of memberships per country by block type or scope.' },
-  { href: 'explore/timeline/', title: 'Accession timeline', text: 'Members by year from joining and leaving dates, with a map you can play year by year.' },
-  { href: 'explore/founded/', title: 'Founding timeline', text: 'Intblocks by decade of founding, by scope category; pick a decade to list them.' },
-  { href: 'explore/headquarters/', title: 'Headquarters map', text: 'Where organizations are based, city by city.' },
-  { href: 'explore/compare/', title: 'Compare organizations', text: 'What the member countries of two to six organizations share and what sets them apart.' },
-  { href: 'explore/countries/', title: 'Compare countries', text: 'Shared and exclusive memberships of two to four countries, by block type.' },
-  { href: 'explore/hierarchy/', title: 'Organization hierarchy', text: 'Parent organizations and their bodies, agencies and programmes.' },
-];
 ---
 
 <Base
@@ -28,17 +20,6 @@ const explorers = [
     </p>
   </section>
   <section class="container">
-    <ul class="explore-list">
-      {
-        explorers.map((e) => (
-          <li>
-            <h2>
-              <a href={path(e.href)}>{e.title}</a>
-            </h2>
-            <p>{e.text}</p>
-          </li>
-        ))
-      }
-    </ul>
+    <ExploreTiles />
   </section>
 </Base>
