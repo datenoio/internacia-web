@@ -21,6 +21,10 @@ Every card exists in three forms with the same facts: HTML, Markdown and JSON.
 - \`borders\` holds ISO alpha-3 codes; resolve them through \`iso3code\`.
 - ${c.countries} country records include non-ISO codes; ISO 3166-1 entries have \`code_status = official_iso3166_1\` (${c.iso_countries}).
 - "Current" members: status not \`former_member\`, no \`left\` date, intblock neither \`historical\` nor dissolved.
+- \`includes[].role\` (pipelines and corridors only) says what a country does on the route: \`origin\`, \`transit\`, \`destination\` or \`terminal\`; \`status\` still says how it relates to the record.
+- \`institutional_design\` records what an organization's founding instrument lets it decide and enforce. An absent object or subfield means unknown, never "none".
+- Border crossing status (\`_borders[].status\` on country cards) lists recorded closures only: no status does not mean a border is verified open.
+- Block type \`intorg\` is deprecated: select intergovernmental organizations with \`scope_category = igo\`, not by block type.
 - Enums are open: accept values you do not know.
 - Fields starting with \`_\` are derived by this site; all others are internacia-db export fields.
 - This is reference data, not a socioeconomic profile: no GDP, HDI or government type.
@@ -75,13 +79,13 @@ export function llmsFullTxt(aboutMd: string, dataMd: string): string {
   const types = blocktypes()
     .filter((t) => t._count > 0)
     .sort((a, b) => b._count - a._count)
-    .map((t) => `| \`${t.id}\` | ${t.name} | ${t._count} |`)
+    .map((t) => `| \`${t.id}\` | ${t.name}${t.deprecated ? ' (deprecated)' : ''} | ${t._count} | ${(t.description ?? '').replace(/\|/g, '\\|')} |`)
     .join('\n');
   return `${llmsTxt()}
 ## Block types
 
-| Key | Name | Intblocks |
-|---|---|---|
+| Key | Name | Intblocks | Scope |
+|---|---|---|---|
 ${types}
 
 ---

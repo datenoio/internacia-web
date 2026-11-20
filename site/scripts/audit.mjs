@@ -33,6 +33,8 @@ const AXE_PAGES = [
   'countries/ps/',
   'countries/aq/',
   'countries/af/', // native_names keys in ISO 639-3 (prs), entries with one name (contract 4)
+  'countries/ru/', // route role column, closed border (contract 4.1)
+  'countries/ma/', // border crossing status with sources (contract 4.1)
   'blocks/un/',
   'blocks/eu/',
   'blocks/nato/',
@@ -40,6 +42,9 @@ const AXE_PAGES = [
   'blocks/g-20/',
   'blocks/afcfta/',
   'blocks/jcpoa/',
+  'blocks/unsc/', // institutional design with veto holders (contract 4.1)
+  'blocks/btc/', // route roles in the roster (contract 4.1)
+  'blocks/iata/', // roster removed: membership_applicability not_applicable (contract 4.1)
   'data/',
   'about/',
   'types/',

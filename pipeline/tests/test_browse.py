@@ -1,4 +1,6 @@
-from browse import completeness, decade, derive_geography, slugify
+from types import SimpleNamespace
+
+from browse import completeness, decade, derive_geography, derive_types, slugify
 
 
 def test_slugify():
@@ -41,3 +43,17 @@ def test_geography_disambiguates_shared_labels():
     assert areas[("subregion", "South America")]["_continent"] == "South America"
     assert areas[("continent", "South America")]["_blocks"] == ["MERCOSUR"]
     assert areas[("subregion", "Western Europe")]["_countries"] == ["FR"]
+
+
+def test_types_carry_scope_note_and_deprecation():
+    release = SimpleNamespace(blocktypes=[
+        {"id": "intorg", "name": "International organization", "description": "Deprecated.",
+         "deprecated": {"replacements": [], "removal": "next MAJOR", "note": "Use scope_category."}, "other_names": None},
+        {"id": "fisheries", "name": "Fisheries", "description": None, "deprecated": None, "other_names": []},
+    ])
+    blocks = [{"id": "NAFO", "name": "NAFO", "blocktype": ["fisheries", "intorg"], "_active": True, "founded": "1979"}]
+    types = {t["id"]: t for t in derive_types(release, blocks)}
+    assert types["intorg"]["deprecated"]["removal"] == "next MAJOR"
+    assert types["intorg"]["_primary_count"] == 0 and types["intorg"]["_count"] == 1
+    assert types["fisheries"]["description"] is None and types["fisheries"]["deprecated"] is None
+    assert types["fisheries"]["_primary_count"] == 1

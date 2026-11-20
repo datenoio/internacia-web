@@ -60,8 +60,29 @@ export interface CountryMembership {
   status: string;
   joined: string | null;
   left: string | null;
+  // includes[].role (contract 4.1): what the country does on a pipeline or corridor route.
+  role: string | null;
   note: string | null;
   current: boolean;
+}
+
+export interface BorderStatus {
+  status: string | null;
+  since: string | null;
+  until: string | null;
+  note: string | null;
+  last_verified: string | null;
+  provenance: Provenance[];
+}
+
+export interface Border {
+  iso3code: string;
+  code: string | null;
+  name: string | null;
+  // Current crossing status (closed, restricted; open enum). Null when no closure is recorded,
+  // which does not mean the border is verified open.
+  status: string | null;
+  border_status: BorderStatus | null;
 }
 
 export interface Country {
@@ -123,7 +144,7 @@ export interface Country {
   _blocktype_counts: Record<string, number>;
   _memberships: CountryMembership[];
   _similar: { code: string; name: string; shared: number; jaccard: number; flag_emoji?: string }[];
-  _borders: { iso3code: string; code: string | null; name: string | null }[];
+  _borders: Border[];
   _parent_exists: boolean;
   _dependents: { code: string; name: string }[];
   _alias_notes: AliasNote[];
@@ -138,6 +159,7 @@ export interface RosterEntry {
   status: string;
   joined: string | null;
   left: string | null;
+  role: string | null;
   note: string | null;
   current: boolean;
   link: 'country' | 'block' | null;
@@ -148,6 +170,18 @@ export interface BlockRef {
   id: string;
   name: string | null;
   exists: boolean;
+}
+
+// Contract 4.1: what the founding instrument lets an organization decide and enforce. An absent
+// object or subfield means unknown, never "none".
+export interface InstitutionalDesign {
+  mandate?: string | null;
+  decision_rule?: string | null;
+  decision_force?: string | null;
+  independent_organs?: string[] | null;
+  enforcement?: string[] | null;
+  mutual_defence?: boolean | null;
+  veto_holders?: string[] | null;
 }
 
 export interface Block {
@@ -184,6 +218,7 @@ export interface Block {
   previous_names?: { id?: string; name: string; period?: string }[];
   official_documents?: { url: string; type?: string; title?: string }[];
   social_media?: Record<string, string>;
+  institutional_design?: InstitutionalDesign | null;
   _acronym: string | null;
   _active: boolean;
   _current_member_count: number;
@@ -200,11 +235,26 @@ export interface Block {
   [key: string]: unknown;
 }
 
+export interface Deprecation {
+  replacements?: string[] | null;
+  removal?: string | null;
+  note?: string | null;
+}
+
 export interface BlockType {
   id: string;
   name: string;
+  description?: string | null;
+  deprecated?: Deprecation | null;
   other_names: { lang: string; name: string }[];
   _count: number;
+}
+
+export interface DesignField {
+  name: string;
+  kind: string | null;
+  description: string;
+  values: Record<string, { name: string; description: string }>;
 }
 
 export interface Labels {
@@ -212,6 +262,8 @@ export interface Labels {
   topics: Record<string, string>;
   vocabs: Record<string, Record<string, string>>;
   native_name_languages: Record<string, string>;
+  include_roles: Record<string, { name: string; description: string; blocktypes: string[] }>;
+  institutional_design: Record<string, DesignField>;
 }
 
 export interface AliasPage extends AliasNote {}
@@ -233,6 +285,8 @@ export interface Download {
 export interface TypeRecord {
   id: string;
   name: string;
+  description: string | null;
+  deprecated: Deprecation | null;
   other_names: { lang: string; name: string }[];
   _count: number;
   _active_count: number;
@@ -281,7 +335,13 @@ export interface Stats {
     last_verified_months: Record<string, number>;
     active: number;
   };
-  memberships: { by_status: Record<string, number>; by_include_type: Record<string, number>; with_joined: number; with_left: number };
+  memberships: {
+    by_status: Record<string, number>;
+    by_include_type: Record<string, number>;
+    with_joined: number;
+    with_left: number;
+    by_role: Record<string, number>;
+  };
 }
 
 export interface ReleaseInfo {

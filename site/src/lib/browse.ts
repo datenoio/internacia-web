@@ -15,9 +15,14 @@ const BLOCK_HEAD = ['ID', 'Name', 'Acronym', 'Status', 'Founded', 'Current membe
 const footer = `\nData: internacia-db v${meta.data.version} (${meta.data.release_url}), licensed CC-BY-4.0.\n`;
 
 export function typeMarkdown(t: TypeRecord): string {
+  const note = t.deprecated?.note && !(t.description ?? '').includes(t.deprecated.note) ? ` ${t.deprecated.note}` : '';
   return [
     frontMatter({ type: 'blocktype', id: t.id, name: t.name, url: absolute(typePath(t.id)), json: absolute(path(`api/v1/types/${t.id}.json`)), data_version: meta.data.version }),
     `# ${t.name} (block type \`${t.id}\`)\n`,
+    t.description ? `${t.description}\n` : '',
+    t.deprecated
+      ? `**Deprecated** in internacia-db${t.deprecated.removal ? ` (removal: ${t.deprecated.removal})` : ''}.${note}${t.deprecated.replacements?.length ? ` Replacements: ${t.deprecated.replacements.join(', ')}.` : ''}\n`
+      : '',
     `${t._count} intblocks (${t._active_count} active); first type of ${t._primary_count}. Intblock cards: ${absolute(blockMd('{id}'))}\n`,
     t.other_names.length ? `Names: ${t.other_names.map((n) => `${n.name} (${n.lang})`).join(', ')}\n` : '',
     `## Founded by decade\n\n${table(['Decade', 'Intblocks'], Object.entries(t._founded_decades).map(([d, n]) => [`${d}s`, n]))}\n`,
@@ -62,7 +67,10 @@ export const typesIndexMd = () =>
   [
     frontMatter({ type: 'index', section: 'blocktypes', url: absolute(path('types/')), data_version: meta.data.version }),
     `# Block types (${types().length})\n`,
-    table(['Key', 'Name', 'Intblocks', 'Active', 'Markdown'], types().map((t) => [t.id, t.name, t._count, t._active_count, absolute(path(`types/${t.id}.md`))])),
+    table(
+      ['Key', 'Name', 'Intblocks', 'Active', 'Description', 'Markdown'],
+      types().map((t) => [t.id, `${t.name}${t.deprecated ? ' (deprecated)' : ''}`, t._count, t._active_count, t.description, absolute(path(`types/${t.id}.md`))]),
+    ),
     footer,
   ].join('\n');
 

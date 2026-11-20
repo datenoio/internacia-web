@@ -1,5 +1,6 @@
 // Roster of an intblock as CSV (SPEC §6.5, item 5): every includes[] entry, current and former,
-// with the same fields as the roster table and the card's JSON (`_roster`).
+// with the same fields as the roster table and the card's JSON (`_roster`). `role` (contract 4.1)
+// is appended last so existing column positions do not move.
 import type { APIRoute } from 'astro';
 import { blockById, blocks } from '../../../lib/data';
 
@@ -16,7 +17,9 @@ const cell = (v: unknown) => {
 
 export const GET: APIRoute = ({ props }) => {
   const b = blockById().get(props.id)!;
-  const head = ['id', 'name', 'type', 'status', 'joined', 'left', 'current', 'note'];
-  const rows = b._roster.map((r) => [r.id, r.name, r.type, r.status, r.joined, r.left, r.current ? 'yes' : 'no', r.note].map(cell).join(','));
+  const head = ['id', 'name', 'type', 'status', 'joined', 'left', 'current', 'note', 'role'];
+  const rows = b._roster.map((r) =>
+    [r.id, r.name, r.type, r.status, r.joined, r.left, r.current ? 'yes' : 'no', r.note, r.role].map(cell).join(','),
+  );
   return new Response(`${[head.join(','), ...rows].join('\r\n')}\r\n`, { headers: { 'Content-Type': 'text/csv; charset=utf-8' } });
 };

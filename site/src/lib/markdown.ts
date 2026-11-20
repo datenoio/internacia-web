@@ -2,7 +2,8 @@
 // absolute links, so an agent can join without a second lookup.
 import { CENTROID_NOTE, LICENSE } from './api';
 import { blockById, type Block, type Country } from './data';
-import { blocktypeLabel, enumLabel, nativeNameList, num, statusDeprecated, statusLabel, topicLabel, vocabLabel } from './format';
+import { borderStatusText, designRows } from './design';
+import { blocktypeDeprecated, blocktypeLabel, enumLabel, nativeNameList, num, roleLabel, statusDeprecated, statusLabel, topicLabel, vocabLabel } from './format';
 import { meta } from './meta';
 import { absolute, blockJson, blockPath, countryJson, countryPath } from './urls';
 
@@ -42,9 +43,16 @@ const indicator = (v: Country['population'], unit = '') =>
     ? `${num(v.value)}${unit} (${v.year ?? 'year unknown'}${v.source ? `, ${v.source}` : ''})`
     : undefined;
 
+// A "Route role" column only where a row has a role (contract 4.1: pipelines and corridors).
+const withRole = <T extends { role: string | null }>(rows: T[], headers: string[], cells: (r: T) => unknown[]): [string[], unknown[][]] =>
+  rows.some((r) => r.role)
+    ? [[...headers, 'Route role'], rows.map((r) => [...cells(r), roleLabel(r.role)])]
+    : [headers, rows.map(cells)];
+
 export function countryMarkdown(c: Country): string {
   const current = c._memberships.filter((m) => m.current);
   const former = c._memberships.filter((m) => !m.current);
+  const borderNotes = c._borders.filter((b) => b.border_status);
   const out = [
     frontMatter({
       type: 'country',
@@ -86,9 +94,32 @@ export function countryMarkdown(c: Country): string {
       ['UN M49 subregion', c.subregion],
       ['Capital', c.capital_city?.name],
       ['Landlocked', c.landlocked === undefined ? undefined : c.landlocked ? 'yes' : 'no'],
-      ['Land borders', c._borders.map((b) => (b.code ? `${b.name} (${b.code})` : b.iso3code))],
+      [
+        'Land borders',
+        c._borders.map(
+          (b) =>
+            `${b.code ? `${b.name} (${b.code})` : b.iso3code}${b.border_status ? `, ${borderStatusText(b.border_status).toLowerCase()}` : ''}`,
+        ),
+      ],
       ['Centroid', c.centroid ? `${c.centroid.lat}, ${c.centroid.lng} (ODbL-1.0, mledoze/countries)` : undefined],
     ]),
+    borderNotes.length
+      ? `\n## Border crossing status\n\nNo entry means no closure is recorded, not that a border was verified open.\n\n${table(
+          ['Neighbour', 'Status', 'Since', 'Until', 'Note', 'Last verified', 'Sources'],
+          borderNotes.map((b) => {
+            const s = b.border_status!;
+            return [
+              b.code ? `${b.name} (${b.code})` : b.iso3code,
+              enumLabel('border_status', s.status),
+              s.since,
+              s.until,
+              s.note,
+              s.last_verified,
+              s.provenance.map((p) => (p.url ? `${p.source} (${p.url})` : p.source)).join('; '),
+            ];
+          }),
+        )}\n`
+      : '',
     '\n## World Bank classification\n',
     c.region
       ? facts([
@@ -118,15 +149,9 @@ export function countryMarkdown(c: Country): string {
       ['Gini index', indicator(c.gini)],
     ]),
     `\n## Current memberships (${current.length})\n`,
-    table(
-      ['ID', 'Organization', 'Type', 'Status', 'Joined'],
-      current.map((m) => [m.block_id, m.block_name, blocktypeLabel(m.blocktype), status(m.status), m.joined]),
-    ),
+    table(...withRole(current, ['ID', 'Organization', 'Type', 'Status', 'Joined'], (m) => [m.block_id, m.block_name, blocktypeLabel(m.blocktype), status(m.status), m.joined])),
     `\n## Former memberships and memberships of historical organizations (${former.length})\n`,
-    table(
-      ['ID', 'Organization', 'Status', 'Joined', 'Left'],
-      former.map((m) => [m.block_id, m.block_name, status(m.status), m.joined, m.left]),
-    ),
+    table(...withRole(former, ['ID', 'Organization', 'Status', 'Joined', 'Left'], (m) => [m.block_id, m.block_name, status(m.status), m.joined, m.left])),
     '\n## Most similar countries by shared current memberships\n',
     table(['Code', 'Country', 'Shared', 'Jaccard'], c._similar.map((s) => [s.code, s.name, s.shared, s.jaccard])),
     c.centroid ? `\n${CENTROID_NOTE}\n` : '',
@@ -138,6 +163,7 @@ export function countryMarkdown(c: Country): string {
 export function blockMarkdown(b: Block): string {
   const current = b._roster.filter((r) => r.current);
   const other = b._roster.filter((r) => !r.current);
+  const design = designRows(b.institutional_design);
   const hq = b.headquarters;
   const out = [
     frontMatter({
@@ -158,7 +184,7 @@ export function blockMarkdown(b: Block): string {
       ['Status', `${enumLabel('status', b.status)}${b._active ? '' : ' (not active)'}`],
       ['Scope category', enumLabel('scope_category', b.scope_category)],
       ['Geographic scope', enumLabel('geographic_scope', b.geographic_scope)],
-      ['Block types', b.blocktype.map((t) => `${blocktypeLabel(t)} (${t})`)],
+      ['Block types', b.blocktype.map((t) => `${blocktypeLabel(t)} (${t}${blocktypeDeprecated(t) ? ', deprecated' : ''})`)],
       ['Topics', (b.topics ?? []).map((t) => topicLabel(t.key, t.name))],
       ['Regions', b.regions],
       ['Founded', b.founded],
@@ -176,17 +202,36 @@ export function blockMarkdown(b: Block): string {
       ['Last verified', b.last_verified],
     ]),
     b.notes ? `\n## Notes\n\n${b.notes}\n` : '',
+    design.length
+      ? `\n## Institutional design\n\nWhat the founding instrument lets the organization decide and enforce. A field that is not listed is unknown.\n\n${facts(
+          design.map((row) => [
+            row.label,
+            row.values.map((v) => (v.country ? (v.country.name ? `${v.country.name} (${v.key})` : v.key) : `${v.label} (\`${v.key}\`)`)),
+          ]),
+        )}\n`
+      : '',
     `\n## ${b._active ? 'Current' : 'Recorded'} participants (${current.length || (b._active ? 0 : b._roster.length)})\n`,
     b.membership_applicability === 'not_applicable' && !b._roster.length
       ? 'This record has no country or organization roster by design (membership not applicable).'
       : table(
-          ['Code', 'Name', 'Type', 'Status', 'Joined'],
-          (b._active ? current : b._roster).map((r) => [r.id, r.name, enumLabel('include_type', r.type), status(r.status), r.joined]),
+          ...withRole(b._active ? current : b._roster, ['Code', 'Name', 'Type', 'Status', 'Joined'], (r) => [
+            r.id,
+            r.name,
+            enumLabel('include_type', r.type),
+            status(r.status),
+            r.joined,
+          ]),
         ),
     b._active && other.length
       ? `\n## Former participants (${other.length})\n\n${table(
-          ['Code', 'Name', 'Type', 'Status', 'Joined', 'Left'],
-          other.map((r) => [r.id, r.name, enumLabel('include_type', r.type), status(r.status), r.joined, r.left]),
+          ...withRole(other, ['Code', 'Name', 'Type', 'Status', 'Joined', 'Left'], (r) => [
+            r.id,
+            r.name,
+            enumLabel('include_type', r.type),
+            status(r.status),
+            r.joined,
+            r.left,
+          ]),
         )}`
       : '',
     '\n## Structure\n',

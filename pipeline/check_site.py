@@ -20,6 +20,8 @@ Runs after `astro build`. Fails (exit 1) when any check fails:
 from __future__ import annotations
 
 import argparse
+import csv
+import io
 import json
 import re
 import sys
@@ -50,6 +52,7 @@ REFRESH = re.compile(r'http-equiv="refresh" content="0; url=([^"]+)"')
 MAP_DATA = re.compile(r'<script type="application/json" data-map-data>(.*?)</script>', re.S)
 CANONICAL = re.compile(r'<link rel="canonical" href="([^"]+)"')
 LIST_BLOCK = re.compile(r'<li data-block="([^"]+)"')
+BORDER_ITEM = re.compile(r'<li data-border="([A-Z]{3})"(?: data-status="([^"]*)")?')
 
 
 class Report:
@@ -106,6 +109,27 @@ def md_section_ids(md: str, heading_prefix: str) -> set[str]:
         if line.startswith("| ") and not is_header:
             ids.add(line[2:].split(" | ", 1)[0].strip())
     return ids
+
+
+def md_table(md: str, heading_prefix: str) -> tuple[list[str], list[list[str]]]:
+    """Header and rows of the table under the first heading that starts with heading_prefix."""
+    lines = md.splitlines()
+    try:
+        start = next(i for i, l in enumerate(lines) if l.startswith(f"## {heading_prefix}"))
+    except StopIteration:
+        return [], []
+    split = lambda line: [c.strip() for c in re.split(r"(?<!\\)\|", line.strip())[1:-1]]
+    header, rows = [], []
+    for line in lines[start + 1 :]:
+        if line.startswith("## "):
+            break
+        if not line.startswith("|") or line.startswith("|---"):
+            continue
+        if not header:
+            header = split(line)
+        else:
+            rows.append(split(line))
+    return header, rows
 
 
 def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Report:
@@ -191,6 +215,47 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
             if not (j == h == m):
                 problems.append(f"{section} {ident}: JSON {len(j)}, HTML {len(h)}, Markdown {len(m)} intblocks differ")
     report.check("twin parity", problems)
+
+    # Contract 4.1 facts in every form: route roles (pipelines, corridors) and border status
+    problems = []
+    roles = json.loads((generated / "labels.json").read_text(encoding="utf-8")).get("include_roles", {})
+    role_name = lambda r: roles.get(r, {}).get("name", r) if r else ""
+    for b in blocks:
+        if not any(r.get("role") for r in b["_roster"]):
+            continue
+        slug = b["id"].lower()
+        doc = json.loads((dist / f"api/v1/blocks/{b['id']}.json").read_text(encoding="utf-8"))
+        listed = [r for r in doc["data"]["_roster"] if r["current"] or not b["_active"]]
+        j = {(r["id"], r["role"]) for r in listed if r.get("role")}
+        html = table_rows((dist / f"blocks/{slug}/index.html").read_text(encoding="utf-8"), "roster-table")
+        h = {(r["member"], r["role"]) for r in html if r.get("role")}
+        head, rows = md_table((dist / f"blocks/{slug}.md").read_text(encoding="utf-8"), "Current participants" if b["_active"] else "Recorded participants")
+        m = {(row[0], row[-1]) for row in rows if head and head[-1] == "Route role" and row[-1]}
+        csv_rows = list(csv.DictReader(io.StringIO((dist / f"blocks/{slug}/members.csv").read_text(encoding="utf-8"))))
+        c = {(r["id"], r["role"]) for r in csv_rows if r.get("role")}
+        expected_csv = {(r["id"], r["role"]) for r in doc["data"]["_roster"] if r.get("role")}
+        if j != h or m != {(i, role_name(r)) for i, r in j} or c != expected_csv:
+            problems.append(f"block {b['id']}: route roles differ (JSON {len(j)}, HTML {len(h)}, Markdown {len(m)}, CSV {len(c)})")
+    for country in countries:
+        code = country["code"]
+        if any(m.get("role") for m in country["_memberships"]):
+            j = {(m["block_id"], m["role"]) for m in country["_memberships"] if m["current"] and m.get("role")}
+            html = table_rows((dist / f"countries/{code.lower()}/index.html").read_text(encoding="utf-8"), "memberships-table")
+            h = {(r["block"], r["role"]) for r in html if r.get("role")}
+            head, rows = md_table((dist / f"countries/{code.lower()}.md").read_text(encoding="utf-8"), "Current memberships")
+            m = {(row[0], row[-1]) for row in rows if head and head[-1] == "Route role" and row[-1]}
+            if j != h or m != {(i, role_name(r)) for i, r in j}:
+                problems.append(f"country {code}: route roles differ (JSON {len(j)}, HTML {len(h)}, Markdown {len(m)})")
+        if country["_borders"]:
+            doc = json.loads((dist / f"api/v1/countries/{code}.json").read_text(encoding="utf-8"))
+            j = {(b["iso3code"], b["status"] or "") for b in doc["data"]["_borders"]}
+            html = (dist / f"countries/{code.lower()}/index.html").read_text(encoding="utf-8")
+            h = set(BORDER_ITEM.findall(html))
+            noted = [b for b in country["_borders"] if b.get("border_status")]
+            _, rows = md_table((dist / f"countries/{code.lower()}.md").read_text(encoding="utf-8"), "Border crossing status")
+            if j != h or len(rows) != len(noted):
+                problems.append(f"country {code}: border status differs (JSON {len(j)}, HTML {len(h)}, Markdown {len(rows)} of {len(noted)})")
+    report.check("route roles and border status", problems)
 
     # JSON validity and schemas (the schemas are the published ones, read from dist)
     problems = []

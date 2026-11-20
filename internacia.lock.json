@@ -1,7 +1,7 @@
 {
   "repository": "datenoio/internacia-db",
-  "tag": "v4.0.0",
-  "git_commit": "88a0a27f0384c3a7aa8fcfd91ffe99e23ca06521",
+  "tag": "v4.1.0",
+  "git_commit": "65576f970ab63a8d826856f1fd435a13364ca4e3",
   "contract_major": 4,
-  "sha256sums_sha256": "263d31c4be3343c4a0df9e3b67af296eb817fb1ed65e58b372716c44a842b6a8"
+  "sha256sums_sha256": "868896de74358c3f408ff6cbf36fd5cd755076d20604b79cf70ad3ea6f8e8723"
 }
