@@ -228,7 +228,9 @@ template with the entity prefilled).
 ### 6.1 Home
 
 - One-sentence description of internacia-db and of the site.
-- Search box (names in any language, codes, acronyms).
+- Search box (names in any language, codes, acronyms), with example questions under it as plain
+  links into cards, lists and explorers (for example "Compare EU, NATO and OECD").
+- The explorers as tiles with a small drawing of each view.
 - Key figures: countries, intblocks, block types, topics, membership edges, data version and date.
 - World map teaser: number of current memberships per country (links to the map explorer).
 - Entry points: browse by block type (treemap or grid), browse by region, featured blocks
@@ -341,6 +343,12 @@ the header sticks to the top of the window (also on the intblock card).
 
 See [§8](#8-visualizations). Each explorer has a shareable URL with its state in the query string
 (for example `/explore/compare/?ids=EU,NATO,OECD`), and a "data behind this chart" table.
+
+- Every explorer picks organizations and countries with the same picker: the finder's search
+  (names in any language, acronyms, codes) limited to one kind of entity. Chips of the chosen
+  entities show their names, not their codes.
+- Explorer maps zoom to the coloured countries, as on the cards (V1), with a switch to the whole
+  world. In the header, `/` focuses the finder.
 
 ### 6.10 Data & API
 
@@ -516,9 +524,9 @@ Each chart has a caption, a legend, a "data behind this chart" table and a downl
 |---|------|-------|------|------|-------------|
 | V1 | Membership map | Block card; `/explore/map/` | `current_memberships` + status | World choropleth by status; dots for small territories; zoomed to the members when they cover part of the world, with a switch to the whole world | Pick any block; hover shows status and joined date; switch to "former members" |
 | V2 | Memberships per country | Home; `/explore/map/?mode=count` | Count of current memberships per country | Choropleth, sequential scale | Filter by block type or scope category; click opens country card |
-| V3 | Accession timeline | Block card; `/explore/timeline/` | `joined` / `left` | Step chart of member count; animated map | Play, pause, scrub by year |
+| V3 | Accession timeline | Block card; `/explore/timeline/` | `joined` / `left` | Step chart of member count; animated map, side by side on wide screens | Play, pause, scrub by year |
 | V4 | Founding timeline | `/explore/founded/`; type pages | `founded`, `dissolved` | Histogram by decade, stacked by block type or scope | Brush a period to list intblocks |
-| V5 | Headquarters map | `/explore/headquarters/` | `headquarters.coordinates` | Point map with clustering by city | Click a cluster to list organizations |
+| V5 | Headquarters map | `/explore/headquarters/` | `headquarters.coordinates` | Point map with clustering by city | Click a cluster to list its organizations by block type in a panel beside the map (`?city=`) |
 | V6 | Compare blocks | `/explore/compare/` | Member sets of 2–6 blocks | UpSet chart (Venn for 2–3); map coloured by combination | Add and remove blocks; share URL |
 | V7 | Compare countries | `/explore/countries/` | Memberships of 2–4 countries | Shared and exclusive memberships by block type | Add and remove countries |
 | V8 | Organization hierarchy | `/explore/hierarchy/`; block card | `partof`, `suborganizations` | Collapsible tree or sunburst (for example the UN system) | Expand, collapse, link to cards |

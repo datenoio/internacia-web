@@ -1,5 +1,6 @@
 ---
 import BarList from '../components/BarList.astro';
+import ExploreTiles from '../components/ExploreTiles.astro';
 import MembershipMap from '../components/MembershipMap.astro';
 import Base from '../layouts/Base.astro';
 import { blockById, blocktypes, countries } from '../lib/data';
@@ -26,6 +27,16 @@ const topTypes = blocktypes()
   .slice(0, 12)
   .map((t) => ({ label: t.name, value: t._count, href: typePath(t.id) }));
 const perCountry = Object.fromEntries(countries().map((c) => [c.code, c._current_member_count]));
+// Ready-made questions under the home finder: plain links into cards, lists and explorers.
+const intents = [
+  { label: 'NATO', href: blockPath('NATO') },
+  { label: 'Compare EU, NATO and OECD', href: path('explore/compare/?ids=EU,NATO,OECD') },
+  { label: 'France and Germany side by side', href: path('explore/countries/?codes=FR,DE') },
+  { label: 'Political organizations', href: path('blocks/?types=political') },
+  { label: 'Founded since 2000', href: path('blocks/?founded-from=2000') },
+  { label: 'Based in Geneva', href: path('explore/headquarters/?city=geneva') },
+  { label: 'How ASEAN grew', href: path('explore/timeline/?id=ASEAN') },
+];
 ---
 
 <Base
@@ -43,6 +54,30 @@ const perCountry = Object.fromEntries(countries().map((c) => [c.code, c._current
       <a href="https://github.com/datenoio/internacia-db">internacia-db</a>, as cards for people and for AI agents.
       Every card is also available as Markdown and JSON.
     </p>
+    <div class="finder finder-hero js-only" data-finder data-index={path('api/v1/search-index.json')} data-search={path('search/')}>
+      <label class="visually-hidden" for="home-finder-input">Find a country or organization</label>
+      <input
+        id="home-finder-input"
+        type="search"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded="false"
+        aria-controls="home-finder-results"
+        placeholder="Search a country or organization in any language: France, НАТО, 北约…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <ul id="home-finder-results" role="listbox" aria-label="Matches" hidden></ul>
+    </div>
+    <ul class="intents" aria-label="Examples">
+      {
+        intents.map((i) => (
+          <li>
+            <a href={i.href}>{i.label}</a>
+          </li>
+        ))
+      }
+    </ul>
   </section>
 
   <section class="container" aria-labelledby="figures-heading">
@@ -92,6 +127,11 @@ const perCountry = Object.fromEntries(countries().map((c) => [c.code, c._current
       <BarList items={topTypes} label="Intblocks per block type, largest 12" />
     </section>
   </div>
+
+  <section class="container card-section" aria-labelledby="explore-heading">
+    <h2 id="explore-heading">Explore</h2>
+    <ExploreTiles level={3} />
+  </section>
 
   <section class="container card-section" aria-labelledby="dev-heading">
     <h2 id="dev-heading">For developers and AI agents</h2>

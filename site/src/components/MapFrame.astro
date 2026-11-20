@@ -13,6 +13,9 @@ const ratio = `--map-ratio: ${worldMap().width} / ${worldMap().height}`;
 ---
 
 <figure class="map" id={id} data-map data-src={path('assets/world.svg')} data-card-base={path('countries/')}>
+  <button type="button" class="map-zoom js-only" data-map-zoom data-in="Zoom to the countries shown" data-out="Show the whole world" hidden>
+    Show the whole world
+  </button>
   <div class="map-canvas js-only" style={ratio} role="group" aria-label={label}></div>
   <div class="map-tip" hidden></div>
   <figcaption>

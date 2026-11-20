@@ -1,5 +1,5 @@
 ---
-import BlockPicker from '../../../components/BlockPicker.astro';
+import EntityPicker from '../../../components/EntityPicker.astro';
 import MapFrame from '../../../components/MapFrame.astro';
 import Base from '../../../layouts/Base.astro';
 import { meta } from '../../../lib/meta';
@@ -22,14 +22,17 @@ import { path } from '../../../lib/urls';
   </section>
   <section class="container" data-explorer="timeline" data-base={path()} data-year={meta.data.build_date.slice(0, 4)}>
     <div class="explorer-controls js-only">
-      <BlockPicker id="timeline-blocks" />
+      <EntityPicker id="timeline-blocks" />
       <label>Year <input type="range" data-input="year" min="1900" max="2026" step="1" value="2026" /></label>
       <output data-year-label class="small"></output>
       <button type="button" data-play aria-pressed="false">Play</button>
     </div>
     <p class="explorer-status" role="status" aria-live="polite" data-status></p>
-    <figure class="chart" data-chart></figure>
-    <MapFrame id="timeline-map" label="Members in the selected year" />
+    {/* Chart and map side by side on wide screens, so both stay in view while the years play. */}
+    <div class="timeline-views">
+      <figure class="chart" data-chart></figure>
+      <MapFrame id="timeline-map" label="Members in the selected year" />
+    </div>
     <details open>
       <summary class="small">Data behind this chart</summary>
       <div class="table-wrap" data-table tabindex="0" role="region" aria-label="Members by year">
@@ -65,7 +68,17 @@ import { path } from '../../../lib/urls';
     let title = '';
     let timer = 0;
 
-    function drawYear(y: number) {
+    // The chart is drawn at the width of its column (text keeps its size), again on resize.
+    let shown = 0;
+    const drawChart = (y: number) => {
+      shown = y;
+      if (series.length) chart.innerHTML = steps({ points: series, title: `${title}: members by year`, marker: y, width: Math.max(300, chart.clientWidth || 720) });
+    };
+    new ResizeObserver(() => series.length && drawChart(shown)).observe(chart);
+
+    // zoom: given once per organization (every country that was ever a member), so the view
+    // stays put while the years play.
+    function drawYear(y: number, zoom?: string[]) {
       range.value = String(y);
       yearLabel.textContent = String(y);
       const data: Record<string, MapEntry> = {};
@@ -74,10 +87,10 @@ import { path } from '../../../lib/urls';
         if (e.to !== null && e.to <= y) data[e.id] ??= ['g-f', `left in ${e.to}`, '', e.name];
         else data[e.id] = ['g-m', `member in ${y}`, String(e.from), e.name];
       }
-      void renderMap(figure, data);
+      void renderMap(figure, data, zoom);
       const count = series.find((p) => p.year === y)?.value ?? 0;
       caption.textContent = `${title}: ${n(count)} members in ${y}.`;
-      chart.innerHTML = steps({ points: series, title: `${title}: members by year`, marker: y });
+      drawChart(y);
     }
 
     async function load(id: string) {
@@ -87,6 +100,7 @@ import { path } from '../../../lib/urls';
         return;
       }
       title = `${doc.data.name}${doc.data._acronym ? ` (${doc.data._acronym})` : ''}`;
+      input.value = `${id} — ${title}`;
       const countries = doc.data._roster.filter((r) => r.type === 'country' || r.type === 'territory');
       entries = countries
         .filter((r) => year(r.joined) !== null)
@@ -95,7 +109,7 @@ import { path } from '../../../lib/urls';
       if (entries.length < Math.max(3, countries.length * 0.3)) {
         series = [];
         chart.innerHTML = '';
-        void renderMap(figure, {});
+        void renderMap(figure, {}, []);
         status.innerHTML = `<a href="${esc(`${base}blocks/${id.toLowerCase()}/`)}">${esc(title)}</a>: only ${entries.length} of ${countries.length} entries have a joining date, too few for a timeline.`;
         table.innerHTML = '';
         setParams({ id, year: null });
@@ -116,7 +130,7 @@ import { path } from '../../../lib/urls';
         })
         .join('')}</tbody></table>`;
       const wanted = Number(params().get('year'));
-      drawYear(wanted >= first && wanted <= thisYear ? wanted : thisYear);
+      drawYear(wanted >= first && wanted <= thisYear ? wanted : thisYear, entries.map((e) => e.id));
       setParams({ id });
     }
 
@@ -150,8 +164,7 @@ import { path } from '../../../lib/urls';
     });
 
     const id = params().get('id') ?? 'WORLDHERITAGE';
-    const opt = [...document.querySelectorAll<HTMLOptionElement>('#timeline-blocks-list option')].find((o) => o.value.startsWith(`${id} — `));
-    input.value = opt?.value ?? id;
+    input.value = id;
     void load(id);
   </script>
 </Base>

@@ -1,7 +1,7 @@
 ---
 import Base from '../../../layouts/Base.astro';
 import { blockById } from '../../../lib/data';
-import { displayName, num } from '../../../lib/format';
+import { blocktypeLabel, displayName, num } from '../../../lib/format';
 import { headquarters, hqClusters } from '../../../lib/explore';
 import { blockPath, countryPath, path } from '../../../lib/urls';
 import { worldMap } from '../../../lib/worldmap';
@@ -41,16 +41,35 @@ const top = clusters.slice(0, 5);
       {top.map((c, i) => `${c.city} (${c.ids.length})${i < top.length - 1 ? ', ' : '.'}`).join('')}
     </p>
   </section>
-  <section class="container">
+  <section class="container hq-layout" data-hq>
     <figure class="map">
       <div class="map-canvas" style={`--map-ratio: ${width} / ${height}`} set:html={mapSvg} />
       <figcaption>
         <span class="muted small">
-          One point per city; its area grows with the number of organizations. Select a point to jump to the city's list.
+          One point per city; its area grows with the number of organizations. Select a point to list the city's organizations.
           Base map: Natural Earth (public domain); boundaries do not imply endorsement.
         </span>
       </figcaption>
     </figure>
+    {/* Details of the selected city, filled from its row in the table below (scripts in this
+        page); without JavaScript the points jump to the rows instead. */}
+    <aside class="hq-panel js-only" aria-labelledby="hq-panel-title">
+      <div class="hq-panel-inner" data-hq-panel>
+        <h2 id="hq-panel-title" tabindex="-1">Select a city</h2>
+        <p class="muted small">Choose a point on the map to list the organizations based there. The largest hubs:</p>
+        <ul class="hq-hubs">
+          {
+            top.map((c) => (
+              <li>
+                <button type="button" data-city={anchor(c.key)}>
+                  {c.city} <span class="muted">{num(c.ids.length)}</span>
+                </button>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </aside>
   </section>
   <section class="container card-section offscreen" aria-labelledby="cities">
     <h2 id="cities">Cities</h2>
@@ -76,7 +95,7 @@ const top = clusters.slice(0, 5);
                     const b = blockById().get(id)!;
                     return (
                       <>
-                        <a href={blockPath(id)}>{displayName(b.name, b._acronym)}</a>
+                        <a href={blockPath(id)} data-type={blocktypeLabel(b.blocktype[0])}>{displayName(b.name, b._acronym)}</a>
                         {!b._active && <span class="muted small"> (historical)</span>}
                         {i < c.ids.length - 1 ? '; ' : ''}
                       </>
@@ -90,4 +109,60 @@ const top = clusters.slice(0, 5);
       </table>
     </div>
   </section>
+  <script>
+    import { esc, params, setParams } from '../../../scripts/explore';
+
+    const root = document.querySelector<HTMLElement>('[data-hq]')!;
+    const panel = root.querySelector<HTMLElement>('[data-hq-panel]')!;
+    const points = Array.from(root.querySelectorAll<SVGAElement>('a.hq-point'));
+    const idOf = (a: SVGAElement) => (a.getAttribute('href') ?? '').slice(1);
+
+    // Fill the panel from the city's table row: organizations grouped by their first block type.
+    function open(id: string, focus: boolean) {
+      const row = document.getElementById(id);
+      if (!row) return;
+      const [city, country, count] = Array.from(row.cells).map((c) => c.innerHTML);
+      const groups = new Map<string, string[]>();
+      row.cells[3].querySelectorAll<HTMLAnchorElement>('a[data-type]').forEach((a) => {
+        const type = a.dataset.type ?? 'Other';
+        const historical = a.nextElementSibling?.classList.contains('muted') ? ' <span class="muted small">(historical)</span>' : '';
+        groups.set(type, [...(groups.get(type) ?? []), `<li><a href="${esc(a.getAttribute('href'))}">${esc(a.textContent)}</a>${historical}</li>`]);
+      });
+      const sorted = [...groups.entries()].sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]));
+      panel.innerHTML = `<h2 id="hq-panel-title" tabindex="-1">${city}${country ? `, ${country}` : ''}</h2>
+        <p class="muted small">${count} organization${count === '1' ? '' : 's'}, by block type. <a href="#${esc(id)}">Row in the table</a>.</p>
+        <label class="hq-filter">Filter<input type="search" placeholder="Name or acronym" data-hq-filter /></label>
+        ${sorted.map(([type, items]) => `<section class="hq-group"><h3>${esc(type)} <span class="muted">${items.length}</span></h3><ul>${items.join('')}</ul></section>`).join('')}`;
+      const filter = panel.querySelector<HTMLInputElement>('[data-hq-filter]')!;
+      filter.addEventListener('input', () => {
+        const q = filter.value.trim().toLocaleLowerCase();
+        panel.querySelectorAll<HTMLElement>('.hq-group').forEach((g) => {
+          let any = false;
+          g.querySelectorAll<HTMLLIElement>('li').forEach((li) => {
+            const show = !q || (li.textContent ?? '').toLocaleLowerCase().includes(q);
+            li.hidden = !show;
+            any ||= show;
+          });
+          g.hidden = !any;
+        });
+      });
+      points.forEach((p) => p.classList.toggle('is-selected', idOf(p) === id));
+      panel.scrollTop = 0;
+      setParams({ city: id.replace(/^city-/, '') });
+      if (focus) panel.querySelector<HTMLElement>('h2')?.focus();
+    }
+
+    points.forEach((p) =>
+      p.addEventListener('click', (e) => {
+        e.preventDefault();
+        open(idOf(p), true);
+      }),
+    );
+    panel.addEventListener('click', (e) => {
+      const hub = (e.target as Element).closest<HTMLButtonElement>('button[data-city]');
+      if (hub) open(hub.dataset.city!, true);
+    });
+    const city = params().get('city');
+    if (city) open(`city-${city}`, false);
+  </script>
 </Base>

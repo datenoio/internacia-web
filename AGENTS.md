@@ -99,6 +99,12 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
 - `MembershipMap` zooms with `data-view` (`worldmap.ts` `viewFor`): boxes use each record's
   largest polygon, so overseas parts do not widen the view; the viewBox keeps the world map's
   aspect ratio so nothing changes size (CLS).
+- Explorers pick entities with `EntityPicker` (`scripts/picker.ts`): it sets the input to
+  "ID — Name" and fires `change` only for a chosen result; the browser's own `change` for
+  half-typed text is stopped. `renderMap(figure, data, zoom)` fits the view to `zoom` (an empty
+  list shows the world; leave it out to keep the view, as the timeline does between years). The
+  browser zoom reads each record's `data-box` in `world.svg`; `map.ts` `viewOf` and
+  `worldmap.ts` `viewFor` are the same rule and must stay in step.
 - Explorers keep their state in the query string (`scripts/explore.ts` `setParams`); default
   states must use intblocks that have the data the view needs.
 - `npm run build` runs `astro build` and then Pagefind. A page is indexed only when its `Base`

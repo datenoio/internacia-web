@@ -1,8 +1,8 @@
-// Header entity finder: a combobox with a listbox of results (WAI-ARIA combobox pattern).
+// Entity finder: a combobox with a listbox of results (WAI-ARIA combobox pattern). One in the
+// header on every page, and a large one on the home page.
 import { loadIndex, search, type Hit } from './search';
 
-const root = document.querySelector<HTMLElement>('[data-finder]');
-if (root) {
+document.querySelectorAll<HTMLElement>('[data-finder]').forEach((root) => {
   const input = root.querySelector<HTMLInputElement>('input')!;
   const list = root.querySelector<HTMLUListElement>('[role="listbox"]')!;
   const url = root.dataset.index!;
@@ -19,7 +19,7 @@ if (root) {
   const highlight = (i: number) => {
     active = i;
     list.querySelectorAll('li').forEach((li, j) => li.setAttribute('aria-selected', j === i ? 'true' : 'false'));
-    if (i >= 0) input.setAttribute('aria-activedescendant', `finder-opt-${i}`);
+    if (i >= 0) input.setAttribute('aria-activedescendant', `${list.id}-${i}`);
   };
 
   const render = () => {
@@ -32,7 +32,7 @@ if (root) {
     }
     hits.forEach((h, i) => {
       const li = document.createElement('li');
-      li.id = `finder-opt-${i}`;
+      li.id = `${list.id}-${i}`;
       li.setAttribute('role', 'option');
       const a = document.createElement('a');
       a.href = h.path;
@@ -93,4 +93,4 @@ if (root) {
   document.addEventListener('click', (e) => {
     if (!root.contains(e.target as Node)) close();
   });
-}
+});

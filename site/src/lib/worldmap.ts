@@ -49,7 +49,9 @@ export function worldMap() {
     if (code) {
       polygons.add(code);
       if (f.geometry) boxes.set(code, mainBox(f.geometry));
-      shapes.push(`<path class="c" data-code="${code}" d="${d}"/>`);
+      // data-box: the mainland box, for explorers that zoom in the browser (scripts/map.ts).
+      const box = boxes.get(code)?.map((v) => v.toFixed(1)).join(' ');
+      shapes.push(`<path class="c" data-code="${code}"${box ? ` data-box="${box}"` : ''} d="${d}"/>`);
     } else {
       shapes.push(`<path class="x" d="${d}"/>`);
     }
@@ -65,7 +67,7 @@ export function worldMap() {
     boxes.set(c.code, [point[0] - 6, point[1] - 6, point[0] + 6, point[1] + 6]);
     const [x, y] = point.map((v) => v.toFixed(1));
     marks.push(
-      `<g class="dot" data-code="${c.code}" transform="translate(${x} ${y})"><circle class="hit" r="12"/><circle class="mark" r="4"/></g>`,
+      `<g class="dot" data-code="${c.code}" data-box="${[point[0] - 6, point[1] - 6, point[0] + 6, point[1] + 6].map((v) => v.toFixed(1)).join(' ')}" transform="translate(${x} ${y})"><circle class="hit" r="12"/><circle class="mark" r="4"/></g>`,
     );
   }
 
@@ -83,7 +85,8 @@ export function worldMap() {
 export const onMap = (code: string): boolean => worldMap().polygons.has(code) || worldMap().dots.has(code);
 
 // A viewBox around the given records, with the world map's aspect ratio (so the map keeps its
-// size when it zooms), or null when they already cover most of the world.
+// size when it zooms), or null when they already cover most of the world. scripts/map.ts
+// `viewOf` is the same rule in the browser; keep the two in step.
 export function viewFor(codes: Iterable<string>): string | null {
   const { width, height, boxes } = worldMap();
   let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];

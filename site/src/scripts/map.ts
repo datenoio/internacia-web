@@ -27,6 +27,38 @@ const wired = new WeakMap<HTMLElement, Wired>();
 
 const cssEscape = (s: string) => (window.CSS?.escape ? CSS.escape(s) : s.replace(/["\\]/g, '\\$&'));
 
+// The browser twin of lib/worldmap.ts `viewFor`, from the data-box of each record in the SVG.
+function viewOf(svg: SVGSVGElement, codes: string[]): string | null {
+  const [, , width, height] = (svg.dataset.world ?? svg.getAttribute('viewBox') ?? '').split(' ').map(Number);
+  let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const code of codes) {
+    const b = svg.querySelector<SVGElement>(`[data-code="${cssEscape(code)}"]`)?.dataset.box?.split(' ').map(Number);
+    if (!b || b.length !== 4) continue;
+    x0 = Math.min(x0, b[0]);
+    y0 = Math.min(y0, b[1]);
+    x1 = Math.max(x1, b[2]);
+    y1 = Math.max(y1, b[3]);
+  }
+  if (x0 === Infinity || !width || !height) return null;
+  if (x1 - x0 > width * 0.6 || y1 - y0 > height * 0.6) return null;
+  let w = Math.max((x1 - x0) * 1.25, width * 0.22);
+  let h = Math.max((y1 - y0) * 1.25, height * 0.22);
+  const ratio = width / height;
+  if (w / h < ratio) w = h * ratio;
+  else h = w / ratio;
+  if (w > width * 0.8) return null;
+  const x = Math.min(Math.max((x0 + x1) / 2 - w / 2, 0), width - w);
+  const y = Math.min(Math.max((y0 + y1) / 2 - h / 2, 0), height - h);
+  return [x, y, w, h].map((v) => v.toFixed(1)).join(' ');
+}
+
+function syncZoomButton(figure: HTMLElement) {
+  const zoom = figure.querySelector<HTMLButtonElement>('[data-map-zoom]');
+  if (!zoom) return;
+  zoom.hidden = !figure.dataset.view;
+  zoom.textContent = (figure.dataset.zoom === 'world' ? zoom.dataset.in : zoom.dataset.out) ?? '';
+}
+
 function applyView(figure: HTMLElement) {
   const svg = figure.querySelector<SVGSVGElement>('.map-canvas svg');
   if (!svg) return;
@@ -136,9 +168,20 @@ function wire(figure: HTMLElement, canvas: HTMLElement) {
   return state;
 }
 
-export async function renderMap(figure: HTMLElement, data: Record<string, MapEntry>): Promise<void> {
+// zoom: the records to fit the view to (an empty list shows the whole world); leave it out to
+// keep the current view, as the timeline does from one year to the next.
+export async function renderMap(figure: HTMLElement, data: Record<string, MapEntry>, zoom?: string[]): Promise<void> {
   const canvas = await ensureSvg(figure);
   if (!canvas) return;
+  if (zoom) {
+    const svg = canvas.querySelector<SVGSVGElement>('svg')!;
+    const view = viewOf(svg, zoom);
+    if (view) figure.dataset.view = view;
+    else delete figure.dataset.view;
+    delete figure.dataset.zoom;
+    applyView(figure);
+    syncZoomButton(figure);
+  }
   const state = wire(figure, canvas);
   state.data = data;
   canvas.querySelectorAll<SVGElement>('[data-code]').forEach((el) => {
@@ -167,7 +210,7 @@ document.querySelectorAll<HTMLElement>('[data-map]').forEach((figure) => {
     const world = figure.dataset.zoom !== 'world';
     if (world) figure.dataset.zoom = 'world';
     else delete figure.dataset.zoom;
-    zoom.textContent = (world ? zoom.dataset.in : zoom.dataset.out) ?? '';
+    syncZoomButton(figure);
     applyView(figure);
   });
 });

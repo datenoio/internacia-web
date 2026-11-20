@@ -1,14 +1,11 @@
 ---
+import EntityPicker from '../../../components/EntityPicker.astro';
 import MapFrame from '../../../components/MapFrame.astro';
 import Base from '../../../layouts/Base.astro';
-import { blocks, blocktypes } from '../../../lib/data';
+import { blocktypes } from '../../../lib/data';
 import { enumLabel } from '../../../lib/format';
 import { path } from '../../../lib/urls';
 
-const options = blocks()
-  .slice()
-  .sort((a, b) => a.name.localeCompare(b.name))
-  .map((b) => ({ value: `${b.id} — ${b.name}${b._acronym ? ` (${b._acronym})` : ''}`, id: b.id }));
 const types = blocktypes()
   .filter((t) => t._count > 0)
   .sort((a, b) => a.name.localeCompare(b.name));
@@ -36,11 +33,7 @@ const scopes = ['igo', 'treaty_body', 'policy_forum', 'reference_enumeration', '
         <label class="inline"><input type="radio" name="mode" value="block" checked /> One organization</label>
         <label class="inline"><input type="radio" name="mode" value="count" /> Memberships per country</label>
       </fieldset>
-      <label data-for="block"
-        >Organization or grouping
-        <input type="text" list="map-blocks" data-input="block" placeholder="Type a name, acronym or ID" autocomplete="off" />
-      </label>
-      <datalist id="map-blocks">{options.map((o) => <option value={o.value} />)}</datalist>
+      <div data-for="block"><EntityPicker id="map-block" /></div>
       <label data-for="count" hidden
         >Block type
         <select data-input="type"><option value="">All types</option>{types.map((t) => <option value={t.id}>{t.name}</option>)}</select>
@@ -100,10 +93,12 @@ const scopes = ['igo', 'treaty_body', 'policy_forum', 'reference_enumeration', '
         const prev = data[r.id];
         if (!prev || RANK[g] > RANK[prev[0].slice(2) as Group]) data[r.id] = [`g-${g}`, r.status.replace(/_/g, ' '), r.joined ?? '', r.name ?? r.id];
       }
-      await renderMap(figure, data);
+      // Zoom to the current members (all entries of a historical block).
+      await renderMap(figure, data, Object.keys(data).filter((code) => !doc.data._active || data[code][0] !== 'g-f'));
       const present = (Object.keys(GROUPS) as Group[]).filter((g) => Object.values(data).some(([c]) => c === `g-${g}`));
       legendItems(present.map((g) => ({ cls: `g-${g}`, label: GROUPS[g] })));
       const label = `${b.name}${b._acronym ? ` (${b._acronym})` : ''}`;
+      blockInput.value = `${id} — ${label}`;
       caption.textContent = `${label}: ${rows.filter((r) => r.current).length} current countries and territories.`;
       status.innerHTML = `Showing <a href="${esc(cardUrl('blocks', id))}">${esc(label)}</a>.`;
       table.innerHTML = `<table class="data"><thead><tr><th scope="col">Country or territory</th><th scope="col">Code</th><th scope="col">Status</th><th scope="col">Joined</th><th scope="col">Current</th></tr></thead><tbody>${rows
@@ -129,7 +124,7 @@ const scopes = ['igo', 'treaty_body', 'policy_forum', 'reference_enumeration', '
         const bin = steps.find((s) => value >= s.min && value <= s.max)!;
         data[code] = [bin.cls, `${n(value)} memberships`, '', names.get(code) ?? code];
       }
-      await renderMap(figure, data);
+      await renderMap(figure, data, []);
       legendItems(steps.filter((s) => Object.values(data).some(([c]) => c === s.cls)));
       const filter = [type && typeSel.selectedOptions[0]?.text, scope && scopeSel.selectedOptions[0]?.text].filter(Boolean).join(', ');
       caption.textContent = `Current memberships per country${filter ? ` in ${filter}` : ''}: ${keep.size} intblocks.`;
@@ -165,9 +160,7 @@ const scopes = ['igo', 'treaty_body', 'policy_forum', 'reference_enumeration', '
       scopeSel.value = p.get('scope') ?? '';
       setMode('count');
     } else {
-      const id = p.get('id') ?? 'EU';
-      const opt = [...document.querySelectorAll<HTMLOptionElement>('#map-blocks option')].find((o) => o.value.startsWith(`${id} — `));
-      blockInput.value = opt?.value ?? id;
+      blockInput.value = p.get('id') ?? 'EU';
       setMode('block');
     }
     run();
