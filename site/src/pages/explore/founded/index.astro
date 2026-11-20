@@ -78,7 +78,7 @@ const data = JSON.stringify({ rows, seriesNames }).replace(/</g, '\\u003c');
       <figcaption class="muted small">Select a column (click, or Tab and Enter) to list the intblocks of that decade.</figcaption>
     </figure>
     <p class="explorer-status" role="status" aria-live="polite" data-status></p>
-    <div class="table-wrap" data-table>
+    <div class="table-wrap" data-table tabindex="0" role="region" aria-label="Intblocks by decade">
       <table class="data">
         <thead>
           <tr>

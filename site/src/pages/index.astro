@@ -13,9 +13,9 @@ const { counts } = meta;
 const figures = [
   { value: counts.countries, label: 'Countries and territories', note: `${fmt.format(counts.iso_countries)} ISO 3166-1`, href: path('countries/') },
   { value: counts.intblocks, label: 'Organizations and groupings', href: path('blocks/') },
-  { value: counts.blocktypes, label: 'Block types' },
-  { value: counts.topics, label: 'Topics' },
-  { value: counts.memberships, label: 'Membership records', note: `${fmt.format(counts.current_memberships)} current` },
+  { value: counts.blocktypes, label: 'Block types', href: path('types/') },
+  { value: counts.topics, label: 'Topics', href: path('topics/') },
+  { value: counts.memberships, label: 'Membership records', note: `${fmt.format(counts.current_memberships)} current`, href: path('stats/') },
 ];
 
 const FEATURED = ['UN', 'EU', 'AFUNION', 'ASEAN', 'NATO', 'OECD', 'G-20', 'BRICS', 'COMMONWEALTH', 'OSCE'];

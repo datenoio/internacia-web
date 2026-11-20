@@ -114,8 +114,8 @@ code {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
-  padding-block: var(--space-3);
+  gap: var(--space-2) var(--space-3);
+  padding-block: var(--space-2);
 }
 
 .site-title {
@@ -123,27 +123,136 @@ code {
   font-size: 1.15rem;
   color: var(--color-text);
   text-decoration: none;
-  margin-right: auto;
+}
+
+/* Header layout: title, finder, main sections and the theme button on one row. Below 62rem the
+   sections fold into one "Menu"; below 40rem the finder takes its own row (see .finder). */
+.site-nav {
+  margin-left: auto;
 }
 
 .site-nav ul {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
+.nav-wide {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.nav-narrow {
+  display: none;
+}
+
+@media (max-width: 62rem) {
+  .nav-wide {
+    display: none;
+  }
+
+  .nav-narrow {
+    display: block;
+  }
+}
+
+.site-nav a,
+.nav-drop > summary {
+  color: var(--color-text);
+  font-weight: 500;
+  text-decoration: none;
+  padding-block: 0.3rem;
+}
+
+.site-nav a:hover,
+.nav-drop > summary:hover {
+  color: var(--color-accent);
+}
+
+.site-nav a[aria-current='page'],
+.nav-drop > summary.current {
+  color: var(--color-accent);
+  box-shadow: inset 0 -2px 0 var(--color-accent);
+}
+
+.nav-drop {
+  position: relative;
+}
+
+.nav-drop > summary {
+  display: block;
+  margin: 0;
+  list-style: none;
+  cursor: pointer;
+}
+
+.nav-drop > summary::-webkit-details-marker {
+  display: none;
+}
+
+.nav-drop > summary::after {
+  content: ' ▾';
+  color: var(--color-muted);
+}
+
+.nav-drop > ul {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  min-width: 11rem;
+  padding: var(--space-1) 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 0.15);
+}
+
+.nav-drop > ul a {
+  display: block;
+  padding: 0.4rem 0.9rem;
+  box-shadow: none;
+}
+
+.nav-drop > ul a:hover {
+  background: var(--color-surface);
+}
+
+.nav-drop > ul a[aria-current='page'] {
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+summary:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Icon button; the icon follows html[data-theme] (set in <head>), so it is right from the first
+   paint and never changes size. */
 .theme-toggle {
-  font: inherit;
-  font-size: 0.9rem;
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
   color: var(--color-text);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
-  padding: var(--space-1) var(--space-2);
   cursor: pointer;
+}
+
+.theme-toggle svg {
+  display: none;
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+:root:not([data-theme]) .theme-toggle .i-auto,
+:root[data-theme='light'] .theme-toggle .i-light,
+:root[data-theme='dark'] .theme-toggle .i-dark {
+  display: block;
 }
 
 .site-footer {
@@ -184,8 +293,59 @@ code {
   gap: var(--space-3);
 }
 
-.site-nav a[aria-current='page'] {
-  font-weight: 700;
+/* In-page navigation of long cards (components/PageToc.astro). Anchored headings land below it. */
+html {
+  scroll-padding-top: 3.5rem;
+}
+
+.page-toc {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.page-toc ul {
+  position: relative;
+  display: flex;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.page-toc a {
+  display: block;
+  padding: 0.6rem var(--space-2);
+  white-space: nowrap;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--color-text);
+  text-decoration: none;
+  box-shadow: inset 0 -2px 0 transparent;
+}
+
+.page-toc a:hover {
+  color: var(--color-accent);
+}
+
+.page-toc a[aria-current] {
+  color: var(--color-accent);
+  box-shadow: inset 0 -2px 0 var(--color-accent);
+}
+
+.toc-count {
+  margin-left: 0.35rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted);
 }
 
 /* Page and card structure */
@@ -276,6 +436,46 @@ a.badge:hover {
   background: var(--color-notice);
 }
 
+/* Badge kinds: the status (or entity type) is filled; block types carry a square marker; topics
+   are dashed. Types and topics each sit on a line with a small label. */
+.badge-status {
+  background: var(--color-text);
+  border-color: var(--color-text);
+  color: var(--color-bg);
+}
+
+.badge-type::before {
+  content: '';
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-right: 0.35rem;
+  border-radius: 2px;
+  background: var(--color-accent);
+}
+
+.badge-topic {
+  background: var(--color-bg);
+  border-style: dashed;
+}
+
+.badge-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+}
+
+.badge-line .badges {
+  margin-block: var(--space-1);
+}
+
+.badge-label {
+  min-width: 5.5rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
 .notice {
   background: var(--color-notice);
   border: 1px solid var(--color-border);
@@ -304,11 +504,27 @@ a.badge:hover {
   cursor: pointer;
 }
 
-/* Tables */
+/* Tables. The wrapper scrolls in both directions: a long table becomes a panel of at most
+   three quarters of the screen, so the header row stays in view (a sticky header only sticks
+   inside its scrolling ancestor) and the sections after the table stay within reach. */
 .table-wrap {
-  overflow-x: auto;
+  overflow: auto;
+  max-height: min(75vh, 48rem);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
+}
+
+/* Wrappers of tables without links are focusable (tabindex) so the keyboard can scroll them. */
+.table-wrap:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media print {
+  .table-wrap {
+    overflow: visible;
+    max-height: none;
+  }
 }
 
 table.data {
@@ -329,7 +545,13 @@ table.data thead th {
   background: var(--color-surface);
   position: sticky;
   top: 0;
+  z-index: 2;
   white-space: nowrap;
+}
+
+/* Rows have an opaque background so that the sticky first column covers what scrolls under it. */
+table.data tbody tr {
+  background: var(--color-bg);
 }
 
 table.data tbody tr:nth-child(even) {
@@ -342,6 +564,18 @@ table.data th.num {
   font-variant-numeric: tabular-nums;
 }
 
+/* Dates and numbers never break inside ("2009-" / "04"). */
+table.data td.num,
+table.data td.date {
+  white-space: nowrap;
+}
+
+.inline-id {
+  margin-left: var(--space-1);
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
 table.data tr.group th {
   background: var(--color-surface);
   font-size: 0.9rem;
@@ -351,10 +585,17 @@ table.data td:first-child,
 table.data th:first-child {
   position: sticky;
   left: 0;
+  z-index: 1;
   background: inherit;
 }
 
+table.data thead th:first-child {
+  z-index: 3;
+  background: var(--color-surface);
+}
+
 table.data th button.sort {
+  text-align: inherit;
   font: inherit;
   font-weight: 700;
   background: none;
@@ -364,18 +605,26 @@ table.data th button.sort {
   cursor: pointer;
 }
 
-html.js table.data th[data-sort]::after {
-  content: ' ↕';
+/* The arrow is joined to the last word by a no-break space, so a wrapped heading keeps it. Before
+   tables.ts runs it follows the heading text; then it moves inside the sort button (a button is
+   laid out as one box, so an arrow after it would wrap on its own). */
+html.js table.data th[data-sort]::after,
+html.js table.data th[data-sort] button.sort::after {
+  content: '\00a0↕';
   color: var(--color-muted);
   font-weight: 400;
 }
 
-html.js table.data th[aria-sort='ascending']::after {
-  content: ' ↑';
+html.js table.data th[data-sort]:has(> button.sort)::after {
+  content: none;
 }
 
-html.js table.data th[aria-sort='descending']::after {
-  content: ' ↓';
+html.js table.data th[aria-sort='ascending'] button.sort::after {
+  content: '\00a0↑';
+}
+
+html.js table.data th[aria-sort='descending'] button.sort::after {
+  content: '\00a0↓';
 }
 
 /* Elements that only work with JavaScript. html.js is set in <head>, so they are laid out from the
@@ -427,8 +676,63 @@ html.js table[data-only-active] tbody tr:not(.group):not([data-active='yes']) {
 
 .filters .count {
   margin-left: auto;
+  /* Room for "1,242 of 1,275 shown" from the first paint, so the text does not wrap in later. */
+  min-width: 10em;
+  min-height: 1.4em;
+  text-align: right;
   font-size: 0.9rem;
   color: var(--color-muted);
+}
+
+/* Active filters as removable chips (scripts/tables.ts); the row appears after a filter change. */
+.active-filters {
+  flex-basis: 100%;
+  min-height: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.active-filters.reserve {
+  min-height: 1.75rem;
+}
+
+html.list-pending .table-wrap tbody {
+  visibility: hidden;
+}
+
+.filter-chip {
+  font: inherit;
+  font-size: 0.85rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.65rem;
+  border: 1px solid var(--color-accent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg));
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.filter-chip::after {
+  content: '×';
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.filter-clear {
+  font: inherit;
+  font-size: 0.85rem;
+  height: 1.75rem;
+  padding: 0.15rem 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* Bar list (single series, value labels at the bar tip) */
@@ -581,6 +885,19 @@ table.chunked tbody {
   display: block;
 }
 
+/* A header cell laid out as a grid item cannot stick (its containing block is its own row), so
+   the whole header sticks; long headings wrap instead of running into the next column. */
+table.chunked thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-surface);
+}
+
+table.chunked thead th {
+  white-space: normal;
+}
+
 table.chunked tbody {
   content-visibility: auto;
   contain-intrinsic-size: auto 4200px;
@@ -601,7 +918,262 @@ table.chunked td {
 }
 
 #blocks-table {
-  --cols: minmax(14rem, 2.6fr) minmax(6rem, 0.9fr) minmax(8rem, 1.3fr) 6rem 7rem 5.5rem minmax(7rem, 1fr) 6rem;
+  --cols: minmax(12rem, 3fr) minmax(7rem, 1.3fr) 6rem 6.5rem 6.5rem minmax(8rem, 1fr) 6rem;
+  min-width: 52rem;
+}
+
+/* List with a facet panel (organizations index). From 75rem the panel is a sticky column beside
+   the table; below, a "Filters" button opens the same controls in a modal sheet. */
+.list-layout {
+  display: block;
+}
+
+.facets {
+  display: none;
+}
+
+.filters-open {
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.3rem 0.8rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+@media (min-width: 75rem) {
+  .list-layout {
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 1fr);
+    gap: var(--space-4);
+    align-items: start;
+  }
+
+  html.js .facets {
+    display: block;
+    position: sticky;
+    top: var(--space-3);
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    padding-right: var(--space-2);
+  }
+
+  .filters-open {
+    display: none;
+  }
+}
+
+.facet {
+  margin: 0 0 var(--space-3);
+  padding: 0 0 var(--space-3);
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  min-width: 0;
+}
+
+.facet legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-weight: 600;
+}
+
+.facet .cb {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 0.15rem 0;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.facet .cb input {
+  margin: 0;
+  flex: none;
+  accent-color: var(--color-accent);
+}
+
+.facet .cb-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.facet-count {
+  margin-left: auto;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted);
+}
+
+.facet .cb.is-zero .cb-label {
+  color: var(--color-muted);
+}
+
+/* Long facets show their first values; the rest come with "Show all", a filter match, or when
+   checked. */
+.facet:not(.is-open):not(.is-filtering) .cb.extra:not(:has(input:checked)) {
+  display: none;
+}
+
+.facet.is-filtering .cb:not(.match):not(:has(input:checked)) {
+  display: none;
+}
+
+.facet-filter,
+.facet-range input {
+  width: 100%;
+  margin-bottom: var(--space-2);
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.25rem 0.5rem;
+}
+
+.facet-more {
+  font: inherit;
+  font-size: 0.85rem;
+  margin-top: var(--space-1);
+  padding: 0;
+  color: var(--color-accent);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.facet-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 var(--space-2);
+}
+
+.facet-range legend {
+  grid-column: 1 / -1;
+}
+
+.facet-range label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.facet-range input {
+  margin: 0.15rem 0 0;
+}
+
+/* The modal sheet for narrow screens. */
+.facet-sheet {
+  width: min(100%, 32rem);
+  max-height: 85vh;
+  margin: auto auto 0;
+  padding: 0;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 14px 14px 0 0;
+}
+
+.facet-sheet::backdrop {
+  background: rgb(0 0 0 / 0.4);
+}
+
+.facet-sheet[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.facet-sheet-head,
+.facet-sheet-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.facet-sheet-foot {
+  border-top: 1px solid var(--color-border);
+  border-bottom: 0;
+}
+
+.facet-sheet-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+[data-sheet-slot] {
+  overflow-y: auto;
+  padding: var(--space-3);
+}
+
+.facet-sheet-head button,
+.facet-sheet-foot button {
+  font: inherit;
+  padding: 0.35rem 0.9rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.facet-sheet-foot button.pri {
+  flex: 1;
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* Phones: the organizations list reads as cards (name on top, labelled facts below). The table
+   roles and the header stay for assistive technology; the header is only visually hidden. */
+@media (max-width: 40rem) {
+  #blocks-table {
+    min-width: 0;
+  }
+
+  #blocks-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  #blocks-table tr {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.1rem var(--space-3);
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  #blocks-table td {
+    padding: 0;
+    border: 0;
+    font-size: 0.85rem;
+    text-align: left;
+  }
+
+  #blocks-table td:first-child {
+    grid-column: 1 / -1;
+    position: static;
+    margin-bottom: 0.2rem;
+    font-size: 0.95rem;
+  }
+
+  #blocks-table td[data-label]::before {
+    content: attr(data-label) ' ';
+    color: var(--color-muted);
+  }
+
+  #blocks-table td:empty {
+    display: none;
+  }
 }
 
 .visually-hidden {
@@ -616,8 +1188,8 @@ table.chunked td {
 /* Entity finder */
 .finder {
   position: relative;
-  flex: 1 1 16rem;
-  max-width: 22rem;
+  flex: 1 1 14rem;
+  max-width: 26rem;
 }
 
 .finder input {
@@ -694,6 +1266,35 @@ table.chunked td {
   display: block;
   width: 100%;
   height: auto;
+}
+
+.map[data-card-base] .has {
+  cursor: pointer;
+}
+
+/* Zoomed maps (data-view): borders keep their width; the toggle sits in the map's top corner. */
+.map-canvas svg path {
+  vector-effect: non-scaling-stroke;
+}
+
+.map-zoom {
+  position: absolute;
+  z-index: 2;
+  top: var(--space-2);
+  right: var(--space-2);
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.6rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+/* Row of the region under the pointer (data-link-table), and back. */
+table.data tbody tr.is-hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg));
 }
 
 .map .sphere {
@@ -841,8 +1442,13 @@ table.chunked td {
 }
 
 table.chunked.block-table {
-  --cols: minmax(14rem, 3fr) minmax(6rem, 1fr) minmax(8rem, 1.4fr) 6rem 5.5rem 6rem;
-  min-width: 48rem;
+  --cols: minmax(15rem, 3fr) minmax(8rem, 1.4fr) 6.5rem 7rem 6.5rem;
+  min-width: 44rem;
+}
+
+table.chunked.block-table.no-types {
+  --cols: minmax(15rem, 3fr) 6.5rem 7rem 6.5rem;
+  min-width: 36rem;
 }
 
 /* Column charts */
@@ -1189,6 +1795,33 @@ table.coverage td.h5 { background: #3987e5; color: #0b0b0b; }
   width: auto;
   max-width: none;
   height: auto;
+}
+
+/* Explorers and search build their results in the browser. Space is reserved for what they draw
+   above the fold, so nothing in view moves when it arrives (Lighthouse CLS). The footer starts
+   below the first screen; chips, the status line (two lines on a phone) and the charts above the
+   map have their room. 250px is the UpSet height for the default three organizations
+   (charts.ts upset); 720 / 220 is the step chart's viewBox (charts.ts steps). */
+main:has([data-explorer], #search) {
+  min-height: 100vh;
+}
+
+[data-explorer] [data-chips] {
+  min-height: 1.7rem;
+}
+
+@media (max-width: 40rem) {
+  .explorer-status {
+    min-height: 3.1em;
+  }
+}
+
+[data-explorer='compare'] [data-chart] {
+  min-height: 250px;
+}
+
+[data-explorer='timeline'] [data-chart] {
+  aspect-ratio: 720 / 220;
 }
 
 /* Long sections below the fold: skip rendering until they come near the viewport. */

@@ -247,33 +247,36 @@ template with the entity prefilled).
 
 ### 6.3 Country card
 
-Sections, in order. A section is omitted when the data has nothing for it.
+Sections, in order. A section is omitted when the data has nothing for it. Memberships, the main
+section, come right after the header; the reference sections follow. A row of section links under
+the header sticks to the top of the window (also on the intblock card).
 
 1. **Header**: flag emoji, `name`, `official_name`, English common name, native names
    (`native_names`: official and common per language), entity type badge, code status badge.
-2. **Identifiers**: alpha-2, alpha-3, numeric, M49, Wikidata, GeoNames, IOC, FIFA, FIPS (marked
-   legacy), TLD, calling codes. Each value has a copy button. Wikidata and GeoNames link out.
-3. **Geography**: continent(s), UN M49 subregion, capital with coordinates, landlocked flag,
-   centroid and bounding box on a small locator map, land borders as links to neighbour cards
-   (alpha-3 resolved to alpha-2).
-4. **Status and classification**: UN status, independence flag, `recognition_status` notes,
-   parent entity for dependent territories (link), World Bank region, administrative region,
-   income level, lending type — each with the World Bank ID.
-5. **Languages and names**: languages (official flag), writing systems and directions, demonyms,
-   names in the UN languages (`other_names`), common names.
-6. **Practical reference**: currencies (code, name, symbol), time zones, driving side, start of
-   week, DVD region, broadcast systems, rail gauges, legal systems. Vocabulary values show their
-   labels from `data/vocabs/`.
-7. **Reference figures**: population, area, Gini — value, year (or "year unknown") and source.
-   No charts, no ranks.
-8. **Memberships** (main section):
+2. **Memberships** (main section):
    - Count of current memberships, with a breakdown by status.
-   - Grouped by block type; each row: block name and acronym (link), status label, joined, left.
+   - Grouped by block type; each row: block name and acronym (link; the ID only where it differs
+     from the acronym), status label, joined, left.
    - Filter by status and block type; search within the list.
    - Former memberships in a separate, collapsed list.
    - Mini chart: memberships by block type.
-9. **Similar countries**: the five countries with the highest Jaccard overlap of current
+3. **Similar countries**: the five countries with the highest Jaccard overlap of current
    memberships, with the overlap figure. Computed at build time.
+4. **Identifiers**: alpha-2, alpha-3, numeric, M49, Wikidata, GeoNames, IOC, FIFA, FIPS (marked
+   legacy), TLD, calling codes. Each value has a copy button. Wikidata and GeoNames link out.
+5. **Geography**: continent(s), UN M49 subregion, capital with coordinates, landlocked flag,
+   centroid and bounding box on a small locator map, land borders as links to neighbour cards
+   (alpha-3 resolved to alpha-2).
+6. **Status and classification**: UN status, independence flag, `recognition_status` notes,
+   parent entity for dependent territories (link), World Bank region, administrative region,
+   income level, lending type — each with the World Bank ID.
+7. **Practical reference**: currencies (code, name, symbol), time zones, driving side, start of
+   week, DVD region, broadcast systems, rail gauges, legal systems. Vocabulary values show their
+   labels from `data/vocabs/`.
+8. **Languages and names**: languages (official flag), writing systems and directions, demonyms,
+   names in the UN languages (`other_names`), common names.
+9. **Reference figures**: population, area, Gini — value, year (or "year unknown") and source.
+   No charts, no ranks.
 10. **Provenance**: field-level `provenance` entries (field, source, retrieved date, licence).
 
 ### 6.4 Intblocks index
@@ -283,6 +286,10 @@ Sections, in order. A section is omitted when the data has nothing for it.
 - Filters: block type, status (formal / informal / de-facto / historical), scope category,
   geographic scope, region, topic, founded range, "active only" (default on, with a visible
   toggle). Sortable.
+- The filters are facets in a side panel (a modal sheet on narrow screens): values of one facet
+  combine with OR, facets with AND, and each value shows how many rows it would add given the
+  other filters. Long facets show their largest values and have a filter field. Active filters
+  repeat as removable chips; the state is in the query string. On a phone the rows read as cards.
 
 ### 6.5 Intblock card
 
@@ -297,7 +304,9 @@ Sections, in order. A section is omitted when the data has nothing for it.
    member, observer, partner, former member, …). Legend uses labels from `includes_status.yaml`.
    Small or point-like territories are drawn as dots at their centroid.
 5. **Roster**: table of every `includes[]` entry — country or intblock (link), status, joined,
-   left. Filters by status. Download the roster as CSV and JSON.
+   left. Filters by status. Download the roster as CSV (`/blocks/{id}/members.csv`, every entry
+   with a `current` column) and JSON (the card's JSON, `_roster`). Hovering a row highlights its
+   country on the map, and the other way round.
    When `membership_applicability = not_applicable`, show the explanation instead of an empty table.
 6. **Membership over time** (when at least 30 % of entries have `joined`): step chart of the number
    of members by year, plus an animated map (play button) of accession waves. State how many
@@ -505,7 +514,7 @@ Each chart has a caption, a legend, a "data behind this chart" table and a downl
 
 | # | Name | Where | Data | Form | Interaction |
 |---|------|-------|------|------|-------------|
-| V1 | Membership map | Block card; `/explore/map/` | `current_memberships` + status | World choropleth by status; dots for small territories | Pick any block; hover shows status and joined date; switch to "former members" |
+| V1 | Membership map | Block card; `/explore/map/` | `current_memberships` + status | World choropleth by status; dots for small territories; zoomed to the members when they cover part of the world, with a switch to the whole world | Pick any block; hover shows status and joined date; switch to "former members" |
 | V2 | Memberships per country | Home; `/explore/map/?mode=count` | Count of current memberships per country | Choropleth, sequential scale | Filter by block type or scope category; click opens country card |
 | V3 | Accession timeline | Block card; `/explore/timeline/` | `joined` / `left` | Step chart of member count; animated map | Play, pause, scrub by year |
 | V4 | Founding timeline | `/explore/founded/`; type pages | `founded`, `dissolved` | Histogram by decade, stacked by block type or scope | Brush a period to list intblocks |
@@ -525,7 +534,11 @@ small territories) are drawn as dots at `centroid`.
 ### 9.1 General
 
 - Responsive from 360 px wide. Cards read well on a phone; tables scroll horizontally with a
-  sticky first column.
+  sticky first column. A long table scrolls inside a panel of at most three quarters of the screen
+  height, with a sticky header row; columns that are empty or the same in every row are left out.
+- The header keeps the finder and the main sections (Countries, Organizations, Explore, Data & API)
+  on one row; the other pages are under "More", and on narrow screens every section is in one
+  "Menu". Coloured regions of a map link to the country cards.
 - Light and dark themes following `prefers-color-scheme`, with a manual switch.
 - Typography and colours follow a small design token file. Visual identity is an open question
   ([§15](#15-open-questions)).

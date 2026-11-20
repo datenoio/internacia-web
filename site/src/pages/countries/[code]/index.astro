@@ -3,6 +3,7 @@ import BarList from '../../../components/BarList.astro';
 import Facts from '../../../components/Facts.astro';
 import MembershipMap from '../../../components/MembershipMap.astro';
 import Cite from '../../../components/Cite.astro';
+import PageToc from '../../../components/PageToc.astro';
 import EmbedCode from '../../../components/EmbedCode.astro';
 import Base from '../../../layouts/Base.astro';
 import { CENTROID_NOTE } from '../../../lib/api';
@@ -58,6 +59,20 @@ const wb = (v?: { id: string; value: string }) => (v ? `${v.value} (${v.id})` : 
 const vocabList = (vocab: string, items?: { id: string }[]) =>
   items?.length ? items.map((i) => vocabLabel(vocab, i.id)).join(', ') : undefined;
 const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
+// In-page navigation, in page order: memberships first, reference sections after them.
+const toc = c
+  ? [
+      { id: 'memberships', label: 'Memberships', count: current.length },
+      ...(c._similar.length > 0 ? [{ id: 'similar', label: 'Similar countries' }] : []),
+      { id: 'identifiers', label: 'Identifiers' },
+      { id: 'geography', label: 'Geography' },
+      { id: 'classification', label: 'Status' },
+      { id: 'practical', label: 'Practical reference' },
+      { id: 'languages', label: 'Languages and names' },
+      ...(c.population || c.area || c.gini ? [{ id: 'figures', label: 'Reference figures' }] : []),
+      ...((c.provenance?.length ?? 0) > 0 ? [{ id: 'provenance', label: 'Provenance' }] : []),
+    ]
+  : [];
 ---
 
 {
@@ -88,7 +103,7 @@ const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
         </h1>
         {c.official_name && c.official_name !== c.name && <p class="subtitle">{c.official_name}</p>}
         <ul class="badges">
-          <li class="badge">{enumLabel('entity_type', c.entity_type)}</li>
+          <li class="badge badge-status">{enumLabel('entity_type', c.entity_type)}</li>
           <li class={c.code_status === 'official_iso3166_1' ? 'badge' : 'badge badge-warn'}>{enumLabel('code_status', c.code_status)}</li>
           {c.un_status && <li class="badge">{enumLabel('un_status', c.un_status)}</li>}
           <li class="badge">{num(c._current_member_count)} current memberships</li>
@@ -106,7 +121,161 @@ const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
         )}
       </section>
 
+      <PageToc items={toc} />
+
       <div class="container">
+        <section class="card-section" aria-labelledby="memberships">
+          <h2 id="memberships">Memberships</h2>
+          <p>
+            {c.name} has <strong>{num(current.length)}</strong> current memberships in international organizations and
+            groupings{statusSummary ? ` (${statusSummary})` : ''}.
+          </p>
+          {countryEmbeddable(c) && <EmbedCode kind="country" id={c.code} name={c.name} />}
+          {topTypes.length > 0 && (
+            <>
+              <h3>Current memberships by block type{otherTypes.length > 0 ? ', top 10' : ''}</h3>
+              <BarList items={topTypes} label="Current memberships by block type" />
+              {otherTypes.length > 0 && (
+                <p class="muted small">
+                  {num(otherTypeCount)} more memberships in {otherTypes.length} other block types; all are listed in the table below.
+                </p>
+              )}
+            </>
+          )}
+
+          {current.length > 0 && (
+            <>
+              <h3>Current memberships</h3>
+              <div class="filters js-only" data-table-tools="memberships-table">
+                <label>
+                  Search
+                  <input type="search" data-filter="text" placeholder="Organization or ID" />
+                </label>
+                <label>
+                  Status
+                  <select data-filter="status">
+                    <option value="">All</option>
+                    {statusOptions.map((s) => (
+                      <option value={s}>{statusLabel(s)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Block type
+                  <select data-filter="type">
+                    <option value="">All</option>
+                    {typeGroups.map(([t]) => (
+                      <option value={t}>{blocktypeLabel(t)}</option>
+                    ))}
+                  </select>
+                </label>
+                <span class="count" data-count aria-live="polite" />
+              </div>
+              <div class="table-wrap">
+                <table class="data" id="memberships-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Organization or grouping</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Joined</th>
+                    </tr>
+                  </thead>
+                  {typeGroups.map(([t, ms]) => (
+                    <tbody>
+                      <tr class="group">
+                        <th scope="rowgroup" colspan="3">
+                          {blocktypeLabel(t)} ({ms.length})
+                        </th>
+                      </tr>
+                      {ms.map((m) => (
+                        <tr data-status={m.status} data-type={m.blocktype} data-block={m.block_id}>
+                          <td>
+                            <a href={blockPath(m.block_id)}>{m.block_name}</a>
+                            {m.acronym && <span class="muted"> ({m.acronym})</span>}
+                            {m.block_id !== m.acronym && <code class="inline-id">{m.block_id}</code>}
+                            {m.note && <div class="muted small">{m.note}</div>}
+                          </td>
+                          <td title={statusDescription(m.status)}>
+                            {statusLabel(m.status)}
+                            {statusDeprecated(m.status) && <span class="muted small"> (deprecated label)</span>}
+                          </td>
+                          <td class="date">{m.joined}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  ))}
+                </table>
+              </div>
+            </>
+          )}
+
+          {former.length > 0 && (
+            <details>
+              <summary>Former memberships and memberships of historical organizations ({former.length})</summary>
+              <div class="table-wrap">
+                <table class="data" id="former-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Organization or grouping</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Joined</th>
+                      <th scope="col">Left</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {former.map((m) => (
+                      <tr data-block={m.block_id}>
+                        <td>
+                          <a href={blockPath(m.block_id)}>{m.block_name}</a>
+                          {m.acronym && <span class="muted"> ({m.acronym})</span>}
+                          {m.block_id !== m.acronym && <code class="inline-id">{m.block_id}</code>}
+                          {m.block_status === 'historical' && <span class="muted small"> (historical)</span>}
+                          {m.note && <div class="muted small">{m.note}</div>}
+                        </td>
+                        <td>{statusLabel(m.status)}</td>
+                        <td class="date">{m.joined}</td>
+                        <td class="date">{m.left}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
+        </section>
+
+        {c._similar.length > 0 && (
+          <section class="card-section" aria-labelledby="similar">
+            <h2 id="similar">Similar countries</h2>
+            <p class="muted small">
+              By overlap of current memberships (Jaccard index: shared ÷ combined).
+              <a href={path(`explore/countries/?codes=${[c.code, ...c._similar.slice(0, 2).map((s) => s.code)].join(',')}`)}>Compare them</a>.
+            </p>
+            <div class="table-wrap">
+              <table class="data">
+                <thead>
+                  <tr>
+                    <th scope="col">Country</th>
+                    <th scope="col" class="num">Shared memberships</th>
+                    <th scope="col" class="num">Jaccard</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {c._similar.map((s) => (
+                    <tr>
+                      <td>
+                        <span aria-hidden="true">{s.flag_emoji}</span> <a href={countryPath(s.code)}>{s.name}</a>
+                      </td>
+                      <td class="num">{num(s.shared)}</td>
+                      <td class="num">{s.jaccard.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
         <div class="grid-2">
           <section class="card-section" aria-labelledby="identifiers">
             <h2 id="identifiers">Identifiers</h2>
@@ -270,163 +439,6 @@ const nativeNames = c?.native_names ? Object.entries(c.native_names) : [];
             </section>
           )}
         </div>
-
-        <section class="card-section" aria-labelledby="memberships">
-          <h2 id="memberships">Memberships</h2>
-          <p>
-            {c.name} has <strong>{num(current.length)}</strong> current memberships in international organizations and
-            groupings{statusSummary ? ` (${statusSummary})` : ''}.
-          </p>
-          {countryEmbeddable(c) && <EmbedCode kind="country" id={c.code} name={c.name} />}
-          {topTypes.length > 0 && (
-            <>
-              <h3>Current memberships by block type{otherTypes.length > 0 ? ', top 10' : ''}</h3>
-              <BarList items={topTypes} label="Current memberships by block type" />
-              {otherTypes.length > 0 && (
-                <p class="muted small">
-                  {num(otherTypeCount)} more memberships in {otherTypes.length} other block types; all are listed in the table below.
-                </p>
-              )}
-            </>
-          )}
-
-          {current.length > 0 && (
-            <>
-              <h3>Current memberships</h3>
-              <div class="filters js-only" data-table-tools="memberships-table">
-                <label>
-                  Search
-                  <input type="search" data-filter="text" placeholder="Organization or ID" />
-                </label>
-                <label>
-                  Status
-                  <select data-filter="status">
-                    <option value="">All</option>
-                    {statusOptions.map((s) => (
-                      <option value={s}>{statusLabel(s)}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Block type
-                  <select data-filter="type">
-                    <option value="">All</option>
-                    {typeGroups.map(([t]) => (
-                      <option value={t}>{blocktypeLabel(t)}</option>
-                    ))}
-                  </select>
-                </label>
-                <span class="count" data-count aria-live="polite" />
-              </div>
-              <div class="table-wrap">
-                <table class="data" id="memberships-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Organization or grouping</th>
-                      <th scope="col">ID</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">Joined</th>
-                    </tr>
-                  </thead>
-                  {typeGroups.map(([t, ms]) => (
-                    <tbody>
-                      <tr class="group">
-                        <th scope="rowgroup" colspan="4">
-                          {blocktypeLabel(t)} ({ms.length})
-                        </th>
-                      </tr>
-                      {ms.map((m) => (
-                        <tr data-status={m.status} data-type={m.blocktype} data-block={m.block_id}>
-                          <td>
-                            <a href={blockPath(m.block_id)}>{m.block_name}</a>
-                            {m.acronym && <span class="muted"> ({m.acronym})</span>}
-                            {m.note && <div class="muted small">{m.note}</div>}
-                          </td>
-                          <td>
-                            <code>{m.block_id}</code>
-                          </td>
-                          <td title={statusDescription(m.status)}>
-                            {statusLabel(m.status)}
-                            {statusDeprecated(m.status) && <span class="muted small"> (deprecated label)</span>}
-                          </td>
-                          <td>{m.joined}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  ))}
-                </table>
-              </div>
-            </>
-          )}
-
-          {former.length > 0 && (
-            <details>
-              <summary>Former memberships and memberships of historical organizations ({former.length})</summary>
-              <div class="table-wrap">
-                <table class="data" id="former-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Organization or grouping</th>
-                      <th scope="col">ID</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">Joined</th>
-                      <th scope="col">Left</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {former.map((m) => (
-                      <tr data-block={m.block_id}>
-                        <td>
-                          <a href={blockPath(m.block_id)}>{m.block_name}</a>
-                          {m.block_status === 'historical' && <span class="muted small"> (historical)</span>}
-                          {m.note && <div class="muted small">{m.note}</div>}
-                        </td>
-                        <td>
-                          <code>{m.block_id}</code>
-                        </td>
-                        <td>{statusLabel(m.status)}</td>
-                        <td>{m.joined}</td>
-                        <td>{m.left}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </details>
-          )}
-        </section>
-
-        {c._similar.length > 0 && (
-          <section class="card-section" aria-labelledby="similar">
-            <h2 id="similar">Similar countries</h2>
-            <p class="muted small">
-              By overlap of current memberships (Jaccard index: shared ÷ combined).
-              <a href={path(`explore/countries/?codes=${[c.code, ...c._similar.slice(0, 2).map((s) => s.code)].join(',')}`)}>Compare them</a>.
-            </p>
-            <div class="table-wrap">
-              <table class="data">
-                <thead>
-                  <tr>
-                    <th scope="col">Country</th>
-                    <th scope="col" class="num">Shared memberships</th>
-                    <th scope="col" class="num">Jaccard</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {c._similar.map((s) => (
-                    <tr>
-                      <td>
-                        <span aria-hidden="true">{s.flag_emoji}</span> <a href={countryPath(s.code)}>{s.name}</a>
-                      </td>
-                      <td class="num">{num(s.shared)}</td>
-                      <td class="num">{s.jaccard.toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
 
         {(c.provenance?.length ?? 0) > 0 && (
           <section class="card-section" aria-labelledby="provenance">

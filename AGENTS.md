@@ -83,6 +83,22 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
 - Chart builders live in `site/src/scripts/charts.ts` and run both at build time (`set:html`)
   and in the browser; every string from data goes through `esc()`. Text labels stay outside
   focusable chart groups (axe: label-content-name-mismatch).
+- `.table-wrap` scrolls in both directions with a `max-height`: a sticky header only sticks inside
+  its scrolling ancestor, so that is where it sticks. A wrapper whose table has no links or buttons
+  needs `tabindex="0" role="region" aria-label` (axe: scrollable-region-focusable). Chunked tables
+  stick the whole `thead`, because a grid-item `th` cannot stick.
+- A map figure with `data-card-base` links its coloured regions to country cards (role `link`);
+  its `.map-canvas` must then be role `group`, not `img` (axe: nested-interactive). The country
+  locator map has no links.
+- Behaviour shared by every page (theme, header menus, copy buttons, in-page navigation) is in
+  `scripts/site.ts`, bundled with the finder. Do not add `is:inline` scripts to `Base.astro`
+  beyond the first-paint one in `<head>`: inline code is repeated in all ~3,300 pages.
+- The organizations index filters with facets (`tables.ts`, `data-facets`, `data-url-state`). The
+  facet counts in the HTML are for the default view (active only) and must follow the same rule
+  as the script: a value counts the rows that pass every other filter.
+- `MembershipMap` zooms with `data-view` (`worldmap.ts` `viewFor`): boxes use each record's
+  largest polygon, so overseas parts do not widen the view; the viewBox keeps the world map's
+  aspect ratio so nothing changes size (CLS).
 - Explorers keep their state in the query string (`scripts/explore.ts` `setParams`); default
   states must use intblocks that have the data the view needs.
 - `npm run build` runs `astro build` and then Pagefind. A page is indexed only when its `Base`

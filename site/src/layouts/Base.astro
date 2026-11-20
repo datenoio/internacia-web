@@ -37,18 +37,24 @@ const fullTitle = title === 'Internacia' ? title : `${title} · Internacia`;
 const releaseDate = meta.data.build_date.slice(0, 10);
 const crumbs: Crumb[] = breadcrumbs.length ? [{ name: 'Home', href: base }, ...breadcrumbs] : [];
 const ld = crumbs.length || jsonld.length ? graph(...jsonld, ...(crumbs.length ? [breadcrumbList(crumbs)] : [])) : null;
+// Main sections stay in the header row; browse facets and reference pages sit under "More".
+// Below the wide layout every section is in one "Menu".
 const nav = [
   { href: path('countries/'), label: 'Countries' },
   { href: path('blocks/'), label: 'Organizations' },
-  { href: path('types/'), label: 'Types' },
+  { href: path('explore/'), label: 'Explore' },
+  { href: path('data/'), label: 'Data & API' },
+];
+const more = [
+  { href: path('types/'), label: 'Block types' },
   { href: path('topics/'), label: 'Topics' },
   { href: path('geography/'), label: 'Geography' },
-  { href: path('explore/'), label: 'Explore' },
   { href: path('stats/'), label: 'Statistics' },
-  { href: path('data/'), label: 'Data & API' },
   { href: path('about/'), label: 'About' },
 ];
 const current = Astro.url.pathname;
+const isCurrent = (href: string) => current.startsWith(href);
+const moreCurrent = more.some((item) => isCurrent(item.href));
 ---
 
 <!doctype html>
@@ -95,19 +101,6 @@ const current = Astro.url.pathname;
     <header class="site-header">
       <div class="container">
         <a class="site-title" href={base}>Internacia</a>
-        <nav class="site-nav" aria-label="Main">
-          <ul>
-            {
-              nav.map((item) => (
-                <li>
-                  <a href={item.href} aria-current={current.startsWith(item.href) ? 'page' : undefined}>
-                    {item.label}
-                  </a>
-                </li>
-              ))
-            }
-          </ul>
-        </nav>
         <div class="finder js-only" data-finder data-index={path('api/v1/search-index.json')} data-search={path('search/')}>
           <label class="visually-hidden" for="finder-input">Find a country or organization</label>
           <input
@@ -123,7 +116,54 @@ const current = Astro.url.pathname;
           />
           <ul id="finder-results" role="listbox" aria-label="Matches" hidden></ul>
         </div>
-        <button class="theme-toggle js-only" id="theme-toggle" type="button">Theme: auto</button>
+        <nav class="site-nav" aria-label="Main">
+          <ul class="nav-wide">
+            {
+              nav.map((item) => (
+                <li>
+                  <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+                    {item.label}
+                  </a>
+                </li>
+              ))
+            }
+            <li>
+              <details class="nav-drop" data-nav-drop>
+                <summary class={moreCurrent ? 'current' : undefined}>More</summary>
+                <ul>
+                  {
+                    more.map((item) => (
+                      <li>
+                        <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+                          {item.label}
+                        </a>
+                      </li>
+                    ))
+                  }
+                </ul>
+              </details>
+            </li>
+          </ul>
+          <details class="nav-drop nav-narrow" data-nav-drop>
+            <summary>Menu</summary>
+            <ul>
+              {
+                [...nav, ...more].map((item) => (
+                  <li>
+                    <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+                      {item.label}
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+          </details>
+        </nav>
+        <button class="theme-toggle js-only" id="theme-toggle" type="button" aria-label="Theme: auto">
+          <svg class="i-auto" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.6" /><path d="M10 3a7 7 0 0 1 0 14Z" fill="currentColor" /></svg>
+          <svg class="i-light" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.6" fill="currentColor" /><path d="M10 1.8v2.4M10 15.8v2.4M1.8 10h2.4M15.8 10h2.4M4.2 4.2l1.7 1.7M14.1 14.1l1.7 1.7M4.2 15.8l1.7-1.7M14.1 5.9l1.7-1.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
+          <svg class="i-dark" viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 12.6A6.5 6.5 0 0 1 7.4 4.5a6.5 6.5 0 1 0 8.1 8.1Z" fill="currentColor" /></svg>
+        </button>
       </div>
     </header>
 
@@ -171,43 +211,10 @@ const current = Astro.url.pathname;
     </footer>
 
     <script>
+      // One bundled module for every page (cached once), instead of inline code repeated in each
+      // of the ~3,300 pages: the finder, then the header, theme, copy buttons and in-page nav.
       import '../scripts/finder.ts';
-    </script>
-    <script is:inline>
-      (() => {
-        const button = document.getElementById('theme-toggle');
-        const modes = ['auto', 'light', 'dark'];
-        const read = () => {
-          try {
-            return localStorage.getItem('theme') ?? 'auto';
-          } catch {
-            return 'auto';
-          }
-        };
-        const apply = (mode) => {
-          const root = document.documentElement;
-          try {
-            if (mode === 'auto') localStorage.removeItem('theme');
-            else localStorage.setItem('theme', mode);
-          } catch {}
-          if (mode === 'auto') delete root.dataset.theme;
-          else root.dataset.theme = mode;
-          button.textContent = `Theme: ${mode}`;
-        };
-        button.addEventListener('click', () => apply(modes[(modes.indexOf(read()) + 1) % modes.length]));
-        button.textContent = `Theme: ${read()}`;
-
-        // Copy buttons for codes and IDs (.js-only: not shown without JavaScript).
-        document.querySelectorAll('button[data-copy]').forEach((btn) => {
-          btn.addEventListener('click', async () => {
-            try {
-              await navigator.clipboard.writeText(btn.dataset.copy);
-              btn.textContent = 'Copied';
-              setTimeout(() => (btn.textContent = 'Copy'), 1500);
-            } catch {}
-          });
-        });
-      })();
+      import '../scripts/site.ts';
     </script>
   </body>
 </html>
