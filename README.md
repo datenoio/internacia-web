@@ -9,8 +9,8 @@ membership maps, a multilingual finder, OpenAPI, `llms.txt`, post-build checks a
 accessibility/performance audit, plus block type, topic, geography and statistics pages (M2a)
 and explorers: membership map, accession and founding timelines, headquarters map, comparisons
 and hierarchy (M2b), full-text search and social images (M2c), embeddable widgets for other
-sites (M3a). Next: interface translations and the custom domain (M3).
-Temporary address: <https://datenoio.github.io/internacia-web/> (not indexed).
+sites (M3a), and the site's own domain (M3c). Next: interface translations (M3b).
+Address: <https://internacia.io/> (the old <https://datenoio.github.io/internacia-web/> redirects there).
 
 - Specification: [docs/SPEC.md](docs/SPEC.md)
 - Guide for AI coding agents: [AGENTS.md](AGENTS.md)
@@ -40,7 +40,7 @@ python -m venv .venv && .venv/bin/pip install -r pipeline/requirements-dev.txt
 (cd site && npx playwright install chromium && npm run audit)   # axe + Lighthouse
 ```
 
-`npm run dev` (in `site/`) serves the site at <http://localhost:4321/internacia-web/>.
+`npm run dev` (in `site/`) serves the site at <http://localhost:4321/>.
 
 ## Data
 
