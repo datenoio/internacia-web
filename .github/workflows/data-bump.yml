@@ -7,10 +7,11 @@ name: Data bump
 # type internacia-db-release and client_payload {"tag": "vX.Y.Z"}; the tag is checked against the
 # release tag pattern before use.
 #
-# A release with a new contract MAJOR fails at "Fetch and verify" on purpose: the pipeline must be
-# updated first. Pull requests opened with GITHUB_TOKEN do not start other workflows, so the Site
-# workflow does not run on them by itself; this workflow already built and checked the site, and
-# closing and reopening the pull request starts the Site workflow if a fresh run is wanted.
+# A release with a new contract MAJOR fails at "Move the lock file" on purpose (bump.py checks its
+# contract.json against CONTRACT_MAJOR in pipeline/lock.py): the pipeline must be updated first.
+# Pull requests opened with GITHUB_TOKEN do not start other workflows, so the Site workflow does
+# not run on them by itself; this workflow already built and checked the site, and closing and
+# reopening the pull request starts the Site workflow if a fresh run is wanted.
 
 on:
   schedule:

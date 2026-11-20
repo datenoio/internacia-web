@@ -48,7 +48,7 @@ def release(tmp_path, monkeypatch, lock):
     served = tmp_path / "release"
     served.mkdir()
     files = {name: f"content of {name}".encode() for name in fetch.ASSETS}
-    files["contract.json"] = json.dumps({"contract_version": "3.1"}).encode()
+    files["contract.json"] = json.dumps({"contract_version": "4.0"}).encode()
     for name, data in files.items():
         (served / name).write_bytes(data)
     sums = "".join(f"{_sha(data)}  {name}\n" for name, data in files.items()).encode()
@@ -102,6 +102,6 @@ def test_fetch_assets_redownloads_corrupted_cache(release):
 
 
 def test_fetch_assets_rejects_other_contract_major(release):
-    lock = replace(release["lock"], contract_major=4)
-    with pytest.raises(FetchError, match="supports MAJOR 4"):
+    lock = replace(release["lock"], contract_major=5)
+    with pytest.raises(FetchError, match="supports MAJOR 5"):
         fetch_assets(lock, release["dest"], log=lambda *_: None)

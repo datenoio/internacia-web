@@ -8,7 +8,7 @@ from build_data import BuildError, build_meta, check_duckdb_version
 META_ROW = "('{name}', '{version}', '2026-10-22T11:26:42Z', '{commit}', {rows}, 'hash', 'CC-BY-4.0', '{contract}')"
 
 
-def make_release(cache_root, lock, *, version=None, commit="930121d", contract="3.1", row_counts=None):
+def make_release(cache_root, lock, *, version=None, commit="88a0a27", contract="4.0", row_counts=None):
     """Write a tiny internacia.duckdb and contract.json shaped like a real release."""
     assets = cache_root / lock.tag / "assets"
     assets.mkdir(parents=True)
@@ -50,8 +50,8 @@ def test_build_writes_meta(tmp_path, lock):
         "memberships": 3,
         "current_memberships": 2,
     }
-    assert meta["data"]["version"] == "3.1.0"
-    assert meta["data"]["contract_version"] == "3.1"
+    assert meta["data"]["version"] == "4.0.0"
+    assert meta["data"]["contract_version"] == "4.0"
     assert meta["data"]["build_date"] == "2026-10-22T11:26:42Z"
 
 
@@ -63,9 +63,10 @@ def test_build_requires_fetch(tmp_path, lock):
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"version": "3.0.0"}, "lock file pins 3.1.0"),
+        ({"version": "3.1.0"}, "lock file pins 4.0.0"),
         ({"commit": "deadbee"}, "git_commit"),
-        ({"contract": "4.0"}, "supports MAJOR 3"),
+        ({"contract": "3.1"}, "supports MAJOR 4"),
+        ({"contract": "5.0"}, "supports MAJOR 4"),
         ({"row_counts": {"countries": 256}}, "row_count of countries is 256"),
     ],
 )

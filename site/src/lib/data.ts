@@ -98,7 +98,8 @@ export interface Country {
   recognition_status?: { status?: string; un_member?: boolean; notes?: string };
   parent_entity?: { code: string; name: string };
   languages?: { code: string; name: string; official?: boolean }[];
-  native_names?: Record<string, { official?: string; common?: string }>;
+  // Contract 4: keys are the entity's own languages; either name may be missing.
+  native_names?: Record<string, { official?: string | null; common?: string | null }>;
   demonyms?: { female?: string; male?: string };
   writing_systems?: { id: string; primary?: boolean }[];
   writing_directions?: { id: string; primary?: boolean }[];
@@ -210,6 +211,7 @@ export interface Labels {
   statuses: Record<string, { name: string; description: string; deprecated: boolean }>;
   topics: Record<string, string>;
   vocabs: Record<string, Record<string, string>>;
+  native_name_languages: Record<string, string>;
 }
 
 export interface AliasPage extends AliasNote {}

@@ -19,6 +19,20 @@ export const topicLabel = (key: string, fallback?: string): string => labels().t
 export const vocabLabel = (vocab: string, id: string | number): string =>
   labels().vocabs[vocab]?.[String(id)] ?? humanize(String(id));
 
+// Native names (contract 4): keys are the entity's own languages, ISO 639-1 or else 639-3, named in
+// internacia-db's language_codes.yaml. Entries with neither name are left out.
+export const nativeLanguageLabel = (key: string): string => labels().native_name_languages?.[key] ?? key;
+export const nativeNameList = (
+  names: Record<string, { official?: string | null; common?: string | null }> | undefined,
+): { lang: string; language: string; names: string[] }[] =>
+  Object.entries(names ?? {})
+    .map(([lang, n]) => ({
+      lang,
+      language: nativeLanguageLabel(lang),
+      names: [n.official, n.common].filter((v, i, a): v is string => Boolean(v) && a.indexOf(v) === i),
+    }))
+    .filter((n) => n.names.length > 0);
+
 const ENUM_LABELS: Record<string, Record<string, string>> = {
   entity_type: {
     sovereign_state: 'Sovereign state',

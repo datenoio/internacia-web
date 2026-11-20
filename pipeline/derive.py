@@ -233,10 +233,12 @@ def derive_blocks(release: Release, similar: dict[str, list[dict]], alias_notes:
                 link = "block" if inc["id"] in blocks else None
             else:  # historical-country: the code may now name a different, current country
                 link = None
+            # Contract 4: a country include's name is the country's name, filled by the export.
+            name = inc.get("name") or (countries[inc["id"]]["name"] if link == "country" else None)
             roster.append(
                 {
                     "id": inc["id"],
-                    "name": inc.get("name"),
+                    "name": name,
                     "type": kind,
                     "status": inc.get("status"),
                     "joined": inc.get("joined"),
@@ -290,4 +292,5 @@ def derive_labels(release: Release) -> dict:
         },
         "topics": release.topics,
         "vocabs": release.vocabs,
+        "native_name_languages": release.native_name_languages,
     }

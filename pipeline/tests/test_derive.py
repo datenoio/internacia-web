@@ -6,6 +6,7 @@ from derive import (
     classify_aliases,
     derive_blocks,
     derive_countries,
+    derive_labels,
     include_is_current,
     primary_acronym,
 )
@@ -138,7 +139,7 @@ def test_derive_blocks_roster_and_structure():
     eu = blocks["EU"]
     assert eu["_current_member_count"] == 2
     assert eu["_status_counts"] == {"founding_member": 1, "member": 1}
-    assert [r["id"] for r in eu["_roster"]] == ["DE", "FR", "WEU", "GB"]  # current first, then by name
+    assert [r["id"] for r in eu["_roster"]] == ["FR", "DE", "WEU", "GB"]  # current first, then by name
     assert {r["id"]: r["link"] for r in eu["_roster"]} == {"DE": "country", "FR": "country", "GB": None, "WEU": "block"}
     assert eu["_children"] == [{"id": "WEU", "name": "Western European Union", "exists": True}]
     assert eu["_source_path"] == "data/intblocks/economic/EU.yaml"
@@ -162,3 +163,26 @@ def test_derive_countries():
     fr = countries["FR"]
     assert {m["block_id"]: m["current"] for m in fr["_memberships"]} == {"EU": True, "WEU": False}
     assert countries["HK"]["_parent_exists"] is False
+
+
+def test_roster_names_country_includes_from_country_record():
+    blocks = {b["id"]: b for b in derive_blocks(make_release(), {}, {})}
+    names = {r["id"]: r["name"] for r in blocks["EU"]["_roster"]}
+    assert names["DE"] == "Germany"  # contract 4: name optional in source, the country's name
+    assert names["GB"] is None  # no country record: nothing to fill in
+    weu = {r["id"]: r["name"] for r in blocks["WEU"]["_roster"]}
+    assert weu["DE"] == "German Democratic Republic"  # historical-country keeps its own name
+
+
+def test_labels_carry_deprecated_statuses_and_native_name_languages():
+    release = make_release(
+        statuses={
+            "associate_member": {"name": "Associate member"},
+            "associate": {"name": "Associate", "deprecated": {"replacements": ["associate_member"]}},
+        },
+        native_name_languages={"prs": "Dari", "de": "German"},
+    )
+    labels = derive_labels(release)
+    assert labels["statuses"]["associate"]["deprecated"] is True
+    assert labels["statuses"]["associate_member"]["deprecated"] is False
+    assert labels["native_name_languages"] == {"prs": "Dari", "de": "German"}

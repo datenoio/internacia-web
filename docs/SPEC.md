@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft 0.1 — for review |
 | **Date** | 2026-11-19 |
-| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v3.1.0 (contract 3.1) |
+| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v4.0.0 (contract 4.0) |
 | **Owner** | Dateno ([datenoio](https://github.com/datenoio)) |
 | **Hosting** | GitHub Pages, custom domain (to be registered; written as `<DOMAIN>` below) |
 
@@ -79,7 +79,7 @@ Assets used:
 |-------|-----|
 | `internacia.duckdb` | Main query source: tables `countries`, `intblocks`, `blocktypes`, `memberships`, `_meta`, alias tables; views `current_memberships`, `country_currencies`, `country_languages`, `country_timezones` |
 | `countries.jsonl.zst`, `intblocks.jsonl.zst` | Entity records as cards and JSON twins show them, with every field, including those exported to full JSON only (`suborganizations`, `founding_members`, `membership_applicability`, `notes`, `recognition_status`, `previous_names`, `official_documents`, `social_media`, `secretariat`). Intblock rosters come from `includes[]`: the `memberships` table leaves out organization members |
-| `contract.json` | Contract version check, enum values, table schemas |
+| `contract.json` | Contract version check, enum values, deprecated enum values (`deprecated[]`), table schemas |
 | `SHA256SUMS` | Integrity check of every downloaded asset |
 | `intblocks_aliases.json`, `countries_aliases.json` | Redirect pages for retired or renamed IDs |
 | `datapackage.json`, `*.manifest.json` | Version, build identity, file sizes and hashes shown on the Data & API page |
@@ -92,7 +92,7 @@ internacia-db **git tag** that matches the pinned release (sparse checkout of `d
 |------|-----|
 | `data/schemas/includes_status.yaml` | Membership status labels, descriptions, deprecations |
 | `data/schemas/topics.yaml` | Topic labels |
-| `data/vocabs/*.yaml` | Labels for writing systems, legal systems, broadcast systems, rail gauges, DVD regions, writing directions; language codes (`language_codes.yaml`, in releases after v3.1.0) |
+| `data/vocabs/*.yaml` | Labels for writing systems, legal systems, broadcast systems, rail gauges, DVD regions, writing directions; language codes (`language_codes.yaml`, from v4.0.0), which also name the languages of the `native_names` keys |
 | `data/schemas/*.schema.json` | Field descriptions for tooltips and the field glossary |
 
 ### 4.2 Pinning
@@ -102,10 +102,10 @@ The repository commits a lock file, `internacia.lock.json`:
 ```json
 {
   "repository": "datenoio/internacia-db",
-  "tag": "v3.1.0",
-  "git_commit": "930121d1b83655ef2fdb4379d8aa506111918dca",
-  "contract_major": 3,
-  "sha256sums_sha256": "c243b0b2ee0de10436f42b48599f74b00953662cb03bf8d7dfa0e3f9c8b6ac59"
+  "tag": "v4.0.0",
+  "git_commit": "88a0a27f0384c3a7aa8fcfd91ffe99e23ca06521",
+  "contract_major": 4,
+  "sha256sums_sha256": "263d31c4be3343c4a0df9e3b67af296eb817fb1ed65e58b372716c44a842b6a8"
 }
 ```
 
@@ -113,10 +113,12 @@ The repository commits a lock file, `internacia.lock.json`:
 |-------|---------|
 | `repository`, `tag` | Release to read |
 | `git_commit` | Full commit the tag points to; vocabulary files are read at this commit |
-| `contract_major` | Contract MAJOR the pipeline supports |
+| `contract_major` | Contract MAJOR the pipeline supports: equal to `CONTRACT_MAJOR` in `pipeline/lock.py`, which `bump.py` writes |
 | `sha256sums_sha256` | SHA-256 of the release's `SHA256SUMS` file: anchors every other checksum |
 
 - A build always uses the pinned tag. "Latest" is never resolved at build time.
+- The pipeline reads one contract MAJOR, `CONTRACT_MAJOR` in `pipeline/lock.py`. A lock file with
+  another `contract_major` fails to load; only `bump.py`, which replaces it, reads it anyway.
 - A scheduled workflow checks for a newer release and opens a pull request that bumps the pin
   ([§11.3](#113-data-updates)). A person merges it after reviewing the preview build.
 
@@ -126,8 +128,9 @@ The build fails when any of these checks fails:
 
 1. The SHA-256 of the downloaded `SHA256SUMS` equals `sha256sums_sha256` in the lock file.
 2. Every downloaded asset matches its line in `SHA256SUMS`.
-3. `contract.json` → `contract_version` has the MAJOR in `contract_major`. A newer MINOR is
-   accepted (additive changes).
+3. `contract.json` → `contract_version` has the MAJOR in `contract_major`, which equals the
+   pipeline's `CONTRACT_MAJOR`. A newer MINOR is accepted (additive changes). `bump.py update`
+   makes the same check, against `SHA256SUMS`, before it moves the lock.
 4. The tag checks out at `git_commit`.
 5. In DuckDB `_meta`, every dataset row has `version` equal to the pinned tag without `v`,
    `git_commit` that is a prefix of the pinned commit, the supported contract MAJOR, and
@@ -152,12 +155,23 @@ The site's data code must follow them.
   never mixed with current ones.
 - `memberships.country_code` may reference historical codes (for example `SU`) that have no
   country record. Show the code as plain text without a link.
-- Missing World Bank `region` or `incomeLevel` for 8 entities, and missing `adminregion` for
-  high-income economies, are by design. Show "not classified by the World Bank", not "missing".
+- Missing World Bank `region` or `incomeLevel` for 8 entities, and missing `adminregion` for 119
+  records (those 8 and the 111 high-income economies), are by design. Show "not classified by the
+  World Bank", not "missing".
+- `native_names` (contract 4) holds names in the entity's own `languages[]` only, keyed by ISO
+  639-1 or, where there is none, ISO 639-3 (`language_codes.yaml` `key`). Either `official` or
+  `common` may be null; an entry with neither is not shown. English names come from `name` and
+  `official_name`, names in the UN languages from `other_names`. Never look up `native_names['en']`.
+- `includes[].name` of a `type: country` entry is the country's `name` (contract 4: the export
+  fills it; it is optional in the source).
+- Deprecated include statuses (`associate`, `associated_observer`; `contract.json` `deprecated[]`,
+  `deprecated` in `includes_status.yaml`) stay valid until the next MAJOR. Card membership and
+  roster tables and their Markdown twins show the status's own label with a "deprecated label"
+  note; never remap them to a replacement.
 - Aliases with `reason = disambiguated` must not become redirects: the old ID now names a
   different entity. Show a disambiguation page instead.
 
-### 4.5 Baseline figures (v3.1.0)
+### 4.5 Baseline figures (v4.0.0)
 
 For sizing only; the site computes all figures at build time.
 
@@ -166,11 +180,12 @@ For sizing only; the site computes all figures at build time.
 | Country records / ISO 3166-1 entries | 256 / 249 |
 | Intblocks | 1,275 |
 | Block types / topics | 78 / 153 |
-| Membership edges / current / with `joined` date / with `left` date | 59,496 / 58,417 / 17,236 / 333 |
-| Intblocks with `founded` / headquarters / `partof` | 1,178 / 875 / 348 |
-| Intblocks with Wikidata ID / `last_verified` | 1,104 / 977 |
+| Membership edges / current / with `joined` date / with `left` date | 59,102 / 57,918 / 17,269 / 343 |
+| Intblocks with `founded` / headquarters / `partof` | 1,178 / 874 / 348 |
+| Intblocks with Wikidata ID / `last_verified` | 1,103 / 1,190 |
 | Languages in intblock `other_names` | 78 |
-| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 4.7 MB / 690 KB / 98 KB |
+| Country `native_names` entries / languages | 388 / 126 |
+| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 4.7 MB / 702 KB / 99 KB |
 
 ## 5. Information architecture and URLs
 
@@ -201,7 +216,7 @@ All paths end with a slash for HTML. Machine twins use the same slug with an ext
 - `{code}`: country alpha-2 code in lowercase (`/countries/fr/`).
 - `{id}`: intblock ID in lowercase (`/blocks/nato/`, `/blocks/g-20/`, `/blocks/afcfta/`). IDs use
   letters, digits, `-`, `_` and `+` (`G8+5`; GitHub Pages serves `/blocks/g8+5/` as is). The build
-  fails if two IDs collide after lowercasing (none do in v3.1.0).
+  fails if two IDs collide after lowercasing (none do in v4.0.0).
 - JSON paths keep the **exact** ID (`/api/v1/blocks/AfCFTA.json`) so agents can build URLs from
   data without transformation. A lowercase JSON alias is not generated.
 - `{key}`: block type or topic key as in the data (snake_case).
@@ -253,8 +268,9 @@ Sections, in order. A section is omitted when the data has nothing for it. Membe
 section, come right after the header; the reference sections follow. A row of section links under
 the header sticks to the top of the window (also on the intblock card).
 
-1. **Header**: flag emoji, `name`, `official_name`, English common name, native names
-   (`native_names`: official and common per language), entity type badge, code status badge.
+1. **Header**: flag emoji, `name`, `official_name`, entity type badge, code status badge. Native
+   names (`native_names`: official and common in each of the entity's own languages, with the
+   language name) are listed under Languages and names.
 2. **Memberships** (main section):
    - Count of current memberships, with a breakdown by status.
    - Grouped by block type; each row: block name and acronym (link; the ID only where it differs
@@ -453,7 +469,7 @@ Formal intergovernmental organization, regional scope. Founded 1967. Headquarter
 - Described by `/api/v1/openapi.json` (OpenAPI 3.1). Response bodies have JSON Schemas under
   `/api/v1/schemas/`.
 - Every document has a `meta` object:
-  `{"data_version": "3.1.0", "contract_version": "3.1", "built_at": "…", "license": "CC-BY-4.0", "source": "https://github.com/datenoio/internacia-db/releases/tag/v3.1.0", "html": "…", "markdown": "…"}`.
+  `{"data_version": "4.0.0", "contract_version": "4.0", "built_at": "…", "license": "CC-BY-4.0", "source": "https://github.com/datenoio/internacia-db/releases/tag/v4.0.0", "html": "…", "markdown": "…"}`.
   `built_at` is the build time of the data release, so output is reproducible. Country documents
   add `license_notes`: `centroid` values come from mledoze/countries under ODbL-1.0.
 - Entity documents have the shape `{"meta": {…}, "data": {…}}`; lists add `count`. The JSON at a
@@ -626,7 +642,7 @@ Generated data (`.cache/`, `site/src/generated/`) is not committed.
 ### 10.3 Build pipeline
 
 ```text
-fetch.py ──► .cache/internacia/v3.1.0/  (assets + vocab files, verified)
+fetch.py ──► .cache/internacia/v4.0.0/  (assets + vocab files, verified)
    │
 build_data.py ──► site/src/generated/*.json  (cards, indexes, stats, search index, aliases)
    │
@@ -685,7 +701,10 @@ Until the domain exists, the site deploys to `https://datenoio.github.io/interna
   `datenoio/internacia-db`; if it is newer than the pin, it runs `fetch.py`, updates
   `internacia.lock.json` and opens a pull request with a summary: version, contract version,
   counts added and removed, schema hash changes.
-- A new contract MAJOR makes the pull request fail on purpose; the pipeline must be updated first.
+- A release with a new contract MAJOR stops the bump on purpose at `bump.py update`, before the lock
+  moves and before any pull request. The pipeline must be updated first: a pull request raises
+  `CONTRACT_MAJOR` in `pipeline/lock.py` with the code the new contract needs and moves the lock
+  with `bump.py update` (as for v4.0.0).
 - `data-bump.yml` also runs on a `repository_dispatch` event of type `internacia-db-release`
   with `client_payload: {"tag": "vX.Y.Z"}`, so the bump can start as soon as a release is
   published. The tag must match `^v[0-9]+\.[0-9]+\.[0-9]+$`. Sending the event is a separate
@@ -700,7 +719,7 @@ The build fails when any of these checks fails.
 | Check | Rule |
 |-------|------|
 | Integrity | [§4.3](#43-verification) checks pass |
-| Count parity | Country cards = rows in `countries` (256 in v3.1.0); intblock cards = rows in `intblocks` (1,275); type pages = 78; topic pages = distinct topic keys |
+| Count parity | Country cards = rows in `countries` (256 in v4.0.0); intblock cards = rows in `intblocks` (1,275); type pages = 78; topic pages = distinct topic keys |
 | Roster parity | For every intblock, the number of current members on the card = rows in `current_memberships` for it |
 | Twin parity | For a sample of 50 entities (and all featured ones), HTML, Markdown and JSON carry the same codes, names, statuses and dates |
 | JSON validity | Every `/api/v1/` file validates against its schema in `/api/v1/schemas/` and against `openapi.json` |
@@ -768,7 +787,7 @@ belong to, not by combination, because combinations outnumber distinguishable co
 chart and the table give the combinations. The headquarters map (V5) and the hierarchy (V8) are
 rendered at build time and work without JavaScript; the hierarchy places each link next to, not
 inside, the `<summary>` that opens its branch. The accession timeline (V3) is offered only for
-intblocks where at least 30 % of country entries have a joining date (the EU has none in v3.1.0).
+intblocks where at least 30 % of country entries have a joining date (the EU has none in v4.0.0).
 
 Decisions taken in M2c: Pagefind indexes the text of every page that names a search section, but
 not tables, charts, maps, link lists or provenance, so a search for an organization finds its card

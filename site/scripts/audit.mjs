@@ -32,6 +32,7 @@ const AXE_PAGES = [
   'countries/xk/',
   'countries/ps/',
   'countries/aq/',
+  'countries/af/', // native_names keys in ISO 639-3 (prs), entries with one name (contract 4)
   'blocks/un/',
   'blocks/eu/',
   'blocks/nato/',

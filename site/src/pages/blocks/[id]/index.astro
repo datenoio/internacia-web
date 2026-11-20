@@ -406,7 +406,10 @@ const toc = b
                               <code>{r.id}</code>
                             </td>
                             {otherCols.type && <td>{enumLabel('include_type', r.type)}</td>}
-                            <td>{statusLabel(r.status)}</td>
+                            <td>
+                              {statusLabel(r.status)}
+                              {statusDeprecated(r.status) && <span class="muted small"> (deprecated label)</span>}
+                            </td>
                             {otherCols.joined && <td class="date">{r.joined}</td>}
                             {otherCols.left && <td class="date">{r.left}</td>}
                           </tr>
