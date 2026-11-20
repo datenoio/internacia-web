@@ -12,8 +12,9 @@ sitemap, post-build checks and an axe/Lighthouse audit. M2a adds block type, top
 statistics pages, the home map, the Atom feed, citations and `data-bump.yml`. M2b adds the
 explorers under `/explore/`; M2c adds full-text search (`/search/`, Pagefind) and per-card social
 images (`/og/…png`). M3a adds embeddable widgets (`/embed/`, `public/embed/widget.js`) and the
-`repository_dispatch` trigger of `data-bump.yml`. Next are interface translations (M3b) and the
-custom domain (M3c) ([SPEC §13](docs/SPEC.md#13-milestones)).
+`repository_dispatch` trigger of `data-bump.yml`. M3c moves the site to its domain, `internacia.io`
+(`site.config.mjs`, `public/CNAME`). Next are interface translations (M3b)
+([SPEC §13](docs/SPEC.md#13-milestones)).
 
 ## Rules
 

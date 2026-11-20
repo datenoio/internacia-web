@@ -676,8 +676,9 @@ Steps, in order, once the domain is registered:
 4. Set the custom domain in repository settings and enable "Enforce HTTPS" when the certificate
    is issued.
 
-Until the domain exists, the site deploys to `https://datenoio.github.io/internacia-web/` with a
-`noindex` meta tag, so the temporary URL is not indexed.
+The domain is `internacia.io` (steps 2 and 3 done in November 2026). GitHub Pages redirects the
+former address `https://datenoio.github.io/internacia-web/` to it, path included, so old links
+keep working. Until the domain existed, the site deployed there with a `noindex` meta tag.
 
 ### 11.3 Data updates
 
@@ -787,7 +788,7 @@ per card, 37 MB for all, and the build takes about 75 s. The site is then about 
 ### M3 — Reach
 
 Delivered in parts. **M3a**: embeddable widgets and the receiving side of `repository_dispatch`.
-**M3b**: interface translations. **M3c**: custom domain, when it is registered.
+**M3b**: interface translations. **M3c**: custom domain, `internacia.io` (§11.2).
 
 Decisions taken in M3a: widgets are static pages under `/embed/blocks/{id}/` (membership map,
 1,255 intblocks whose roster has countries on the map) and `/embed/countries/{code}/` (current
@@ -821,7 +822,7 @@ add about 17 MB, so the site is about 305 MB, above the 300 MB target of §10.3 
 
 | # | Question | Default until decided |
 |---|----------|-----------------------|
-| Q1 | Domain name | Temporary `datenoio.github.io/internacia-web/`, `noindex` |
+| Q1 | Domain name | `internacia.io` (§11.2) |
 | Q2 | Visual identity: Dateno brand styles or an internacia identity of its own | Neutral design tokens, easy to replace |
 | Q3 | Web analytics: none, or a cookie-free counter (for example GoatCounter or Plausible) | None |
 | Q4 | AI crawler policy in `robots.txt` | Allow all |
