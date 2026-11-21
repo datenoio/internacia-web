@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft 0.1 — for review |
 | **Date** | 2026-11-19 |
-| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v4.2.0 (contract 4.2) |
+| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v4.3.0 (contract 4.3) |
 | **Owner** | Dateno ([datenoio](https://github.com/datenoio)) |
 | **Hosting** | GitHub Pages, custom domain (to be registered; written as `<DOMAIN>` below) |
 
@@ -29,7 +29,7 @@ All corrections go to internacia-db.
 
 1. **Make the product visible.** Anyone can see what internacia-db contains, how complete it is
    and how current it is, without installing anything.
-2. **One card per entity.** Every country (256), intblock (1,282), block type (82) and topic
+2. **One card per entity.** Every country (256), intblock (1,338), block type (83) and topic
    (153) has its own permanent page.
 3. **Answer common questions visually.** Who belongs to X? What does country Y belong to? What do
    X and Z have in common? When were these organizations founded? Where are they based?
@@ -77,7 +77,7 @@ Assets used:
 
 | Asset | Use |
 |-------|-----|
-| `internacia.duckdb` | Main query source: tables `countries`, `intblocks`, `blocktypes`, `memberships`, `border_status` (from v4.1.0), `_meta`, alias tables; views `current_memberships`, `country_currencies`, `country_languages`, `country_timezones`. The `country_borders` view (v4.1.0) is not read: it needs DuckDB 2.0, although `contract.json` gives `min_duckdb` 1.5.4; the pipeline applies its rule to `border_status` instead |
+| `internacia.duckdb` | Main query source: tables `countries`, `intblocks`, `blocktypes`, `memberships`, `border_status` (from v4.1.0), `_meta`, alias tables; views `current_memberships`, `country_currencies`, `country_languages`, `country_timezones`. The pipeline applies the rule of the `country_borders` view (v4.1.0) to `border_status`, whose rows carry the note, dates and sources, and fails if the result differs from the view. The view runs on DuckDB 1.5.4 (`min_duckdb`) from v4.3.0; before, it needed DuckDB 2.0 |
 | `countries.jsonl.zst`, `intblocks.jsonl.zst` | Entity records as cards and JSON twins show them, with every field, including those exported to full JSON only (`suborganizations`, `founding_members`, `membership_applicability`, `notes`, `recognition_status`, `previous_names`, `official_documents`, `social_media`, `secretariat`). Intblock rosters come from `includes[]`: the `memberships` table leaves out organization members |
 | `contract.json` | Contract version check, enum values, deprecated enum values (`deprecated[]`), table schemas |
 | `SHA256SUMS` | Integrity check of every downloaded asset |
@@ -104,10 +104,10 @@ The repository commits a lock file, `internacia.lock.json`:
 ```json
 {
   "repository": "datenoio/internacia-db",
-  "tag": "v4.2.0",
-  "git_commit": "2c67091e09ff8ccf1d307128329bbe38b7a78b03",
+  "tag": "v4.3.0",
+  "git_commit": "8b041d257d8def5c0866dc3404eca1c5d48c518c",
   "contract_major": 4,
-  "sha256sums_sha256": "7ebe751f0c8d21a793828a72b133ccc4d5a4fc78fdb8094df94d818d00a5ade3"
+  "sha256sums_sha256": "7a3a75bac32665686e06b1b90f6c88fab15fdaa3ffafeccb51e8614e3ba9586f"
 }
 ```
 
@@ -169,7 +169,8 @@ The site's data code must follow them.
 - Deprecated include statuses (`associate`, `associated_observer`; `contract.json` `deprecated[]`,
   `deprecated` in `includes_status.yaml`) stay valid until the next MAJOR. Card membership and
   roster tables and their Markdown twins show the status's own label with a "deprecated label"
-  note; never remap them to a replacement.
+  note; never remap them to a replacement. No record uses them in v4.3.0, where internacia-db
+  finished its review of associate statuses; the handling stays until the MAJOR removes them.
 - Deprecated block types (`intorg` from v4.1.0; `deprecated` in the `blocktypes` table) stay on
   their records until the next MAJOR. Cards and type pages mark them deprecated; the type page shows
   the deprecation note. Intergovernmental organizations are selected by `scope_category = 'igo'`,
@@ -182,7 +183,8 @@ The site's data code must follow them.
   "none". `none` in `independent_organs` or `enforcement` is a value and is shown. `veto_holders`
   are country alpha-2 codes.
 - `border_status` (v4.1.0) lists recorded closures and restrictions of land borders, one row per
-  pair of alpha-3 codes. A row without `until` is current (the `country_borders` view's rule). No
+  pair of alpha-3 codes. A row without `until` is current (the `country_borders` view's rule; the pipeline checks its
+  result against the view). No
   row means no closure is recorded, not that the border is verified open; the card says so.
   Evidence limit (documented from v4.2.0): most rows rest on official travel advice, which
   describes crossings for travellers, so a `closed` border can still carry some freight. The card
@@ -190,23 +192,23 @@ The site's data code must follow them.
 - Aliases with `reason = disambiguated` must not become redirects: the old ID now names a
   different entity. Show a disambiguation page instead.
 
-### 4.5 Baseline figures (v4.2.0)
+### 4.5 Baseline figures (v4.3.0)
 
 For sizing only; the site computes all figures at build time.
 
 | Measure | Value |
 |---------|------:|
 | Country records / ISO 3166-1 entries | 256 / 249 |
-| Intblocks | 1,282 |
-| Block types (deprecated) / topics | 82 (1) / 153 |
-| Membership edges / current / with `joined` date / with `left` date | 57,325 / 56,255 / 17,264 / 342 |
-| Membership edges with a route `role` / intblocks with roles | 63 / 23 |
-| Intblocks with `founded` / headquarters / `partof` | 1,184 / 874 / 345 |
-| Intblocks with Wikidata ID / `last_verified` / `institutional_design` | 1,110 / 1,203 / 108 |
+| Intblocks | 1,338 |
+| Block types (deprecated) / topics | 83 (1) / 153 |
+| Membership edges / current / with `joined` date / with `left` date | 58,126 / 56,921 / 19,221 / 350 |
+| Membership edges with a route `role` / intblocks with roles | 125 / 44 |
+| Intblocks with `founded` / headquarters / `partof` | 1,234 / 895 / 356 |
+| Intblocks with Wikidata ID / `last_verified` / `institutional_design` | 1,146 / 1,265 / 112 |
 | `border_status` rows | 18 |
-| Languages in intblock `other_names` | 78 |
+| Languages in intblock `other_names` | 81 |
 | Country `native_names` entries / languages | 388 / 126 |
-| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 5.3 MB / 717 KB / 98 KB |
+| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 5.3 MB / 774 KB / 105 KB |
 
 ## 5. Information architecture and URLs
 
@@ -237,7 +239,7 @@ All paths end with a slash for HTML. Machine twins use the same slug with an ext
 - `{code}`: country alpha-2 code in lowercase (`/countries/fr/`).
 - `{id}`: intblock ID in lowercase (`/blocks/nato/`, `/blocks/g-20/`, `/blocks/afcfta/`). IDs use
   letters, digits, `-`, `_` and `+` (`G8+5`; GitHub Pages serves `/blocks/g8+5/` as is). The build
-  fails if two IDs collide after lowercasing (none do in v4.2.0).
+  fails if two IDs collide after lowercasing (none do in v4.3.0).
 - JSON paths keep the **exact** ID (`/api/v1/blocks/AfCFTA.json`) so agents can build URLs from
   data without transformation. A lowercase JSON alias is not generated.
 - `{key}`: block type or topic key as in the data (snake_case).
@@ -323,7 +325,7 @@ the header sticks to the top of the window (also on the intblock card).
 
 ### 6.4 Intblocks index
 
-- Table of all 1,282 intblocks: name, acronym, block type(s), status, scope category, geographic
+- Table of all 1,338 intblocks: name, acronym, block type(s), status, scope category, geographic
   scope, founded, headquarters country, number of current member countries.
 - Filters: block type, status (formal / informal / de-facto / historical), scope category,
   geographic scope, region, topic, founded range, "active only" (default on, with a visible
@@ -367,7 +369,7 @@ the header sticks to the top of the window (also on the intblock card).
 
 ### 6.6 Block types
 
-- Index: all 82 types with count of intblocks and scope note, as a treemap and a table; deprecated
+- Index: all 83 types with count of intblocks and scope note, as a treemap and a table; deprecated
   types are marked.
 - Type page: definition (from the blocktypes record: `description`, the scope note, and
   `other_names`), a notice when the type is deprecated (`deprecated`: removal and note), list of
@@ -500,7 +502,7 @@ Formal intergovernmental organization, regional scope. Founded 1967. Headquarter
 - Described by `/api/v1/openapi.json` (OpenAPI 3.1). Response bodies have JSON Schemas under
   `/api/v1/schemas/`.
 - Every document has a `meta` object:
-  `{"data_version": "4.2.0", "contract_version": "4.2", "built_at": "…", "license": "CC-BY-4.0", "source": "https://github.com/datenoio/internacia-db/releases/tag/v4.2.0", "html": "…", "markdown": "…"}`.
+  `{"data_version": "4.3.0", "contract_version": "4.3", "built_at": "…", "license": "CC-BY-4.0", "source": "https://github.com/datenoio/internacia-db/releases/tag/v4.3.0", "html": "…", "markdown": "…"}`.
   `built_at` is the build time of the data release, so output is reproducible. Country documents
   add `license_notes`: `centroid` values come from mledoze/countries under ODbL-1.0.
 - Entity documents have the shape `{"meta": {…}, "data": {…}}`; lists add `count`. The JSON at a
@@ -673,7 +675,7 @@ Generated data (`.cache/`, `site/src/generated/`) is not committed.
 ### 10.3 Build pipeline
 
 ```text
-fetch.py ──► .cache/internacia/v4.2.0/  (assets + vocab files, verified)
+fetch.py ──► .cache/internacia/v4.3.0/  (assets + vocab files, verified)
    │
 build_data.py ──► site/src/generated/*.json  (cards, indexes, stats, search index, aliases)
    │
@@ -751,7 +753,7 @@ The build fails when any of these checks fails.
 | Check | Rule |
 |-------|------|
 | Integrity | [§4.3](#43-verification) checks pass |
-| Count parity | Country cards = rows in `countries` (256 in v4.2.0); intblock cards = rows in `intblocks` (1,282); type pages = 82; topic pages = distinct topic keys |
+| Count parity | Country cards = rows in `countries` (256 in v4.3.0); intblock cards = rows in `intblocks` (1,338); type pages = 83; topic pages = distinct topic keys |
 | Roster parity | For every intblock, the number of current members on the card = rows in `current_memberships` for it |
 | Twin parity | For a sample of 50 entities (and all featured ones), HTML, Markdown and JSON carry the same codes, names, statuses and dates; for every entity, route roles (HTML, Markdown, JSON, CSV) and border status (HTML, Markdown, JSON) agree |
 | JSON validity | Every `/api/v1/` file validates against its schema in `/api/v1/schemas/` and against `openapi.json` |
@@ -819,7 +821,7 @@ belong to, not by combination, because combinations outnumber distinguishable co
 chart and the table give the combinations. The headquarters map (V5) and the hierarchy (V8) are
 rendered at build time and work without JavaScript; the hierarchy places each link next to, not
 inside, the `<summary>` that opens its branch. The accession timeline (V3) is offered only for
-intblocks where at least 30 % of country entries have a joining date (the EU has none in v4.2.0).
+intblocks where at least 30 % of country entries have a joining date (the EU had none before v4.3.0, which dates all 27 members).
 
 Decisions taken in M2c: Pagefind indexes the text of every page that names a search section, but
 not tables, charts, maps, link lists or provenance, so a search for an organization finds its card

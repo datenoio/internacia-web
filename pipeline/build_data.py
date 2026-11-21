@@ -31,6 +31,7 @@ import duckdb
 
 from derive import (
     DeriveError,
+    check_border_rule,
     check_current_rule,
     classify_aliases,
     derive_blocks,
@@ -167,6 +168,7 @@ def build(lock: Lock, cache_root: Path, out_dir: Path) -> dict:
     cache_dir = cache_root / lock.tag
     release = load_release(cache_dir, lock.repository, lock.tag)
     check_current_rule(release)
+    check_border_rule(release)
 
     with duckdb.connect(str(cache_dir / "assets" / "internacia.duckdb"), read_only=True) as con:
         similar_countries = query_rows(con, "similar_countries")

@@ -54,10 +54,13 @@ class Release:
     # Language names by countries.native_names key (ISO 639-1, else 639-3), from
     # data/vocabs/language_codes.yaml. Since contract 4 the keys are each entity's own languages.
     native_name_languages: dict[str, str] = field(default_factory=dict)
-    # Land-border crossing status (contract 4.1): rows of the border_status table. The
-    # country_borders view is not read: it needs DuckDB 2.0, although contract.json says
-    # min_duckdb 1.5.4. derive.py applies the view's rule (a row without `until` is current).
+    # Land-border crossing status (contract 4.1): rows of the border_status table, which carry
+    # the note, dates and sources. derive.py applies the country_borders view's rule (a row
+    # without `until` is current) and checks it against the view: current status by
+    # (country code, neighbour alpha-3), None when no closure is recorded. The view runs on
+    # DuckDB 1.5.4 from v4.3.0; before, it needed DuckDB 2.0.
     border_status: list[dict] = field(default_factory=list)
+    country_borders: dict[tuple[str, str], str | None] = field(default_factory=dict)
     # Labels of includes[].role (data/schemas/include_roles.yaml) and of the institutional_design
     # subfields and values (data/schemas/institutional_design.yaml), contract 4.1.
     include_roles: dict[str, dict] = field(default_factory=dict)
@@ -164,6 +167,12 @@ def load_release(cache_dir: Path, repository: str, tag: str) -> Release:
             'SELECT country_a, country_b, status, since, "until", note, last_verified, provenance '
             "FROM border_status ORDER BY country_a, country_b",
         )
+        country_borders = {
+            (r[0], r[1]): r[2]
+            for r in con.execute(
+                "SELECT country_code, neighbor_iso3, current_status FROM country_borders"
+            ).fetchall()
+        }
 
     statuses = _yaml(source / "schemas" / "includes_status.yaml")["statuses"]
     topics = {k: v.get("name", k) for k, v in _yaml(source / "schemas" / "topics.yaml")["topics"].items()}
@@ -198,6 +207,7 @@ def load_release(cache_dir: Path, repository: str, tag: str) -> Release:
         },
         native_name_languages=native_name_languages,
         border_status=border_status,
+        country_borders=country_borders,
         include_roles=_include_roles(source / "schemas" / "include_roles.yaml"),
         institutional_design=_institutional_design(source / "schemas" / "institutional_design.yaml"),
     )

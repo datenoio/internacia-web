@@ -3,6 +3,7 @@ import pytest
 from derive import (
     DeriveError,
     border_status_by_pair,
+    check_border_rule,
     check_current_rule,
     classify_aliases,
     derive_blocks,
@@ -224,6 +225,30 @@ def test_ended_border_status_is_not_current():
 def test_border_status_rejects_bad_rows(rows, message):
     with pytest.raises(DeriveError, match=message):
         border_status_by_pair(make_release(border_status=rows))
+
+
+# country_borders view rows for make_release(border_status=[BORDER_ROW]): DE borders FRA and XXX.
+VIEW_CLOSED = {("DE", "FRA"): "closed", ("DE", "XXX"): None, ("FR", "DEU"): "closed"}
+
+
+def test_check_border_rule_accepts_matching_view():
+    check_border_rule(make_release(border_status=[BORDER_ROW], country_borders=VIEW_CLOSED))
+    ended = {**BORDER_ROW, "until": "2001"}
+    view_ended = {("DE", "FRA"): None, ("DE", "XXX"): None, ("FR", "DEU"): None}
+    check_border_rule(make_release(border_status=[ended], country_borders=view_ended))
+
+
+@pytest.mark.parametrize(
+    "view",
+    [
+        {**VIEW_CLOSED, ("FR", "DEU"): "restricted"},
+        {k: v for k, v in VIEW_CLOSED.items() if k != ("DE", "XXX")},
+        {**VIEW_CLOSED, ("FR", "BEL"): None},
+    ],
+)
+def test_check_border_rule_rejects_mismatch(view):
+    with pytest.raises(DeriveError, match="country_borders view"):
+        check_border_rule(make_release(border_status=[BORDER_ROW], country_borders=view))
 
 
 def test_roles_on_roster_and_memberships():
