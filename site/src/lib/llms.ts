@@ -23,7 +23,7 @@ Every card exists in three forms with the same facts: HTML, Markdown and JSON.
 - "Current" members: status not \`former_member\`, no \`left\` date, intblock neither \`historical\` nor dissolved.
 - \`includes[].role\` (pipelines and corridors only) says what a country does on the route: \`origin\`, \`transit\`, \`destination\` or \`terminal\`; \`status\` still says how it relates to the record.
 - \`institutional_design\` records what an organization's founding instrument lets it decide and enforce. An absent object or subfield means unknown, never "none".
-- Border crossing status (\`_borders[].status\` on country cards) lists recorded closures only: no status does not mean a border is verified open.
+- Border crossing status (\`_borders[].status\` on country cards) lists recorded closures only: no status does not mean a border is verified open. Most entries rest on official travel advice, which describes crossings for travellers, so a closed border can still carry some freight.
 - Block type \`intorg\` is deprecated: select intergovernmental organizations with \`scope_category = igo\`, not by block type.
 - Enums are open: accept values you do not know.
 - Fields starting with \`_\` are derived by this site; all others are internacia-db export fields.
