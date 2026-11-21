@@ -2,14 +2,32 @@
 import EntityPicker from '../../../components/EntityPicker.astro';
 import MapFrame from '../../../components/MapFrame.astro';
 import Base from '../../../layouts/Base.astro';
+import { blocktypes, labels } from '../../../lib/data';
+import { designFieldLabel, designFields, designValueLabel, ENUM_LABELS } from '../../../lib/format';
 import { path } from '../../../lib/urls';
+
+// Labels the profiles need in the browser (scripts/compare.ts): the same text as the cards.
+const pageLabels = {
+  blocktype: Object.fromEntries(blocktypes().map((t) => [t.id, t.name])),
+  // Deprecated statuses keep their own label, marked as on the cards (statusDeprecated).
+  statuses: Object.fromEntries(Object.entries(labels().statuses).map(([k, v]) => [k, v.deprecated ? `${v.name} (deprecated label)` : v.name])),
+  status: ENUM_LABELS.status,
+  scope_category: ENUM_LABELS.scope_category,
+  geographic_scope: ENUM_LABELS.geographic_scope,
+  design: designFields().map((field) => ({
+    field,
+    label: designFieldLabel(field),
+    values: Object.fromEntries(Object.keys(labels().institutional_design[field]?.values ?? {}).map((v) => [v, designValueLabel(field, v)])),
+  })),
+};
+const labelsJson = JSON.stringify(pageLabels).replace(/</g, '\\u003c');
 ---
 
 <Base
 
   section="Explore"
   title="Compare organizations"
-  description="Compare the member countries of two to six international organizations or groupings: what they share and what sets them apart."
+  description="Compare the member countries of two to six international organizations or groupings: what they share, where they are, their population and land area, and what they are made of."
   breadcrumbs={[
     { name: 'Explore', href: path('explore/') },
     { name: 'Compare organizations', href: path('explore/compare/') },
@@ -17,11 +35,17 @@ import { path } from '../../../lib/urls';
 >
   <section class="container page-head">
     <h1>Compare organizations</h1>
-    <p class="lead">Current member countries and territories of two to six intblocks, and how they overlap.</p>
+    <p class="lead">Countries and territories now in two to six intblocks, as members or with another status: how they overlap, where they are, how large they are and what they are made of.</p>
   </section>
   <section class="container" data-explorer="compare" data-base={path()}>
     <div class="explorer-controls js-only">
       <EntityPicker id="compare-blocks" label="Add an organization or grouping" />
+      <fieldset class="measure" data-measure>
+        <legend>Count</legend>
+        <label><input type="radio" name="measure" value="count" checked /> Countries</label>
+        <label><input type="radio" name="measure" value="population" /> Population</label>
+        <label><input type="radio" name="measure" value="area" /> Land area</label>
+      </fieldset>
     </div>
     <ul class="chips js-only" data-chips aria-label="Selected organizations"></ul>
     <p class="explorer-status" role="status" aria-live="polite" data-status></p>
@@ -35,12 +59,40 @@ import { path } from '../../../lib/urls';
       </p>
       <div class="mini-maps" data-mini-grid></div>
     </section>
+    <section class="js-only" aria-labelledby="compare-size">
+      <h2 id="compare-size">Size</h2>
+      <div class="size-grid" data-size></div>
+      <p class="muted small" data-size-note></p>
+    </section>
+    <section class="js-only" aria-labelledby="compare-pairs">
+      <h2 id="compare-pairs">Pairwise overlap</h2>
+      <p class="small" data-pairs-lead></p>
+      <div class="table-wrap" data-pairs tabindex="0" role="region" aria-label="Pairwise overlap"></div>
+    </section>
+    <section class="js-only" aria-labelledby="compare-parts">
+      <h2 id="compare-parts">Composition</h2>
+      <h3>By continent</h3>
+      <div class="table-wrap" data-continents tabindex="0" role="region" aria-label="Composition by continent"></div>
+      <p class="muted small" data-continents-note></p>
+      <h3>By World Bank income group</h3>
+      <div class="table-wrap" data-income></div>
+      <p class="muted small">
+        Income groups are World Bank groupings in internacia-db, the same memberships as any other: a
+        member in none of them is not classified by the World Bank.
+      </p>
+    </section>
+    <section class="js-only" aria-labelledby="compare-profiles">
+      <h2 id="compare-profiles">Profiles</h2>
+      <div class="table-wrap" data-profiles></div>
+      <p class="muted small">"Not recorded" means internacia-db holds no value. For institutional design, that is not the same as "none", which is a value of its own.</p>
+    </section>
     <details open>
-      <summary class="small">Data behind this chart</summary>
+      <summary class="small">Countries and territories in the comparison</summary>
       <div class="table-wrap" id="compare-table" data-table>
         <p class="muted small">This explorer needs JavaScript. Each organization's members are on its card.</p>
       </div>
     </details>
+    <script type="application/json" id="compare-labels" set:html={labelsJson} />
   </section>
   <script>
     import '../../../scripts/compare.ts';

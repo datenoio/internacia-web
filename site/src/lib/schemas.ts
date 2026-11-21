@@ -32,6 +32,14 @@ const metaDef: Schema = {
   additionalProperties: false,
 };
 
+// population and area (SPEC §4.4): value with year (null when unknown) and source.
+const indicator = {
+  type: ['object', 'null'],
+  required: ['value', 'year', 'source', 'source_id'],
+  properties: { value: { type: 'number' }, year: { type: ['integer', 'null'] }, source: strOrNull, source_id: strOrNull },
+  additionalProperties: false,
+};
+
 const idValue = { type: 'object', required: ['id', 'value'], properties: { id: str, value: str } };
 
 const membership: Schema = {
@@ -315,7 +323,7 @@ export const SCHEMAS: Record<string, Schema> = {
         items: {
           type: 'object',
           required: ['code', 'iso3code', 'name', 'entity_type', 'code_status', '_current_member_count', '_html', '_json'],
-          properties: { code: str, iso3code: str, name: str, flag_emoji: strOrNull, continents: { type: 'array', items: str }, subregion: strOrNull, entity_type: str, code_status: str, un_status: strOrNull, _current_member_count: int, _html: url, _json: url },
+          properties: { code: str, iso3code: str, name: str, flag_emoji: strOrNull, continents: { type: 'array', items: str }, subregion: strOrNull, entity_type: str, code_status: str, un_status: strOrNull, population: { ...indicator, description: 'Population: value, year (null when unknown) and source.' }, area: { ...indicator, description: 'Land area in km²: value, year (null when unknown) and source.' }, _current_member_count: int, _html: url, _json: url },
           additionalProperties: false,
         },
       },

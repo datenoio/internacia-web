@@ -148,6 +148,13 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   `content-visibility: auto` and explicit ARIA table roles. A plain 1,275-row table scored 0.77.
 - In `.astro` templates, build sentences that end in punctuation as one string expression:
   JSX-style whitespace otherwise leaves a space before the period.
+- The compare explorer (`scripts/compare.ts`) colours by combination only for two intblocks (the
+  map's three slots); from three on it adds one small map per intblock (`data-static`: regions not
+  focusable, one `role="img"` canvas). It sums population and land area from
+  `/api/v1/countries.json` and states years and sources; never sort or colour countries by them
+  (SPEC §2.2). Income groups are the `wbgroup` intblocks HIC, UMC, LMC and LIC, not `incomeLevel`.
+- Compare rosters are every current country or territory entry, observers and partners included;
+  the table shows each entry's status, so never call them all "members".
 - Widgets under `/embed/` use `layouts/Embed.astro`: no header, `<base target="_blank">`,
   `noindex`, canonical URL = the card, theme from `?theme=` only (never storage). A card shows its
   embed code exactly when the widget exists (`lib/embed.ts` `blockEmbeddable`,

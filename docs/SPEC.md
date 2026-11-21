@@ -511,7 +511,7 @@ Formal intergovernmental organization, regional scope. Founded 1967. Headquarter
 | Endpoint | Contents | Size budget (gzip) |
 |----------|----------|-------------------:|
 | `index.json` | Entry points, counts, version | 2 KB |
-| `countries.json` | Lite list: code, iso3, name, flag, continent, subregion, entity type, code status, UN status, current membership count | 30 KB |
+| `countries.json` | Lite list: code, iso3, name, flag, continent, subregion, entity type, code status, UN status, population and land area (value, year, source), current membership count | 30 KB |
 | `countries/{CODE}.json` | Full country record + `memberships` (current and former, with block name and type) + `similar` | 40 KB |
 | `blocks.json` | Lite list: id, name, acronyms, block types, status, scope, founded, HQ country, member count | 120 KB |
 | `blocks/{ID}.json` | Full intblock record (including full-JSON-only fields) + resolved roster with country names | 60 KB |
@@ -840,6 +840,8 @@ Decisions taken when V6 was extended (after M3c):
   its table row name the intblocks. Choosing an UpSet column shows that combination alone on the
   overlap map and in the table. Small maps are not focusable (six maps of 250 regions); the table
   carries the same facts for the keyboard.
+- **Rosters** are every current country or territory entry of each intblock, observers and
+  partners included (the UN's 195, BRICS+'s 21); the table names each entry's status.
 - **Measure.** The UpSet chart, the overlap matrix and the composition tables count countries,
   population or land area (`?measure=`). Population and land area are summed over the members
   that have a value; the summary gives the number summed, the years and the sources, and the share

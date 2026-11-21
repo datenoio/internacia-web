@@ -142,12 +142,20 @@ export const groupOf = (status: string): Group =>
   status === 'member' || status === 'founding_member' ? 'm' : status === 'observer' ? 'o' : status === 'former_member' ? 'f' : 'p';
 
 // UpSet chart (SPEC §8, V6): set sizes on the left, exclusive intersections as columns, and a dot
-// matrix telling which sets each column combines. Columns are focusable buttons.
-export function upset(opts: { sets: { label: string; size: number }[]; combos: { mask: number; size: number }[]; title: string; selected?: number | null }): string {
-  const { sets, combos, title, selected = null } = opts;
+// matrix telling which sets each column combines. Columns are focusable buttons. `format` writes
+// the sizes (default: counts); the compare explorer passes population or land area.
+export function upset(opts: {
+  sets: { label: string; size: number }[];
+  combos: { mask: number; size: number }[];
+  title: string;
+  selected?: number | null;
+  format?: (v: number) => string;
+}): string {
+  const { sets, combos, title, selected = null, format = n } = opts;
   const rowH = 22;
   const left = 190;
-  const colW = 26;
+  // Columns widen for longer value labels ("542M"); the bar itself stays 18px wide.
+  const colW = Math.max(26, ...combos.map((c) => format(c.size).length * 7 + 8));
   const barTop = 22;
   const barH = 140;
   const W = left + Math.max(1, combos.length) * colW + 20;
@@ -161,22 +169,22 @@ export function upset(opts: { sets: { label: string; size: number }[]; combos: {
     const y = matrixTop + i * rowH;
     const w = (s.size / setMax) * 70;
     parts.push(
-      `<rect class="setbar" x="${left - 80 - w}" y="${y + 5}" width="${w}" height="10" rx="2"/><text x="${left - 86 - w}" y="${y + 14}" text-anchor="end" class="muted">${n(s.size)}</text><text x="${left - 6}" y="${y + 14}" text-anchor="end">${esc(s.label)}</text>`,
+      `<rect class="setbar" x="${left - 80 - w}" y="${y + 5}" width="${w}" height="10" rx="2"/><text x="${left - 86 - w}" y="${y + 14}" text-anchor="end" class="muted">${esc(format(s.size))}</text><text x="${left - 6}" y="${y + 14}" text-anchor="end">${esc(s.label)}</text>`,
     );
   });
   combos.forEach((c, j) => {
     const x = left + j * colW;
     const h = (c.size / max) * barH;
     const members = sets.map((s, i) => ((c.mask >> i) & 1 ? s.label : null)).filter(Boolean) as string[];
-    const label = `${members.join(' and ')}${members.length < sets.length ? ' only' : ''}: ${n(c.size)}`;
+    const label = `${members.join(' and ')}${members.length < sets.length ? ' only' : ''}: ${format(c.size)}`;
     const on = sets.map((_, i) => (c.mask >> i) & 1);
     const ys = on.map((v, i) => (v ? matrixTop + i * rowH + 10 : null)).filter((v) => v !== null) as number[];
     const link = ys.length > 1 ? `<line class="link" x1="${x + colW / 2}" x2="${x + colW / 2}" y1="${Math.min(...ys)}" y2="${Math.max(...ys)}"/>` : '';
     const dots = on.map((v, i) => `<circle class="dot${v ? ' on' : ''}" cx="${x + colW / 2}" cy="${matrixTop + i * rowH + 10}" r="5"/>`).join('');
     const sel = selected === c.mask ? ' selected' : '';
-    texts.push(`<text class="value" x="${x + colW / 2}" y="${barTop + barH - h - 4}" text-anchor="middle">${n(c.size)}</text>`);
+    texts.push(`<text class="value" x="${x + colW / 2}" y="${barTop + barH - h - 4}" text-anchor="middle">${esc(format(c.size))}</text>`);
     parts.push(
-      `<g class="col${sel}" tabindex="0" role="button" aria-pressed="${sel ? 'true' : 'false'}" aria-label="${esc(label)}" data-key="${c.mask}"><title>${esc(label)}</title><rect class="hit" x="${x}" y="${barTop}" width="${colW}" height="${H - barTop}"/><path class="bar series-1" d="${roundedTop(x + 4, barTop + barH - h, colW - 8, barTop + barH)}"/>${link}${dots}</g>`,
+      `<g class="col${sel}" tabindex="0" role="button" aria-pressed="${sel ? 'true' : 'false'}" aria-label="${esc(label)}" data-key="${c.mask}"><title>${esc(label)}</title><rect class="hit" x="${x}" y="${barTop}" width="${colW}" height="${H - barTop}"/><path class="bar series-1" d="${roundedTop(x + (colW - 18) / 2, barTop + barH - h, 18, barTop + barH)}"/>${link}${dots}</g>`,
     );
   });
   return `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="upset" role="group" aria-label="${esc(title)}"><line class="baseline" x1="${left}" x2="${W - 20}" y1="${barTop + barH}" y2="${barTop + barH}"/>${parts.join('')}<g aria-hidden="true">${texts.join('')}</g></svg>`;

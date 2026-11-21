@@ -51,7 +51,7 @@ export const nativeNameList = (
     }))
     .filter((n) => n.names.length > 0);
 
-const ENUM_LABELS: Record<string, Record<string, string>> = {
+export const ENUM_LABELS: Record<string, Record<string, string>> = {
   entity_type: {
     sovereign_state: 'Sovereign state',
     dependent_territory: 'Dependent territory',
