@@ -21,7 +21,7 @@ import {
   vocabLabel,
   yesNo,
 } from '../../../lib/format';
-import { borderStatusText } from '../../../lib/design';
+import { BORDER_EVIDENCE_NOTE, borderStatusText } from '../../../lib/design';
 import { countryEmbeddable } from '../../../lib/embed';
 import { countryLd } from '../../../lib/jsonld';
 import {
@@ -371,7 +371,7 @@ const toc = c
                       ))}
                     </ul>
                     <p class="muted small">
-                      Borders without a status have no recorded closure; that does not mean they were verified open.
+                      {`Borders without a status have no recorded closure; that does not mean they were verified open. ${BORDER_EVIDENCE_NOTE}`}
                     </p>
                   </>
                 )}

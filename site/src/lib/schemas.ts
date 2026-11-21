@@ -128,7 +128,7 @@ const country: Schema = {
           name: strOrNull,
           status: {
             ...strOrNull,
-            description: 'Current crossing status from border_status (closed, restricted; open enum). Null when no closure is recorded, which does not mean the border is verified open.',
+            description: 'Current crossing status from border_status (closed, restricted; open enum). Null when no closure is recorded, which does not mean the border is verified open. Most rows rest on official travel advice, which describes crossings for travellers: a closed border can still carry some freight.',
           },
           border_status: {
             type: ['object', 'null'],

@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft 0.1 — for review |
 | **Date** | 2026-11-19 |
-| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v4.1.0 (contract 4.1) |
+| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v4.2.0 (contract 4.2) |
 | **Owner** | Dateno ([datenoio](https://github.com/datenoio)) |
 | **Hosting** | GitHub Pages, custom domain (to be registered; written as `<DOMAIN>` below) |
 
@@ -29,7 +29,7 @@ All corrections go to internacia-db.
 
 1. **Make the product visible.** Anyone can see what internacia-db contains, how complete it is
    and how current it is, without installing anything.
-2. **One card per entity.** Every country (256), intblock (1,279), block type (82) and topic
+2. **One card per entity.** Every country (256), intblock (1,282), block type (82) and topic
    (153) has its own permanent page.
 3. **Answer common questions visually.** Who belongs to X? What does country Y belong to? What do
    X and Z have in common? When were these organizations founded? Where are they based?
@@ -104,10 +104,10 @@ The repository commits a lock file, `internacia.lock.json`:
 ```json
 {
   "repository": "datenoio/internacia-db",
-  "tag": "v4.1.0",
-  "git_commit": "65576f970ab63a8d826856f1fd435a13364ca4e3",
+  "tag": "v4.2.0",
+  "git_commit": "2c67091e09ff8ccf1d307128329bbe38b7a78b03",
   "contract_major": 4,
-  "sha256sums_sha256": "868896de74358c3f408ff6cbf36fd5cd755076d20604b79cf70ad3ea6f8e8723"
+  "sha256sums_sha256": "7ebe751f0c8d21a793828a72b133ccc4d5a4fc78fdb8094df94d818d00a5ade3"
 }
 ```
 
@@ -184,26 +184,29 @@ The site's data code must follow them.
 - `border_status` (v4.1.0) lists recorded closures and restrictions of land borders, one row per
   pair of alpha-3 codes. A row without `until` is current (the `country_borders` view's rule). No
   row means no closure is recorded, not that the border is verified open; the card says so.
+  Evidence limit (documented from v4.2.0): most rows rest on official travel advice, which
+  describes crossings for travellers, so a `closed` border can still carry some freight. The card
+  and its Markdown twin say so in the same words (`BORDER_EVIDENCE_NOTE`, `lib/design.ts`).
 - Aliases with `reason = disambiguated` must not become redirects: the old ID now names a
   different entity. Show a disambiguation page instead.
 
-### 4.5 Baseline figures (v4.1.0)
+### 4.5 Baseline figures (v4.2.0)
 
 For sizing only; the site computes all figures at build time.
 
 | Measure | Value |
 |---------|------:|
 | Country records / ISO 3166-1 entries | 256 / 249 |
-| Intblocks | 1,279 |
+| Intblocks | 1,282 |
 | Block types (deprecated) / topics | 82 (1) / 153 |
-| Membership edges / current / with `joined` date / with `left` date | 57,311 / 56,241 / 17,264 / 342 |
-| Membership edges with a route `role` / intblocks with roles | 49 / 20 |
-| Intblocks with `founded` / headquarters / `partof` | 1,181 / 874 / 345 |
-| Intblocks with Wikidata ID / `last_verified` / `institutional_design` | 1,107 / 1,199 / 34 |
-| `border_status` rows | 6 |
+| Membership edges / current / with `joined` date / with `left` date | 57,325 / 56,255 / 17,264 / 342 |
+| Membership edges with a route `role` / intblocks with roles | 63 / 23 |
+| Intblocks with `founded` / headquarters / `partof` | 1,184 / 874 / 345 |
+| Intblocks with Wikidata ID / `last_verified` / `institutional_design` | 1,110 / 1,203 / 108 |
+| `border_status` rows | 18 |
 | Languages in intblock `other_names` | 78 |
 | Country `native_names` entries / languages | 388 / 126 |
-| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 5.0 MB / 710 KB / 98 KB |
+| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 5.3 MB / 717 KB / 98 KB |
 
 ## 5. Information architecture and URLs
 
@@ -234,7 +237,7 @@ All paths end with a slash for HTML. Machine twins use the same slug with an ext
 - `{code}`: country alpha-2 code in lowercase (`/countries/fr/`).
 - `{id}`: intblock ID in lowercase (`/blocks/nato/`, `/blocks/g-20/`, `/blocks/afcfta/`). IDs use
   letters, digits, `-`, `_` and `+` (`G8+5`; GitHub Pages serves `/blocks/g8+5/` as is). The build
-  fails if two IDs collide after lowercasing (none do in v4.1.0).
+  fails if two IDs collide after lowercasing (none do in v4.2.0).
 - JSON paths keep the **exact** ID (`/api/v1/blocks/AfCFTA.json`) so agents can build URLs from
   data without transformation. A lowercase JSON alias is not generated.
 - `{key}`: block type or topic key as in the data (snake_case).
@@ -320,7 +323,7 @@ the header sticks to the top of the window (also on the intblock card).
 
 ### 6.4 Intblocks index
 
-- Table of all 1,279 intblocks: name, acronym, block type(s), status, scope category, geographic
+- Table of all 1,282 intblocks: name, acronym, block type(s), status, scope category, geographic
   scope, founded, headquarters country, number of current member countries.
 - Filters: block type, status (formal / informal / de-facto / historical), scope category,
   geographic scope, region, topic, founded range, "active only" (default on, with a visible
@@ -497,7 +500,7 @@ Formal intergovernmental organization, regional scope. Founded 1967. Headquarter
 - Described by `/api/v1/openapi.json` (OpenAPI 3.1). Response bodies have JSON Schemas under
   `/api/v1/schemas/`.
 - Every document has a `meta` object:
-  `{"data_version": "4.1.0", "contract_version": "4.1", "built_at": "…", "license": "CC-BY-4.0", "source": "https://github.com/datenoio/internacia-db/releases/tag/v4.1.0", "html": "…", "markdown": "…"}`.
+  `{"data_version": "4.2.0", "contract_version": "4.2", "built_at": "…", "license": "CC-BY-4.0", "source": "https://github.com/datenoio/internacia-db/releases/tag/v4.2.0", "html": "…", "markdown": "…"}`.
   `built_at` is the build time of the data release, so output is reproducible. Country documents
   add `license_notes`: `centroid` values come from mledoze/countries under ODbL-1.0.
 - Entity documents have the shape `{"meta": {…}, "data": {…}}`; lists add `count`. The JSON at a
@@ -670,7 +673,7 @@ Generated data (`.cache/`, `site/src/generated/`) is not committed.
 ### 10.3 Build pipeline
 
 ```text
-fetch.py ──► .cache/internacia/v4.1.0/  (assets + vocab files, verified)
+fetch.py ──► .cache/internacia/v4.2.0/  (assets + vocab files, verified)
    │
 build_data.py ──► site/src/generated/*.json  (cards, indexes, stats, search index, aliases)
    │
@@ -748,7 +751,7 @@ The build fails when any of these checks fails.
 | Check | Rule |
 |-------|------|
 | Integrity | [§4.3](#43-verification) checks pass |
-| Count parity | Country cards = rows in `countries` (256 in v4.1.0); intblock cards = rows in `intblocks` (1,279); type pages = 82; topic pages = distinct topic keys |
+| Count parity | Country cards = rows in `countries` (256 in v4.2.0); intblock cards = rows in `intblocks` (1,282); type pages = 82; topic pages = distinct topic keys |
 | Roster parity | For every intblock, the number of current members on the card = rows in `current_memberships` for it |
 | Twin parity | For a sample of 50 entities (and all featured ones), HTML, Markdown and JSON carry the same codes, names, statuses and dates; for every entity, route roles (HTML, Markdown, JSON, CSV) and border status (HTML, Markdown, JSON) agree |
 | JSON validity | Every `/api/v1/` file validates against its schema in `/api/v1/schemas/` and against `openapi.json` |
@@ -816,7 +819,7 @@ belong to, not by combination, because combinations outnumber distinguishable co
 chart and the table give the combinations. The headquarters map (V5) and the hierarchy (V8) are
 rendered at build time and work without JavaScript; the hierarchy places each link next to, not
 inside, the `<summary>` that opens its branch. The accession timeline (V3) is offered only for
-intblocks where at least 30 % of country entries have a joining date (the EU has none in v4.1.0).
+intblocks where at least 30 % of country entries have a joining date (the EU has none in v4.2.0).
 
 Decisions taken in M2c: Pagefind indexes the text of every page that names a search section, but
 not tables, charts, maps, link lists or provenance, so a search for an organization finds its card

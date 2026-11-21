@@ -47,6 +47,11 @@ export function designRows(design: InstitutionalDesign | null | undefined): Desi
 
 export const hasDesign = (b: Block): boolean => designRows(b.institutional_design).length > 0;
 
+// Evidence limit of border_status (internacia-db v4.2.0, docs/ai-consumers.md): shown under the
+// border notes of the card and its Markdown twin, and checked in both by check_site.py.
+export const BORDER_EVIDENCE_NOTE =
+  'Most entries rest on official travel advice, which describes crossings for travellers: a border marked closed can still carry some freight.';
+
 // "Closed since 1994", "Restricted", "Closed until 2001": the period as the data gives it.
 export function borderStatusText(s: BorderStatus): string {
   const label = enumLabel('border_status', s.status);

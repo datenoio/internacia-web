@@ -2,7 +2,7 @@
 // absolute links, so an agent can join without a second lookup.
 import { CENTROID_NOTE, LICENSE } from './api';
 import { blockById, type Block, type Country } from './data';
-import { borderStatusText, designRows } from './design';
+import { BORDER_EVIDENCE_NOTE, borderStatusText, designRows } from './design';
 import { blocktypeDeprecated, blocktypeLabel, enumLabel, nativeNameList, num, roleLabel, statusDeprecated, statusLabel, topicLabel, vocabLabel } from './format';
 import { meta } from './meta';
 import { absolute, blockJson, blockPath, countryJson, countryPath } from './urls';
@@ -104,7 +104,7 @@ export function countryMarkdown(c: Country): string {
       ['Centroid', c.centroid ? `${c.centroid.lat}, ${c.centroid.lng} (ODbL-1.0, mledoze/countries)` : undefined],
     ]),
     borderNotes.length
-      ? `\n## Border crossing status\n\nNo entry means no closure is recorded, not that a border was verified open.\n\n${table(
+      ? `\n## Border crossing status\n\nNo entry means no closure is recorded, not that a border was verified open. ${BORDER_EVIDENCE_NOTE}\n\n${table(
           ['Neighbour', 'Status', 'Since', 'Until', 'Note', 'Last verified', 'Sources'],
           borderNotes.map((b) => {
             const s = b.border_status!;

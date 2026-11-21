@@ -53,6 +53,10 @@ MAP_DATA = re.compile(r'<script type="application/json" data-map-data>(.*?)</scr
 CANONICAL = re.compile(r'<link rel="canonical" href="([^"]+)"')
 LIST_BLOCK = re.compile(r'<li data-block="([^"]+)"')
 BORDER_ITEM = re.compile(r'<li data-border="([A-Z]{3})"(?: data-status="([^"]*)")?')
+# The border_status evidence limit, read from its one definition so the check and the pages agree.
+BORDER_EVIDENCE_NOTE = re.search(
+    r"BORDER_EVIDENCE_NOTE =\s*'([^']+)'", (ROOT / "site" / "src" / "lib" / "design.ts").read_text(encoding="utf-8")
+).group(1)
 
 
 class Report:
@@ -252,9 +256,12 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
             html = (dist / f"countries/{code.lower()}/index.html").read_text(encoding="utf-8")
             h = set(BORDER_ITEM.findall(html))
             noted = [b for b in country["_borders"] if b.get("border_status")]
-            _, rows = md_table((dist / f"countries/{code.lower()}.md").read_text(encoding="utf-8"), "Border crossing status")
+            md = (dist / f"countries/{code.lower()}.md").read_text(encoding="utf-8")
+            _, rows = md_table(md, "Border crossing status")
             if j != h or len(rows) != len(noted):
                 problems.append(f"country {code}: border status differs (JSON {len(j)}, HTML {len(h)}, Markdown {len(rows)} of {len(noted)})")
+            if noted and not (BORDER_EVIDENCE_NOTE in html and BORDER_EVIDENCE_NOTE in md):
+                problems.append(f"country {code}: border status evidence note missing (HTML or Markdown)")
     report.check("route roles and border status", problems)
 
     # JSON validity and schemas (the schemas are the published ones, read from dist)
