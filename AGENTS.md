@@ -45,7 +45,7 @@ images (`/og/…png`). M3a adds embeddable widgets (`/embed/`, `public/embed/wid
 - `.github/workflows/data-bump.yml` — daily; `pipeline/bump.py` moves the lock to a newer release,
   the workflow builds and checks the site and opens a pull request.
 - The pipeline reads one internacia-db contract MAJOR, `CONTRACT_MAJOR` in `pipeline/lock.py`
-  (currently 4; the lock pins v4.2.0, contract 4.2). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
+  (currently 4; the lock pins v4.3.0, contract 4.3). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
   is; a lock with another `contract_major` fails to load. For a new MAJOR, raise the constant
   together with the code the new contract needs, then run `bump.py update` in the same pull request.
 
@@ -76,7 +76,8 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   never look up `native_names.en` (English names are `name` and `official_name`).
 - Deprecated include statuses (`associate`, `associated_observer`) stay valid until the next
   MAJOR. Card membership and roster tables and their Markdown twins show the status's own label
-  with "(deprecated label)" (`statusDeprecated`); never remap them to `associate_member`.
+  with "(deprecated label)" (`statusDeprecated`); never remap them to `associate_member`. No
+  record uses them in v4.3.0; keep the handling until a MAJOR removes them.
 - `historical-country` roster entries reuse current codes (`DE` is the GDR in such rows): never
   link them to country cards, never count them as a country's memberships.
 - An intblock alias with reason `disambiguated` gets an explanation page, never a redirect; when
@@ -92,12 +93,14 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   earlier column positions stay.
 - `institutional_design`: an absent object or subfield means unknown, never "none"; `none` inside
   `independent_organs` or `enforcement` is a value. `veto_holders` are alpha-2 codes.
-- Do not read the `country_borders` view: it needs DuckDB 2.0, although `contract.json` says
-  `min_duckdb` 1.5.4 (DuckDB 1.5.4 raises "Non-inner join on correlated columns not supported").
-  `derive.py` applies its rule to the `border_status` table: a row without `until` is current. No
-  row means no closure is recorded, never "open". Most rows rest on travel advice, which describes
-  crossings for travellers (a `closed` border may still carry freight): the card and its Markdown
-  twin say so with `BORDER_EVIDENCE_NOTE` (`lib/design.ts`); do not call a border "closed to goods".
+- Card border facts come from the `border_status` table (note, dates, sources): `derive.py`
+  applies the `country_borders` view's rule (a row without `until` is current) and
+  `check_border_rule` fails the build if the result differs from the view. The view runs on DuckDB
+  1.5.4 from v4.3.0; releases before it raise "Non-inner join on correlated columns not
+  supported" there. No row means no closure is recorded, never "open". Most rows rest on travel
+  advice, which describes crossings for travellers (a `closed` border may still carry freight):
+  the card and its Markdown twin say so with `BORDER_EVIDENCE_NOTE` (`lib/design.ts`); do not
+  call a border "closed to goods".
 - Block type `intorg` is deprecated (contract 4.1) and stays on 358 records, always last. Never
   select intergovernmental organizations by block type; use `scope_category = 'igo'`.
 - A list of links with separators (`, `, `; `) must be one line in `.astro`: `{xs.map((x, i) =>

@@ -161,6 +161,23 @@ def border_is_current(row: dict | None) -> bool:
     return bool(row) and not row.get("until")
 
 
+def check_border_rule(release: Release) -> None:
+    """Fail if border_is_current disagrees with the release's country_borders view: the current
+    status of every (country, land neighbour) pair, or None when no closure is recorded."""
+    rows = border_status_by_pair(release)
+    computed = {}
+    for country in release.countries:
+        for iso3 in country.get("borders") or []:
+            row = rows.get(frozenset((country.get("iso3code"), iso3)))
+            computed[(country["code"], iso3)] = row["status"] if border_is_current(row) else None
+    if computed != release.country_borders:
+        view, absent = release.country_borders, object()
+        differ = sorted(k for k in computed.keys() | view.keys() if computed.get(k, absent) != view.get(k, absent))
+        raise DeriveError(
+            f"border-status rule disagrees with the country_borders view on {len(differ)} pairs (e.g. {differ[:3]})"
+        )
+
+
 def _border_entry(row: dict | None) -> dict | None:
     if not row:
         return None
