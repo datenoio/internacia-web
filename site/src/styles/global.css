@@ -2143,3 +2143,18 @@ body.embed-page {
   border-radius: var(--radius);
   min-height: 3rem;
 }
+
+/* Compare explorer (scripts/compare.ts): a small map per organization from three on. */
+.mini-maps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+.map.mini {
+  margin: 0;
+}
+
+.map.mini figcaption {
+  margin: 0 0 var(--space-1);
+}

@@ -6,13 +6,15 @@ import { worldMap } from '../lib/worldmap';
 interface Props {
   id: string;
   label: string;
+  // id of an element holding a table with tr[data-member] rows (scripts/map.ts data-link-table)
+  linkTable?: string;
 }
 
-const { id, label } = Astro.props;
+const { id, label, linkTable } = Astro.props;
 const ratio = `--map-ratio: ${worldMap().width} / ${worldMap().height}`;
 ---
 
-<figure class="map" id={id} data-map data-src={path('assets/world.svg')} data-card-base={path('countries/')}>
+<figure class="map" id={id} data-map data-src={path('assets/world.svg')} data-card-base={path('countries/')} data-link-table={linkTable}>
   <button type="button" class="map-zoom js-only" data-map-zoom data-in="Zoom to the countries shown" data-out="Show the whole world" hidden>
     Show the whole world
   </button>

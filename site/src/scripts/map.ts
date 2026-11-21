@@ -11,6 +11,10 @@
 // nothing changes size); its [data-map-zoom] button switches to the whole world and back. Dots
 // keep their size when zoomed. A figure with data-link-table highlights the table row of the
 // region under the pointer, and the region of the row under the pointer.
+//
+// A figure with data-static colours its regions and shows the tooltip on hover, but its regions
+// are not focusable: its .map-canvas is one role="img" with a text summary (the compare explorer's
+// small maps, where six maps of focusable regions would bury the keyboard; its table has the facts).
 
 export type MapEntry = [string, string, string, string]; // css class, value label, joined, name
 
@@ -184,6 +188,7 @@ export async function renderMap(figure: HTMLElement, data: Record<string, MapEnt
   }
   const state = wire(figure, canvas);
   state.data = data;
+  const focusable = figure.dataset.static === undefined;
   canvas.querySelectorAll<SVGElement>('[data-code]').forEach((el) => {
     const previous = el.dataset.cls;
     if (previous) el.classList.remove(previous);
@@ -196,6 +201,7 @@ export async function renderMap(figure: HTMLElement, data: Record<string, MapEnt
     if (!entry) return;
     el.classList.add('has', entry[0]);
     el.dataset.cls = entry[0];
+    if (!focusable) return;
     el.setAttribute('tabindex', '0');
     el.setAttribute('role', figure.dataset.cardBase ? 'link' : 'img');
     el.setAttribute('aria-label', `${entry[3]}: ${entry[1]}${entry[2] ? `, joined ${entry[2]}` : ''}`);
