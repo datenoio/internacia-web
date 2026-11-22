@@ -45,7 +45,7 @@ images (`/og/…png`). M3a adds embeddable widgets (`/embed/`, `public/embed/wid
 - `.github/workflows/data-bump.yml` — daily; `pipeline/bump.py` moves the lock to a newer release,
   the workflow builds and checks the site and opens a pull request.
 - The pipeline reads one internacia-db contract MAJOR, `CONTRACT_MAJOR` in `pipeline/lock.py`
-  (currently 4; the lock pins v4.3.0, contract 4.3). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
+  (currently 4; the lock pins v4.4.0, contract 4.4). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
   is; a lock with another `contract_major` fails to load. For a new MAJOR, raise the constant
   together with the code the new contract needs, then run `bump.py update` in the same pull request.
 
@@ -77,7 +77,7 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
 - Deprecated include statuses (`associate`, `associated_observer`) stay valid until the next
   MAJOR. Card membership and roster tables and their Markdown twins show the status's own label
   with "(deprecated label)" (`statusDeprecated`); never remap them to `associate_member`. No
-  record uses them in v4.3.0; keep the handling until a MAJOR removes them.
+  record uses them from v4.3.0 on; keep the handling until a MAJOR removes them.
 - `historical-country` roster entries reuse current codes (`DE` is the GDR in such rows): never
   link them to country cards, never count them as a country's memberships.
 - An intblock alias with reason `disambiguated` gets an explanation page, never a redirect; when
@@ -101,8 +101,15 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   advice, which describes crossings for travellers (a `closed` border may still carry freight):
   the card and its Markdown twin say so with `BORDER_EVIDENCE_NOTE` (`lib/design.ts`); do not
   call a border "closed to goods".
-- Block type `intorg` is deprecated (contract 4.1) and stays on 358 records, always last. Never
-  select intergovernmental organizations by block type; use `scope_category = 'igo'`.
+- Block type `intorg` is deprecated (contract 4.1) and stays on 358 records, never first. Never
+  select intergovernmental organizations by block type; use `scope_category = 'igo'`. `eccurr`
+  (`OECS`) and `cuscurr` (`CEMAC`, `UEMOA`) are deprecated from contract 4.4, last on their records;
+  the type page links the replacements (`economic`/`customs` with `currency`). Type pages and
+  cards mark deprecated types from the `blocktypes` table, so no code lists them by name.
+- Primary block type `currency` means a currency union with its roster (`EUROAREA`), dissolved
+  ones included (`LMU`, status `historical`); secondary `currency` also marks organizations that
+  administer a currency (`UEMOA`) and central banks (`ECB`). Never call a secondary `currency`
+  record's members a currency roster.
 - A list of links with separators (`, `, `; `) must be one line in `.astro`: `{xs.map((x, i) =>
   <>{i > 0 && ', '}<a>…</a></>)}`. A line break inside the fragment puts a space before the comma.
 - The base map is one static SVG (`/assets/world.svg`, Natural Earth 1:110m); records without a
@@ -143,8 +150,9 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
 - `npm run build` runs `astro build` and then Pagefind. A page is indexed only when its `Base`
   gets a `section` prop; alias, search and 404 pages must not get one. Tables, charts and maps
   are excluded from the index in the build script.
-- Social images (`src/lib/og.ts`) take about 50 ms each; keep their SVG simple. Site size is near
-  the 300 MB target, so check `du -sh site/dist` when adding per-entity files.
+- Social images (`src/lib/og.ts`) take about 50 ms each; keep their SVG simple. Site size is above
+  the 300 MB target (about 375 MB with v4.4.0, 322 MB with v4.3.0), so check `du -sh site/dist`
+  when adding per-entity files.
 - Coverage on the Statistics page follows internacia-db's `*_completeness.yaml` gates; records
   empty by design (`timezone_status`, `membership_applicability`) count as filled.
 - Tables with hundreds of rows use the `chunked` class: rows in `<tbody>` chunks with
