@@ -23,8 +23,8 @@ export const GET: APIRoute = ({ props }) => {
       reason: a.reason,
       since: a.since,
       note: a.note ?? null,
-    });
+    }, false);
   }
   const b = blockById().get(props.id)!;
-  return json({ meta: apiMeta({ html: blockPath(b.id), markdown: blockMd(b.id) }), data: b });
+  return json({ meta: apiMeta({ html: blockPath(b.id), markdown: blockMd(b.id) }), data: b }, false);
 };

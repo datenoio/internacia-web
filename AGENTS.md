@@ -68,7 +68,10 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
 ## Gotchas
 
 - `compressHTML` is off in `site/astro.config.mjs`: Astro's compression drops the space between
-  text and a link on the next line.
+  text and a link on the next line. The `trim-html` integration (`site/scripts/trim-html.mjs`)
+  removes template indentation after the build instead and keeps each line break, so the space
+  stays. Only `<pre>` (plus `<textarea>`, `<script>`, `<style>`) keeps its whitespace: never rely
+  on `white-space: pre` or `pre-wrap` on another element.
 - `_meta.git_commit` in the release is a short hash; the lock file holds the full one.
 - `native_names` (contract 4) is keyed by the entity's own languages, ISO 639-1 or else 639-3
   (`prs`, `gsw`), and either `official` or `common` may be null. Read it through `nativeNameList`
@@ -150,9 +153,11 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
 - `npm run build` runs `astro build` and then Pagefind. A page is indexed only when its `Base`
   gets a `section` prop; alias, search and 404 pages must not get one. Tables, charts and maps
   are excluded from the index in the build script.
-- Social images (`src/lib/og.ts`) take about 50 ms each; keep their SVG simple. Site size is above
-  the 300 MB target (about 375 MB with v4.4.0, 322 MB with v4.3.0), so check `du -sh site/dist`
-  when adding per-entity files.
+- Social images (`src/lib/og.ts`) take about 50 ms each; keep their SVG simple. They use about
+  eight colours, so a smaller palette saves nothing. Site size is about 272 MB with v4.4.0
+  (target ≤ 300 MB, SPEC §10.3; it was 375 MB before indentation was removed); check
+  `du -sh site/dist` when adding per-entity files. Write per-entity JSON with
+  `json(body, false)`: indentation was a third of the API's bytes.
 - Coverage on the Statistics page follows internacia-db's `*_completeness.yaml` gates; records
   empty by design (`timezone_status`, `membership_applicability`) count as filled.
 - Tables with hundreds of rows use the `chunked` class: rows in `<tbody>` chunks with
