@@ -689,7 +689,14 @@ checks (§12) ──► deploy to GitHub Pages
 ```
 
 - Target build time on GitHub Actions: ≤ 10 minutes.
-- Output size target: ≤ 300 MB (GitHub Pages limit is 1 GB).
+- Output size target: ≤ 300 MB (GitHub Pages limit is 1 GB). With v4.4.0 the site is about 272 MB
+  (`du -sh site/dist`; 248 MB of file content): blocks 88 MB, countries 49 MB, API 51 MB, social
+  images 44 MB, widgets 20 MB, Pagefind 10 MB. Template indentation was 84 MB of the HTML and
+  JSON indentation 25 MB of the API, so the build removes both: `site/scripts/trim-html.mjs`
+  turns each whitespace run with a line break in text into one line break (the page renders the
+  same; `<pre>`, `<textarea>`, `<script>` and `<style>` are kept as they are), and lists and
+  per-entity documents are written without indentation (the index, OpenAPI description, schemas
+  and aliases stay indented). Before that the site was 375 MB with v4.4.0.
 - The build is reproducible for a given lock file and commit, except timestamps.
 
 ### 10.4 Performance budgets
@@ -885,7 +892,8 @@ the height and title; it accepts messages only from its own frame and origin. Wi
 Markdown or JSON twin: the card and its twins hold the facts. `/embed/` documents the widgets,
 with live examples. Country lists are compact strings (France has about 500 entries); the widgets
 add about 17 MB, so the site is about 305 MB, above the 300 MB target of §10.3 and well under the
-1 GB limit of GitHub Pages; M3b must plan its size before adding languages.
+1 GB limit of GitHub Pages (§10.3 gives the current size, back under the target); M3b must plan
+its size before adding languages.
 
 - Custom domain live with HTTPS; `noindex` removed.
 - Interface translations into the UN languages ([§9.3](#93-language)).

@@ -22,6 +22,8 @@ export function apiMeta(opts: { html?: string; markdown?: string; notes?: string
   };
 }
 
+// Lists and per-entity documents pass pretty = false: indentation made up a third of the API's
+// bytes (site size, SPEC §10.3). The index, OpenAPI description, schemas and aliases stay indented.
 export function json(body: unknown, pretty = true): Response {
   return new Response(JSON.stringify(body, null, pretty ? 2 : undefined) + '\n', {
     headers: { 'Content-Type': 'application/json; charset=utf-8' },

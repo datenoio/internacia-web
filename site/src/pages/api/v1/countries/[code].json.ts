@@ -22,11 +22,11 @@ export const GET: APIRoute = ({ props }) => {
       reason: a.reason,
       since: a.since,
       note: a.note ?? null,
-    });
+    }, false);
   }
   const c = countryByCode().get(props.code)!;
   return json({
     meta: apiMeta({ html: countryPath(c.code), markdown: countryMd(c.code), notes: c.centroid ? [CENTROID_NOTE] : [] }),
     data: c,
-  });
+  }, false);
 };
