@@ -2,14 +2,32 @@
 import EntityPicker from '../../../components/EntityPicker.astro';
 import MapFrame from '../../../components/MapFrame.astro';
 import Base from '../../../layouts/Base.astro';
+import { blocktypes, labels } from '../../../lib/data';
+import { designFieldLabel, designFields, designValueLabel, ENUM_LABELS } from '../../../lib/format';
 import { path } from '../../../lib/urls';
+
+// Labels the profiles need in the browser (scripts/compare.ts): the same text as the cards.
+const pageLabels = {
+  blocktype: Object.fromEntries(blocktypes().map((t) => [t.id, t.name])),
+  // Deprecated statuses keep their own label, marked as on the cards (statusDeprecated).
+  statuses: Object.fromEntries(Object.entries(labels().statuses).map(([k, v]) => [k, v.deprecated ? `${v.name} (deprecated label)` : v.name])),
+  status: ENUM_LABELS.status,
+  scope_category: ENUM_LABELS.scope_category,
+  geographic_scope: ENUM_LABELS.geographic_scope,
+  design: designFields().map((field) => ({
+    field,
+    label: designFieldLabel(field),
+    values: Object.fromEntries(Object.keys(labels().institutional_design[field]?.values ?? {}).map((v) => [v, designValueLabel(field, v)])),
+  })),
+};
+const labelsJson = JSON.stringify(pageLabels).replace(/</g, '\\u003c');
 ---
 
 <Base
 
   section="Explore"
   title="Compare organizations"
-  description="Compare the member countries of two to six international organizations or groupings: what they share and what sets them apart."
+  description="Compare the member countries of two to six international organizations or groupings: what they share, where they are, their population and land area, and what they are made of."
   breadcrumbs={[
     { name: 'Explore', href: path('explore/') },
     { name: 'Compare organizations', href: path('explore/compare/') },
@@ -17,134 +35,67 @@ import { path } from '../../../lib/urls';
 >
   <section class="container page-head">
     <h1>Compare organizations</h1>
-    <p class="lead">Current member countries and territories of two to six intblocks, and how they overlap.</p>
+    <p class="lead">Countries and territories now in two to six intblocks, as members or with another status: how they overlap, where they are, how large they are and what they are made of.</p>
   </section>
   <section class="container" data-explorer="compare" data-base={path()}>
     <div class="explorer-controls js-only">
       <EntityPicker id="compare-blocks" label="Add an organization or grouping" />
+      <fieldset class="measure" data-measure>
+        <legend>Count</legend>
+        <label><input type="radio" name="measure" value="count" checked /> Countries</label>
+        <label><input type="radio" name="measure" value="population" /> Population</label>
+        <label><input type="radio" name="measure" value="area" /> Land area</label>
+      </fieldset>
+      <label class="inline"><input type="checkbox" data-input="members" /> Members only</label>
     </div>
     <ul class="chips js-only" data-chips aria-label="Selected organizations"></ul>
     <p class="explorer-status" role="status" aria-live="polite" data-status></p>
     <figure class="chart" data-chart style="overflow-x:auto"></figure>
-    <MapFrame id="compare-map" label="Countries by number of the selected organizations they belong to" />
+    <MapFrame id="compare-map" label="Countries by the selected organizations they belong to" linkTable="compare-table" />
+    <section class="js-only" data-minis aria-labelledby="compare-minis">
+      <h2 id="compare-minis">Each organization</h2>
+      <p class="small">
+        One map per organization. <span class="swatch g-p" aria-hidden="true"></span>Only in this one
+        · <span class="swatch g-m" aria-hidden="true"></span>Also in another selected organization.
+      </p>
+      <div class="mini-maps" data-mini-grid></div>
+    </section>
+    <section class="js-only" aria-labelledby="compare-size">
+      <h2 id="compare-size">Size</h2>
+      <div class="size-grid" data-size></div>
+      <p class="muted small" data-size-note></p>
+    </section>
+    <section class="js-only" aria-labelledby="compare-pairs">
+      <h2 id="compare-pairs">Pairwise overlap</h2>
+      <p class="small" data-pairs-lead></p>
+      <div class="table-wrap" data-pairs tabindex="0" role="region" aria-label="Pairwise overlap"></div>
+    </section>
+    <section class="js-only" aria-labelledby="compare-parts">
+      <h2 id="compare-parts">Composition</h2>
+      <h3>By continent</h3>
+      <div class="table-wrap" data-continents tabindex="0" role="region" aria-label="Composition by continent"></div>
+      <p class="muted small" data-continents-note></p>
+      <h3>By World Bank income group</h3>
+      <div class="table-wrap" data-income></div>
+      <p class="muted small">
+        Income groups are World Bank groupings in internacia-db, the same memberships as any other: a
+        member in none of them is not classified by the World Bank.
+      </p>
+    </section>
+    <section class="js-only" aria-labelledby="compare-profiles">
+      <h2 id="compare-profiles">Profiles</h2>
+      <div class="table-wrap" data-profiles></div>
+      <p class="muted small">"Not recorded" means internacia-db holds no value. For institutional design, that is not the same as "none", which is a value of its own.</p>
+    </section>
     <details open>
-      <summary class="small">Data behind this chart</summary>
-      <div class="table-wrap" data-table>
+      <summary class="small">Countries and territories in the comparison</summary>
+      <div class="table-wrap" id="compare-table" data-table>
         <p class="muted small">This explorer needs JavaScript. Each organization's members are on its card.</p>
       </div>
     </details>
+    <script type="application/json" id="compare-labels" set:html={labelsJson} />
   </section>
   <script>
-    import { esc, n, upset } from '../../../scripts/charts';
-    import { getJson, params, setParams } from '../../../scripts/explore';
-    import { renderMap, type MapEntry } from '../../../scripts/map';
-
-    interface Roster { id: string; name: string | null; type: string; current: boolean; link: string | null }
-    interface Doc { data: { id: string; name: string; _acronym: string | null; _roster: Roster[] } }
-    const MAX = 6;
-    const root = document.querySelector<HTMLElement>('[data-explorer="compare"]')!;
-    const base = root.dataset.base!;
-    const input = root.querySelector<HTMLInputElement>('[data-input="block"]')!;
-    const chips = root.querySelector<HTMLElement>('[data-chips]')!;
-    const status = root.querySelector<HTMLElement>('[data-status]')!;
-    const chart = root.querySelector<HTMLElement>('[data-chart]')!;
-    const table = root.querySelector<HTMLElement>('[data-table]')!;
-    const figure = document.getElementById('compare-map')!;
-    const legend = figure.querySelector<HTMLElement>('[data-legend]')!;
-    const caption = figure.querySelector<HTMLElement>('[data-caption]')!;
-    let ids: string[] = [];
-    let selected: number | null = null;
-
-    const label = (d: Doc['data']) => d._acronym ?? d.name;
-    // Chips show the organization's acronym or name (full name on hover), once it is known.
-    const known = new Map<string, { short: string; full: string }>();
-    const renderChips = () => {
-      chips.innerHTML = ids
-        .map((id) => {
-          const k = known.get(id);
-          // The accessible name repeats the visible text (axe: label-content-name-mismatch); the full
-          // name is the button's description.
-          return `<li><button type="button" data-remove="${esc(id)}" title="${esc(k?.full ?? id)}" aria-label="Remove ${esc(k?.short ?? id)}">${esc(k?.short ?? id)} ×</button></li>`;
-        })
-        .join('');
-      chips.querySelectorAll<HTMLButtonElement>('[data-remove]').forEach((b) =>
-        b.addEventListener('click', () => {
-          ids = ids.filter((x) => x !== b.dataset.remove);
-          selected = null;
-          void draw();
-        }),
-      );
-    };
-
-    async function draw() {
-      renderChips();
-      setParams({ ids: ids.length ? ids : null });
-      if (ids.length < 2) {
-        status.textContent = 'Choose at least two organizations.';
-        chart.innerHTML = '';
-        table.innerHTML = '';
-        void renderMap(figure, {}, []);
-        return;
-      }
-      const docs = (await Promise.all(ids.map((id) => getJson<Doc>(`${base}api/v1/blocks/${encodeURIComponent(id)}.json`).catch(() => null)))).filter(Boolean) as Doc[];
-      docs.forEach((d) => known.set(d.data.id, { short: label(d.data), full: `${d.data.name}${d.data._acronym ? ` (${d.data._acronym})` : ''}` }));
-      renderChips();
-      const sets = docs.map((d) => new Map(d.data._roster.filter((r) => r.current && (r.type === 'country' || r.type === 'territory')).map((r) => [r.id, r.name ?? r.id])));
-      const names = new Map<string, string>();
-      sets.forEach((s) => s.forEach((v, k) => names.set(k, v)));
-      const maskOf = new Map<string, number>();
-      for (const code of names.keys()) maskOf.set(code, sets.reduce((m, s, i) => (s.has(code) ? m | (1 << i) : m), 0));
-      const combos = [...new Set(maskOf.values())]
-        .map((mask) => ({ mask, size: [...maskOf.values()].filter((m) => m === mask).length }))
-        .sort((a, b) => b.size - a.size || a.mask - b.mask)
-        .slice(0, 24);
-      const labels = docs.map((d) => label(d.data));
-      chart.innerHTML = upset({ sets: docs.map((d, i) => ({ label: labels[i], size: sets[i].size })), combos, title: `Overlap of ${labels.join(', ')}`, selected });
-      chart.querySelectorAll<SVGGElement>('.col').forEach((g) => {
-        const pick = () => {
-          const mask = Number(g.dataset.key);
-          selected = selected === mask ? null : mask;
-          void draw().then(() => chart.querySelector<SVGGElement>(`.col[data-key="${selected}"]`)?.focus());
-        };
-        g.addEventListener('click', pick);
-        g.addEventListener('keydown', (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), pick()));
-      });
-      const all = (1 << docs.length) - 1;
-      const inAll = [...maskOf.values()].filter((m) => m === all).length;
-      status.textContent = `${n(names.size)} countries and territories belong to at least one; ${n(inAll)} belong to all ${docs.length}.`;
-      // Map: number of selected organizations each country belongs to (sequential).
-      const data: Record<string, MapEntry> = {};
-      for (const [code, mask] of maskOf) {
-        const k = sets.reduce((c, _, i) => c + ((mask >> i) & 1), 0);
-        const step = Math.max(1, Math.round((k / docs.length) * 5));
-        data[code] = [`s${step}`, `in ${k} of ${docs.length}`, '', names.get(code) ?? code];
-      }
-      void renderMap(figure, data, Object.keys(data));
-      legend.innerHTML = Array.from({ length: docs.length }, (_, i) => i + 1)
-        .map((k) => `<li><span class="swatch s${Math.max(1, Math.round((k / docs.length) * 5))}" aria-hidden="true"></span>In ${k}</li>`)
-        .join('');
-      caption.textContent = `Countries and territories by how many of the ${docs.length} organizations they belong to.`;
-      const rows = [...maskOf.entries()]
-        .filter(([, m]) => selected === null || m === selected)
-        .sort((a, b) => (names.get(a[0]) ?? '').localeCompare(names.get(b[0]) ?? ''));
-      table.innerHTML = `${selected !== null ? `<p class="small">Showing ${n(rows.length)} in the selected combination. <button type="button" data-clear>Show all</button></p>` : ''}<table class="data"><thead><tr><th scope="col">Country or territory</th><th scope="col">Code</th>${labels
-        .map((l) => `<th scope="col">${esc(l)}</th>`)
-        .join('')}</tr></thead><tbody>${rows
-        .map(([code, m]) => `<tr><td><a href="${esc(`${base}countries/${code.toLowerCase()}/`)}">${esc(names.get(code))}</a></td><td><code>${esc(code)}</code></td>${labels.map((_, i) => `<td>${(m >> i) & 1 ? '✓ member' : '–'}</td>`).join('')}</tr>`)
-        .join('')}</tbody></table>`;
-      table.querySelector('[data-clear]')?.addEventListener('click', () => ((selected = null), void draw()));
-    }
-
-    const add = () => {
-      const [id, name] = input.value.split(' — ').map((s) => s.trim());
-      if (id && name && !known.has(id)) known.set(id, { short: id, full: name });
-      if (id && !ids.includes(id) && ids.length < MAX) ids.push(id);
-      input.value = '';
-      selected = null;
-      void draw();
-    };
-    input.addEventListener('change', add);
-    ids = (params().get('ids') ?? 'EU,NATO,OECD').split(',').map((s) => s.trim()).filter(Boolean).slice(0, MAX);
-    void draw();
+    import '../../../scripts/compare.ts';
   </script>
 </Base>

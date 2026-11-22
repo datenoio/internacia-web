@@ -103,7 +103,7 @@ Internacia presents internacia-db, an open reference dataset maintained by Daten
 
 - **Countries and territories**: ISO 3166-1 codes and crosswalks, geography, World Bank classifications, languages, currencies, time zones and other stable reference attributes. Records with non-standard codes exist only where a roster needs a join target; they carry \`code_status\`, \`entity_type\` and \`un_status\` so they are never mistaken for ISO entries.
 - **Intblocks**: intergovernmental organizations, treaties and agreements, policy forums, sports federations and named country groupings, with block types, topics and membership rosters (status, joined and left dates).
-- **Not covered**: socioeconomic indicators such as GDP, HDI or government type. Population, area and Gini appear on country cards as reference values with year and source, without rankings.
+- **Not covered**: socioeconomic indicators such as GDP, HDI or government type. Population, area and Gini are reference values with year and source: country cards show them, and the compare explorer adds up population and land area for the selected organizations. No page ranks countries by them.
 
 ## Methodology
 

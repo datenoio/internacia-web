@@ -50,7 +50,9 @@ All corrections go to internacia-db.
   government type, internet penetration and similar). This is an internacia-db guardrail and the
   site inherits it.
 - Rankings or league tables of countries by population, area or Gini. These fields exist in the
-  data as reference values. The site shows them on the country card only, with year and source.
+  data as reference values. The country card shows them with year and source; the compare
+  explorer (V6) adds up population and land area over the members of the selected intblocks and
+  states the years and sources it sums. No page sorts, ranks or colours countries by these values.
 - Taking a position on recognition or borders (see [§9.4](#94-neutrality)).
 
 ## 3. Audiences and use cases
@@ -511,7 +513,7 @@ Formal intergovernmental organization, regional scope. Founded 1967. Headquarter
 | Endpoint | Contents | Size budget (gzip) |
 |----------|----------|-------------------:|
 | `index.json` | Entry points, counts, version | 2 KB |
-| `countries.json` | Lite list: code, iso3, name, flag, continent, subregion, entity type, code status, UN status, current membership count | 30 KB |
+| `countries.json` | Lite list: code, iso3, name, flag, continent, subregion, entity type, code status, UN status, population and land area (value, year, source), current membership count | 30 KB |
 | `countries/{CODE}.json` | Full country record + `memberships` (current and former, with block name and type) + `similar` | 40 KB |
 | `blocks.json` | Lite list: id, name, acronyms, block types, status, scope, founded, HQ country, member count | 120 KB |
 | `blocks/{ID}.json` | Full intblock record (including full-JSON-only fields) + resolved roster with country names | 60 KB |
@@ -576,7 +578,7 @@ Each chart has a caption, a legend, a "data behind this chart" table and a downl
 | V3 | Accession timeline | Block card; `/explore/timeline/` | `joined` / `left` | Step chart of member count; animated map, side by side on wide screens | Play, pause, scrub by year |
 | V4 | Founding timeline | `/explore/founded/`; type pages | `founded`, `dissolved` | Histogram by decade, stacked by block type or scope | Brush a period to list intblocks |
 | V5 | Headquarters map | `/explore/headquarters/` | `headquarters.coordinates` | Point map with clustering by city | Click a cluster to list its organizations by block type in a panel beside the map (`?city=`) |
-| V6 | Compare blocks | `/explore/compare/` | Member sets of 2–6 blocks | UpSet chart (Venn for 2–3); map coloured by combination | Add and remove blocks; share URL |
+| V6 | Compare blocks | `/explore/compare/` | Member sets of 2–6 blocks; population and land area of the members; continents; World Bank income groups (`wbgroup` intblocks) | Profiles side by side; UpSet chart counted in countries, population or land area; overlap map (by combination for 2 blocks, by count for 3–6) and, for 3–6, a small map per block; pairwise overlap matrix; composition by continent and by income group | Add and remove blocks; pick the measure; members only; pick a combination to show it alone on the map and in the table; share URL |
 | V7 | Compare countries | `/explore/countries/` | Memberships of 2–4 countries | Shared and exclusive memberships by block type | Add and remove countries |
 | V8 | Organization hierarchy | `/explore/hierarchy/`; block card | `partof`, `suborganizations` | Collapsible tree or sunburst (for example the UN system) | Expand, collapse, link to cards |
 | V9 | Block type landscape | Home; `/types/` | Intblocks by block type and scope | Treemap | Click a tile to open the type |
@@ -818,7 +820,7 @@ Decisions taken in M2b: the map explorer combines V1 and V2 (`/explore/map/?id=`
 `?mode=count&type=&scope=`); count mode uses `/api/v1/memberships.json` (every current edge,
 260 KB gzip). The compare map (V6) colours countries by how many of the selected intblocks they
 belong to, not by combination, because combinations outnumber distinguishable colours; the UpSet
-chart and the table give the combinations. The headquarters map (V5) and the hierarchy (V8) are
+chart and the table give the combinations (extended after M3c, see below). The headquarters map (V5) and the hierarchy (V8) are
 rendered at build time and work without JavaScript; the hierarchy places each link next to, not
 inside, the `<summary>` that opens its branch. The accession timeline (V3) is offered only for
 intblocks where at least 30 % of country entries have a joining date (the EU had none before v4.3.0, which dates all 27 members).
@@ -829,6 +831,35 @@ rather than every member country's membership list. Social images are hand-writt
 by resvg (Inter, OFL-1.1) and reduced to a 16-colour palette with sharp, not Satori: about 25 KB
 per card, 37 MB for all, and the build takes about 75 s. The site is then about 290 MB, near the
 300 MB target in §10.3.
+
+Decisions taken when V6 was extended (after M3c):
+
+- **Map.** Only two intblocks get a colour per combination: only A, only B, both (the map's
+  three colour slots). From three on, combinations outnumber the colours, so the overlap map stays
+  sequential by count and each intblock gets a small map of its own with two colours: members
+  only in this intblock, and members also in another selected one. A country in three intblocks is
+  the darkest step on the overlap map and "shared" on each of its three small maps; its tooltip and
+  its table row name the intblocks. Choosing an UpSet column shows that combination alone on the
+  overlap map and in the table. Small maps are not focusable (six maps of 250 regions); the table
+  carries the same facts for the keyboard.
+- **Rosters** are every current country or territory entry of each intblock, observers and
+  partners included (the UN's 195, BRICS+'s 21); the table names each entry's status.
+  "Members only" (`?members=only`) keeps members and founding members, the "Member" group of the
+  membership maps, in every view. The summary says how many entries with another status each
+  intblock has, and names an intblock left with no members (25 list only participants, recipients
+  and the like). Income groups are not filtered: they classify every economy they list.
+- **Measure.** The UpSet chart, the overlap matrix and the composition tables count countries,
+  population or land area (`?measure=`). Population and land area are summed over the members
+  that have a value; the summary gives the number summed, the years and the sources, and the share
+  of the total over all 256 country records (not a world figure from another source). The data
+  table shows each member's value and year, sorted by name.
+- **Income groups** are the World Bank `wbgroup` intblocks HIC, UMC, LMC and LIC (217
+  economies), not the country field `incomeLevel`, which also gives a group to 31 territories the
+  World Bank does not list. A member in none of the four is "not classified by the World Bank".
+  The site still holds no GDP; income groups are memberships like any other.
+- **Continents** come from the country field `continents`; a country on two continents (Azerbaijan,
+  Russia, Turkey) counts in both, and the table says so; three records without one (AN, JG, XK)
+  count as "no continent".
 
 - Block type, topic and geography pages.
 - Explorers V2–V10, home page map and treemap, Statistics & coverage page.

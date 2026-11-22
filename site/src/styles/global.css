@@ -2143,3 +2143,102 @@ body.embed-page {
   border-radius: var(--radius);
   min-height: 3rem;
 }
+
+/* Compare explorer (scripts/compare.ts): a small map per organization from three on. */
+.mini-maps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+.map.mini {
+  margin: 0;
+}
+
+/* A small map zooms to its members, so a region's box (France with its overseas departments) can
+   reach past the map. The SVG clips it, but axe's colour-contrast check ignores that clipping and
+   took the region for the background of the next map's caption: the caption paints its own
+   background, above the map before it. */
+.map.mini figcaption {
+  position: relative;
+  margin: 0 0 var(--space-1);
+  background: var(--color-bg);
+}
+
+/* Measure switch beside the picker: a radio group drawn as one segmented control. */
+.explorer-controls fieldset.measure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.explorer-controls fieldset.measure legend {
+  width: 100%;
+  padding: 0;
+  margin-bottom: 0.15rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
+}
+
+.explorer-controls fieldset.measure label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  cursor: pointer;
+}
+
+.explorer-controls fieldset.measure label + label {
+  border-left: 0;
+}
+
+.explorer-controls fieldset.measure label:first-of-type {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.explorer-controls fieldset.measure label:last-of-type {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.explorer-controls fieldset.measure label:has(input:checked) {
+  background: var(--color-surface);
+  font-weight: 600;
+}
+
+.explorer-controls fieldset.measure label:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.explorer-controls fieldset.measure input {
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+/* Size: three bar lists side by side on wide screens. */
+.size-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+.size-grid h3 {
+  font-size: 1rem;
+  margin: 0 0 var(--space-2);
+}
+
+.size-grid .bars li {
+  grid-template-columns: minmax(4rem, 7rem) 1fr;
+}
+
+.size-grid .bars .bar span.value {
+  white-space: nowrap;
+}
