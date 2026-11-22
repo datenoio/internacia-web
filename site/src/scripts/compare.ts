@@ -9,7 +9,11 @@
 // Measure (?measure=): the UpSet chart, the pairwise matrix and the composition tables count
 // countries, population or land area. Sums run over the members that have a value; the size note
 // names the years and sources summed. Nothing here sorts or ranks countries by these values.
-import { esc, n, upset } from './charts';
+//
+// Rosters (?members=only): by default every current country or territory on a roster counts,
+// whatever its status (observers and partners included; the table names the status). "Members
+// only" keeps members and founding members, the "Member" group of the membership maps.
+import { esc, groupOf, n, upset } from './charts';
 import { getJson, params, setParams } from './explore';
 import { renderMap, type MapEntry } from './map';
 
@@ -74,6 +78,7 @@ const L = JSON.parse(document.getElementById('compare-labels')?.textContent ?? '
 let ids: string[] = [];
 let selected: number | null = null;
 let measure: Measure = 'count';
+let membersOnly = false;
 
 // "A", "A and B", "A, B and C".
 const listing = (xs: string[]) => (xs.length < 3 ? xs.join(' and ') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
@@ -122,7 +127,11 @@ interface Model {
   income: { id: string; name: string; members: Set<string> }[];
 }
 
-const members = (d: Block) => d._roster.filter((r) => r.current && (r.type === 'country' || r.type === 'territory'));
+// Current countries and territories on a roster, any status; with "Members only", the members.
+const entries = (d: Block) => d._roster.filter((r) => r.current && (r.type === 'country' || r.type === 'territory'));
+const members = (d: Block) => entries(d).filter((r) => !membersOnly || groupOf(r.status) === 'm');
+// Entries with another status than member: those "Members only" leaves out.
+const otherStatuses = (d: Block) => entries(d).filter((r) => groupOf(r.status) !== 'm').length;
 
 function model(blocks: Block[], countries: Map<string, Country> = new Map(), income: Block[] = []): Model {
   const sets = blocks.map((d) => new Map(members(d).map((r) => [r.id, r.name ?? r.id])));
@@ -140,7 +149,8 @@ function model(blocks: Block[], countries: Map<string, Country> = new Map(), inc
     maskOf,
     union: [...names.keys()],
     countries,
-    income: income.map((d) => ({ id: d.id, name: d.name, members: new Set(members(d).map((r) => r.id)) })),
+    // Income groups classify every economy they list, whatever the filter.
+    income: income.map((d) => ({ id: d.id, name: d.name, members: new Set(entries(d).map((r) => r.id)) })),
   };
 }
 
@@ -191,12 +201,12 @@ function overlapMap(m: Model) {
       legendItem('g-o', `Only ${m.labels[1]} (${n(count((x) => x === 2))})`),
       legendItem('g-m', `Both (${n(count((x) => x === 3))})`),
     ].join('');
-    caption.textContent = `Countries and territories in ${listing(m.labels)}.`;
+    caption.textContent = membersOnly ? `Members of ${listing(m.labels)}.` : `Countries and territories in ${listing(m.labels)}.`;
   } else {
     legend.innerHTML = Array.from({ length: k }, (_, i) => i + 1)
       .map((c) => legendItem(`s${Math.max(1, Math.round((c / k) * 5))}`, `In ${c} (${n(count((x) => bits(x, k).length === c))})`))
       .join('');
-    caption.textContent = `Countries and territories by how many of the ${k} organizations they belong to; the maps below show each organization.`;
+    caption.textContent = `Countries and territories by how many of the ${k} organizations they ${membersOnly ? 'are members of' : 'belong to'}; the maps below show each organization.`;
   }
 }
 
@@ -234,7 +244,7 @@ function miniMaps(m: Model) {
     }
     const size = m.sets[i].size;
     fig.querySelector('figcaption')!.innerHTML = `<strong title="${esc(fullName(d))}">${esc(m.labels[i])}</strong> <span class="muted small">${n(size)} in all · ${n(only)} only here</span>`;
-    fig.querySelector('.map-canvas')!.setAttribute('aria-label', `${fullName(d)}: ${n(size)} countries and territories, ${n(only)} of them in none of the other selected organizations.`);
+    fig.querySelector('.map-canvas')!.setAttribute('aria-label', `${fullName(d)}: ${n(size)} ${membersOnly ? 'members' : 'countries and territories'}, ${n(only)} of them in none of the other selected organizations.`);
     // Each small map fits its own members (the overlap map above shows them all in one view).
     void renderMap(fig, data, [...m.sets[i].keys()]);
   });
@@ -306,8 +316,8 @@ function sizeSection(m: Model) {
     `Shares are of the total over all ${n(all.length)} country records in internacia-db: ${MEASURES.population.long(total(m, all, 'population'))} and ${MEASURES.area.long(total(m, all, 'area'))}, Antarctica included.`;
 }
 
-// What the shares are of: countries and territories (observers and partners included), or a sum.
-const what = () => (measure === 'count' ? 'countries and territories' : MEASURES[measure].title.replace(' (km²)', ''));
+// What the shares are of: members, countries and territories (other statuses included), or a sum.
+const what = () => (measure !== 'count' ? MEASURES[measure].title.replace(' (km²)', '') : membersOnly ? 'members' : 'countries and territories');
 
 // Pairwise: the share of the row intblock (by the measure) that is also in the column intblock.
 function pairsSection(m: Model) {
@@ -384,7 +394,7 @@ function profilesSection(m: Model) {
     ['Geographic scope', m.blocks.map((d) => cell(label(L.geographic_scope, d.geographic_scope)))],
     ['Founded', m.blocks.map((d) => cell(`${d.founded ?? ''}${d.dissolved ? `, dissolved ${d.dissolved}` : ''}`))],
     ['Headquarters', m.blocks.map((d) => cell([d.headquarters?.city, d._hq_country_name ?? d.headquarters?.country].filter(Boolean).join(', ')))],
-    ['Countries and territories', m.sets.map((s) => esc(n(s.size)))],
+    [membersOnly ? 'Members' : 'Countries and territories', m.sets.map((s) => esc(n(s.size)))],
   ];
   const designs = m.blocks.map((d) => d.institutional_design ?? {});
   const fields = [...(L.design ?? []).map((f) => f.field), ...designs.flatMap((x) => Object.keys(x))].filter((f, i, xs) => xs.indexOf(f) === i);
@@ -439,9 +449,22 @@ const loadShared = () =>
     Promise.all(INCOME.map((id) => blockDoc(id).catch(() => null))).then((xs) => xs.filter((x): x is Block => x !== null)),
   ]));
 
+// What "Members only" leaves out, or would: roster entries with another status, per intblock.
+function rosterNote(m: Model) {
+  const counts = m.blocks.map((d, i) => ({ label: m.labels[i], other: otherStatuses(d), kept: m.sets[i].size }));
+  const some = counts.filter((c) => c.other > 0);
+  if (!some.length) return membersOnly ? '' : ' All of them are members.';
+  const per = ` (${some.map((c) => `${c.label} ${n(c.other)}`).join(', ')})`;
+  const sum = some.reduce((a, c) => a + c.other, 0);
+  const phrase = `${n(sum)} ${sum === 1 ? 'entry' : 'entries'} with another status, such as observer or partner`;
+  if (!membersOnly) return ` The rosters include ${phrase}${per}; "Members only" leaves them out.`;
+  const none = counts.filter((c) => c.kept === 0).map((c) => c.label);
+  return ` Members only leaves out ${phrase}${per}.${none.length ? ` ${listing(none)} ${none.length === 1 ? 'has' : 'have'} no members, only other statuses.` : ''}`;
+}
+
 async function draw() {
   renderChips();
-  setParams({ ids: ids.length ? ids : null, measure: measure === 'count' ? null : measure });
+  setParams({ ids: ids.length ? ids : null, measure: measure === 'count' ? null : measure, members: membersOnly ? 'only' : null });
   if (ids.length < 2) {
     status.textContent = 'Choose at least two organizations.';
     for (const x of [chart, table, legend, el('size'), el('pairs'), el('continents'), el('income'), el('profiles')]) x.innerHTML = '';
@@ -457,8 +480,10 @@ async function draw() {
   const m = model(blocks, countries, income);
   const all = (1 << blocks.length) - 1;
   const inAll = [...m.maskOf.entries()].filter(([, x]) => x === all).map(([c]) => c);
-  const extra = measure === 'count' ? '' : ` By ${MEASURES[measure].title}: ${MEASURES[measure].short(total(m, m.union))} in at least one, ${MEASURES[measure].short(total(m, inAll))} in all.`;
-  status.textContent = `${n(m.union.length)} countries and territories belong to at least one; ${n(inAll.length)} belong to all ${blocks.length}.${extra}`;
+  const every = blocks.length === 2 ? 'both' : `all ${blocks.length}`;
+  const extra = measure === 'count' ? '' : ` By ${MEASURES[measure].title}: ${MEASURES[measure].short(total(m, m.union))} in at least one, ${MEASURES[measure].short(total(m, inAll))} in ${blocks.length === 2 ? 'both' : 'all'}.`;
+  const belong = membersOnly ? 'are members of' : 'belong to';
+  status.textContent = `${n(m.union.length)} countries and territories ${belong} at least one; ${n(inAll.length)} ${belong} ${every}.${extra}${rosterNote(m)}`;
   upsetChart(m);
   overlapMap(m);
   miniMaps(m);
@@ -486,6 +511,14 @@ radios.forEach((r) =>
     }
   }),
 );
+const membersBox = root.querySelector<HTMLInputElement>('[data-input="members"]')!;
+membersBox.addEventListener('change', () => {
+  membersOnly = membersBox.checked;
+  selected = null; // the combinations change with the rosters
+  void draw();
+});
+membersOnly = params().get('members') === 'only';
+membersBox.checked = membersOnly;
 const fromUrl = params().get('measure');
 if (isMeasure(fromUrl)) measure = fromUrl;
 radios.forEach((r) => (r.checked = r.value === measure));

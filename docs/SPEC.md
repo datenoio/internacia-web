@@ -576,7 +576,7 @@ Each chart has a caption, a legend, a "data behind this chart" table and a downl
 | V3 | Accession timeline | Block card; `/explore/timeline/` | `joined` / `left` | Step chart of member count; animated map, side by side on wide screens | Play, pause, scrub by year |
 | V4 | Founding timeline | `/explore/founded/`; type pages | `founded`, `dissolved` | Histogram by decade, stacked by block type or scope | Brush a period to list intblocks |
 | V5 | Headquarters map | `/explore/headquarters/` | `headquarters.coordinates` | Point map with clustering by city | Click a cluster to list its organizations by block type in a panel beside the map (`?city=`) |
-| V6 | Compare blocks | `/explore/compare/` | Member sets of 2–6 blocks; population and land area of the members; continents; World Bank income groups (`wbgroup` intblocks) | Profiles side by side; UpSet chart counted in countries, population or land area; overlap map (by combination for 2 blocks, by count for 3–6) and, for 3–6, a small map per block; pairwise overlap matrix; composition by continent and by income group | Add and remove blocks; pick the measure; pick a combination to show it alone on the map and in the table; share URL |
+| V6 | Compare blocks | `/explore/compare/` | Member sets of 2–6 blocks; population and land area of the members; continents; World Bank income groups (`wbgroup` intblocks) | Profiles side by side; UpSet chart counted in countries, population or land area; overlap map (by combination for 2 blocks, by count for 3–6) and, for 3–6, a small map per block; pairwise overlap matrix; composition by continent and by income group | Add and remove blocks; pick the measure; members only; pick a combination to show it alone on the map and in the table; share URL |
 | V7 | Compare countries | `/explore/countries/` | Memberships of 2–4 countries | Shared and exclusive memberships by block type | Add and remove countries |
 | V8 | Organization hierarchy | `/explore/hierarchy/`; block card | `partof`, `suborganizations` | Collapsible tree or sunburst (for example the UN system) | Expand, collapse, link to cards |
 | V9 | Block type landscape | Home; `/types/` | Intblocks by block type and scope | Treemap | Click a tile to open the type |
@@ -842,6 +842,10 @@ Decisions taken when V6 was extended (after M3c):
   carries the same facts for the keyboard.
 - **Rosters** are every current country or territory entry of each intblock, observers and
   partners included (the UN's 195, BRICS+'s 21); the table names each entry's status.
+  "Members only" (`?members=only`) keeps members and founding members, the "Member" group of the
+  membership maps, in every view. The summary says how many entries with another status each
+  intblock has, and names an intblock left with no members (25 list only participants, recipients
+  and the like). Income groups are not filtered: they classify every economy they list.
 - **Measure.** The UpSet chart, the overlap matrix and the composition tables count countries,
   population or land area (`?measure=`). Population and land area are summed over the members
   that have a value; the summary gives the number summed, the years and the sources, and the share

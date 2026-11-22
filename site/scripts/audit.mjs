@@ -61,7 +61,7 @@ const AXE_PAGES = [
   'explore/founded/',
   'explore/headquarters/',
   'explore/compare/',
-  'explore/compare/?ids=EU,NATO&measure=population',
+  'explore/compare/?ids=EU,NATO&measure=population&members=only',
   'explore/countries/',
   'explore/hierarchy/?id=UNEP',
   'search/?q=nato',

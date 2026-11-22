@@ -2155,8 +2155,14 @@ body.embed-page {
   margin: 0;
 }
 
+/* A small map zooms to its members, so a region's box (France with its overseas departments) can
+   reach past the map. The SVG clips it, but axe's colour-contrast check ignores that clipping and
+   took the region for the background of the next map's caption: the caption paints its own
+   background, above the map before it. */
 .map.mini figcaption {
+  position: relative;
   margin: 0 0 var(--space-1);
+  background: var(--color-bg);
 }
 
 /* Measure switch beside the picker: a radio group drawn as one segmented control. */

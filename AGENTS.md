@@ -154,7 +154,8 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   `/api/v1/countries.json` and states years and sources; never sort or colour countries by them
   (SPEC §2.2). Income groups are the `wbgroup` intblocks HIC, UMC, LMC and LIC, not `incomeLevel`.
 - Compare rosters are every current country or territory entry, observers and partners included;
-  the table shows each entry's status, so never call them all "members".
+  the table shows each entry's status, so never call them all "members". "Members only"
+  (`?members=only`) keeps `groupOf(status) === 'm'` (member, founding member), as the maps do.
 - Widgets under `/embed/` use `layouts/Embed.astro`: no header, `<base target="_blank">`,
   `noindex`, canonical URL = the card, theme from `?theme=` only (never storage). A card shows its
   embed code exactly when the widget exists (`lib/embed.ts` `blockEmbeddable`,
