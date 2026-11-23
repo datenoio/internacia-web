@@ -1,0 +1,6 @@
+# Test address for the move (deploy/ax42/README.md): imported instead of internacia.caddy until
+# internacia.io points at the server, then removed with its DNS record.
+next.internacia.io {
+	import internacia_site
+	header X-Robots-Tag "noindex, nofollow"
+}

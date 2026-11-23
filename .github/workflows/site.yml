@@ -2,7 +2,8 @@ name: Site
 
 # Builds the site from the pinned internacia-db release (SPEC §10.3, §11.1).
 # Pull requests build and upload the site as an artifact for review; pushes to main deploy it
-# to GitHub Pages.
+# to GitHub Pages and, once the repository variable AX42_HOST is set, to the AX42 server
+# (SPEC §11.4, deploy/ax42/README.md).
 
 on:
   push:
@@ -108,3 +109,48 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+  # The same build, to the AX42 server (SPEC §11.4). Inactive until the repository variable
+  # AX42_HOST (the server's IPv4 address) is set. AX42_KNOWN_HOSTS pins the server's host key;
+  # the ax42 environment's secret AX42_SSH_KEY is a key that can only run internacia-receive.
+  # AX42_SITE_HOST is the address checked after the upload (default internacia.io; next.internacia.io
+  # until DNS moves).
+  deploy-ax42:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AX42_HOST != ''
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: ax42
+    concurrency:
+      group: deploy-ax42
+      cancel-in-progress: false
+    steps:
+      - name: Download the site build
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: github-pages
+          path: ${{ runner.temp }}/site
+
+      - name: Upload to the server and make it live
+        env:
+          AX42_HOST: ${{ vars.AX42_HOST }}
+          AX42_KNOWN_HOSTS: ${{ vars.AX42_KNOWN_HOSTS }}
+          AX42_SSH_KEY: ${{ secrets.AX42_SSH_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$AX42_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf '%s\n' "$AX42_SSH_KEY" > ~/.ssh/ax42
+          chmod 600 ~/.ssh/ax42
+          zstd -q -T0 -c "$RUNNER_TEMP/site/artifact.tar" \
+            | ssh -i ~/.ssh/ax42 -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o BatchMode=yes \
+                "internacia-deploy@$AX42_HOST" deploy "$GITHUB_SHA"
+
+      - name: Check that the server serves this build
+        env:
+          AX42_HOST: ${{ vars.AX42_HOST }}
+          SITE_HOST: ${{ vars.AX42_SITE_HOST || 'internacia.io' }}
+        run: |
+          tar -xOf "$RUNNER_TEMP/site/artifact.tar" ./index.html | sha256sum > expected
+          curl -fsS --retry 3 --resolve "$SITE_HOST:443:$AX42_HOST" "https://$SITE_HOST/" | sha256sum > served
+          diff expected served

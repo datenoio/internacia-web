@@ -19,7 +19,8 @@ redirects from the intblock IDs that moved there. Data v5.1.0 (contract 5.1) wid
 to 5,195 records (investment treaties, trade relations agreements, preference schemes with grantor
 and beneficiary roles) and adds provisional application, sub-schemes and instruments. Next are
 interface translations (M3b)
-([SPEC §13](docs/SPEC.md#13-milestones)).
+([SPEC §13](docs/SPEC.md#13-milestones)). The move from GitHub Pages to a dedicated server is
+prepared ([SPEC §11.4](docs/SPEC.md#114-dedicated-server-ax42)); Pages serves the site until DNS moves.
 
 ## Rules
 
@@ -46,7 +47,11 @@ interface translations (M3b)
 - `site/src/lib/` — data loading, URLs, labels, Markdown twins, JSON-LD, `llms.txt`. HTML pages
   and their `.md` / `.json` endpoints read the same generated data.
 - `site/` — Astro project. `site/site.config.mjs` holds `SITE_URL` and `INDEXABLE`.
-- `.github/workflows/site.yml` — builds on pull requests, deploys `main` to GitHub Pages.
+- `.github/workflows/site.yml` — builds on pull requests, deploys `main` to GitHub Pages and,
+  once the repository variable `AX42_HOST` is set, to the dedicated server (`deploy-ax42`).
+- `deploy/ax42/` — the dedicated server side ([SPEC §11.4](docs/SPEC.md#114-dedicated-server-ax42)):
+  `internacia-receive` (the only command the deploy key may run), `setup.sh`, Caddy config, and
+  the steps of the move in its README.
 - `.github/workflows/data-bump.yml` — daily; `pipeline/bump.py` moves the lock to a newer release,
   the workflow builds and checks the site and opens a pull request.
 - The pipeline reads one internacia-db contract MAJOR, `CONTRACT_MAJOR` in `pipeline/lock.py`
@@ -240,3 +245,8 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   `countryEmbeddable`); `check_site.py` compares the two and the widget's facts with the card's.
 - `public/embed/widget.js` finds the widgets relative to its own URL; keep it free of the domain
   and of dependencies. It trusts a height message only from its own iframe and origin.
+- The dedicated server must answer like GitHub Pages did (`deploy/ax42/caddy/internacia-site.caddy`):
+  `Access-Control-Allow-Origin: *` everywhere, and an explicit UTF-8 type for each text format,
+  because the server's `mime.types` gives `.md`, `.csv` and `.txt` without a charset. A new text
+  file type needs its line there. Never commit the server's address or a key: they are repository
+  variables and the `ax42` environment's secret.

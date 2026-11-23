@@ -6,7 +6,7 @@
 | **Date** | 2026-11-19 |
 | **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v5.1.0 (contract 5.1) |
 | **Owner** | Dateno ([datenoio](https://github.com/datenoio)) |
-| **Hosting** | GitHub Pages, custom domain (to be registered; written as `<DOMAIN>` below) |
+| **Hosting** | GitHub Pages, custom domain `internacia.io` (written as `<DOMAIN>` in §11.2); moving to a dedicated server ([§11.4](#114-dedicated-server-ax42)) |
 
 ## 1. Summary
 
@@ -40,7 +40,9 @@ All corrections go to internacia-db.
    entity pages rank for queries such as "OSCE member states" or "which organizations is Kenya in".
 6. **Stay honest about provenance.** Every page states the data version, links to sources and
    to the record in internacia-db, and carries the CC BY 4.0 attribution.
-7. **Cost nothing to run.** Static output only, deployed to GitHub Pages by GitHub Actions.
+7. **Cost nothing extra to run.** Static output only, built by GitHub Actions and served as plain
+   files: by GitHub Pages, and after the move by a dedicated server the maintainers already run
+   for other projects ([§11.4](#114-dedicated-server-ax42)).
 
 ### 2.2 Non-goals
 
@@ -309,7 +311,8 @@ All paths end with a slash for HTML. Machine twins use the same slug with an ext
   to the trade agreement card of the same ID (`/blocks/uskr/` → `/agreements/uskr/`); its JSON
   alias document names the agreement document.
 - GitHub Pages cannot send HTTP 301. This is a known limitation; the canonical link carries the
-  signal for search engines.
+  signal for search engines. The dedicated server ([§11.4](#114-dedicated-server-ax42)) could send
+  301; the redirect pages stay until its configuration takes the aliases over.
 
 ## 6. Page specifications
 
@@ -793,6 +796,7 @@ internacia-web/
 ├── docs/
 │   └── SPEC.md                 # this document
 ├── .github/workflows/          # build, deploy, data-bump (§11)
+├── deploy/ax42/                # dedicated server: receive script, setup, Caddy config (§11.4)
 ├── AGENTS.md
 └── README.md
 ```
@@ -814,7 +818,8 @@ checks (§12) ──► deploy to GitHub Pages
 ```
 
 - Target build time on GitHub Actions: ≤ 10 minutes.
-- Output size target: ≤ 450 MB (GitHub Pages limit is 1 GB); it was ≤ 300 MB until v5.1.0. With
+- Output size target: ≤ 450 MB (GitHub Pages limit is 1 GB; it holds while Pages is the host or
+  the fallback, [§11.4](#114-dedicated-server-ax42)); it was ≤ 300 MB until v5.1.0. With
   v5.1.0 the site is about 427 MB (`du -sh site/dist`; 356 MB of file content): trade agreement
   cards 92 MB, API 88 MB, blocks 84 MB, countries 53 MB, social images 45 MB, Pagefind 32 MB,
   widgets 21 MB. The trade agreements registry grew from 839 to 5,195 records (3,503 investment
@@ -859,6 +864,9 @@ checks (§12) ──► deploy to GitHub Pages
 
 ### 11.1 GitHub Pages
 
+Pages serves the site until DNS moves to the dedicated server of [§11.4](#114-dedicated-server-ax42),
+and stays the fallback after.
+
 - Deploy with `actions/upload-pages-artifact` and `actions/deploy-pages` from the `main` branch.
 - Pull requests build the site and upload it as a workflow artifact for review. They do not deploy.
 - All actions are pinned to commit SHAs; Dependabot updates them (same practice as internacia-db).
@@ -900,6 +908,45 @@ keep working. Until the domain existed, the site deployed there with a `noindex`
   change in internacia-db: its release workflow needs a fine-grained token with "Contents: read
   and write" on `datenoio/internacia-web` only, stored as a secret, and a step such as
   `gh api repos/datenoio/internacia-web/dispatches -f event_type=internacia-db-release -f "client_payload[tag]=$TAG"`.
+
+### 11.4 Dedicated server (AX42)
+
+The site moves from GitHub Pages to a Hetzner AX42 dedicated server: room to grow (interface
+translations, M3b, take the site past the 1 GB limit of Pages) and control of HTTP behaviour. The
+maintainers run other projects on the same server, and its Caddy serves them too. Files are in
+[`deploy/ax42/`](../deploy/ax42/); the steps are in its README.
+
+- **Serving.** Caddy, in Docker, serves `/srv/internacia/current` read-only, with Let's Encrypt
+  certificates. `deploy/ax42/caddy/internacia-site.caddy` gives the responses Pages gave:
+  `Access-Control-Allow-Origin: *` on all of them (widgets and the JSON API are read from other
+  origins), UTF-8 charset on Markdown, CSV and text files, `404.html` with status 404, gzip (and
+  zstd), `Cache-Control: max-age=600`. Files under `/_astro/` (content-hashed names) are cached
+  for a year. A directory URL without its slash redirects with 308 (Pages: 301).
+- **Deploy.** The `deploy-ax42` job of `site.yml` takes the same build as Pages (the
+  `github-pages` artifact), compresses it with zstd and pipes it over SSH to the user
+  `internacia-deploy`. That user's key can run only `internacia-receive` (`restrict,command=…`,
+  in an `authorized_keys` that belongs to root). `deploy <sha>` unpacks into
+  `releases/<time>-<sha>/` and refuses links and special files, an upload over 8 GB, a build
+  without `index.html`, `404.html`, `sitemap.xml`, `llms.txt` or `robots.txt` or with fewer than
+  10,000 files, and a deploy that would leave less than 20 GB free. It then swaps the `current`
+  symlink atomically and keeps five releases. `rollback` makes the previous release live; `list`
+  shows them. The job then checks that the server returns this build's `index.html`.
+- **Configuration.** Repository variables `AX42_HOST` (IPv4 address), `AX42_KNOWN_HOSTS` (the
+  pinned host key) and `AX42_SITE_HOST` (address the job checks: `next.internacia.io` until DNS
+  moves); environment `ax42` with the secret `AX42_SSH_KEY`. Without `AX42_HOST` the job does not
+  run. Neither the address nor a key is in the repository.
+- **Move.** Test on `next.internacia.io`, then point `internacia.io` (A and AAAA, Cloudflare DNS
+  only) at the server. Pages keeps deploying in parallel, so moving back is a DNS change to the
+  records of §11.2. The Pages site stays published after the move: it redirects the former address
+  `datenoio.github.io/internacia-web/`.
+- **Trade-offs.** One server in Falkenstein instead of the Pages CDN. Uptime, patches and
+  monitoring are the maintainers' job, and the Caddy is shared with other sites. The site needs no
+  backup: git and the pinned release rebuild it.
+- **State (2026-11-23).** Prepared: the deploy user, `/srv/internacia`, `internacia-receive` (a
+  build of `666b5e1` received and tested), the read-only mount in Caddy, and
+  `next.internacia.io` (A record only) serving that build with the same headers as Pages; search,
+  maps and widgets checked in a browser; the repository settings. Not done: a deploy by the
+  workflow (it runs once this change is on `main`), the DNS move.
 
 ## 12. Quality assurance and acceptance
 
@@ -1040,7 +1087,8 @@ Markdown or JSON twin: the card and its twins hold the facts. `/embed/` document
 with live examples. Country lists are compact strings (France has about 500 entries); the widgets
 add about 17 MB, so the site is about 305 MB, above the 300 MB target of §10.3 and well under the
 1 GB limit of GitHub Pages (§10.3 gives the current size, back under the target); M3b must plan
-its size before adding languages.
+its size before adding languages. The dedicated server of §11.4 has room for far more; the 1 GB
+limit goes away when Pages stops being the fallback.
 
 - Custom domain live with HTTPS; `noindex` removed.
 - Interface translations into the UN languages ([§9.3](#93-language)).
