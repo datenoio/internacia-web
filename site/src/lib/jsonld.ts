@@ -1,5 +1,9 @@
 // schema.org JSON-LD (SPEC §7.5). schema.org has no property that makes a Place a member of an
 // Organization, so memberships are published as ItemList blocks, never as memberOf / member.
+// Their items are the entities themselves (itemListElement accepts a Thing), without a ListItem
+// and position around each: the lists are unordered, and the wrapper was a quarter of the bytes of
+// the JSON-LD, which repeats every membership edge on both of its cards (SPEC §10.3, site size).
+// The BreadcrumbList keeps its ListItems, since a breadcrumb is ordered.
 import type { Agreement, Block, Country } from './data';
 import { meta } from './meta';
 import { absolute, agreementPath, blockPath, countryPath, geonamesUrl, path, wikidataUrl } from './urls';
@@ -58,11 +62,7 @@ export function countryLd(c: Country): Ld[] {
       '@type': 'ItemList',
       name: `Current memberships of ${c.name}`,
       numberOfItems: current.length,
-      itemListElement: current.map((m, i) => ({
-        '@type': 'ListItem',
-        position: i + 1,
-        item: { '@type': 'Organization', name: m.block_name, url: absolute(blockPath(m.block_id)) },
-      })),
+      itemListElement: current.map((m) => ({ '@type': 'Organization', name: m.block_name, url: absolute(blockPath(m.block_id)) })),
     },
   ];
 }
@@ -125,11 +125,7 @@ export function blockLd(b: Block): Ld[] {
       '@type': 'ItemList',
       name: `${b._active ? 'Current' : 'Recorded'} member countries of ${b.name}`,
       numberOfItems: members.length,
-      itemListElement: members.map((r, i) => ({
-        '@type': 'ListItem',
-        position: i + 1,
-        item: { '@type': 'Country', name: r.name, url: absolute(countryPath(r.id)) },
-      })),
+      itemListElement: members.map((r) => ({ '@type': 'Country', name: r.name, url: absolute(countryPath(r.id)) })),
     },
   ];
 }
@@ -165,16 +161,13 @@ export function agreementLd(a: Agreement): Ld[] {
       '@type': 'ItemList',
       name: `Parties to ${a._name}`,
       numberOfItems: parties.length,
-      itemListElement: parties.map((p, i) => ({
-        '@type': 'ListItem',
-        position: i + 1,
-        item:
-          p.link === 'country'
-            ? { '@type': 'Country', name: p.name, url: absolute(countryPath(p.id)) }
-            : p.link === 'block'
-              ? { '@type': 'Organization', name: p.name, url: absolute(blockPath(p.id)) }
-              : { '@type': 'Thing', name: p.name ?? p.id },
-      })),
+      itemListElement: parties.map((p) =>
+        p.link === 'country'
+          ? { '@type': 'Country', name: p.name, url: absolute(countryPath(p.id)) }
+          : p.link === 'block'
+            ? { '@type': 'Organization', name: p.name, url: absolute(blockPath(p.id)) }
+            : { '@type': 'Thing', name: p.name ?? p.id },
+      ),
     },
   ];
 }

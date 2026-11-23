@@ -4,6 +4,7 @@ import Facts from '../../../components/Facts.astro';
 import MembershipMap from '../../../components/MembershipMap.astro';
 import Cite from '../../../components/Cite.astro';
 import PageToc from '../../../components/PageToc.astro';
+import StatusDefs from '../../../components/StatusDefs.astro';
 import EmbedCode from '../../../components/EmbedCode.astro';
 import Base from '../../../layouts/Base.astro';
 import { CENTROID_NOTE } from '../../../lib/api';
@@ -16,7 +17,6 @@ import {
   roleDescription,
   roleLabel,
   statusDeprecated,
-  statusDescription,
   statusLabel,
   vocabLabel,
   yesNo,
@@ -208,7 +208,7 @@ const toc = c
                   <thead>
                     <tr>
                       <th scope="col">Organization or grouping</th>
-                      <th scope="col">Status</th>
+                      <th scope="col" data-status-col>Status</th>
                       {currentRoles && <th scope="col">Route role</th>}
                       <th scope="col">Joined</th>
                     </tr>
@@ -228,7 +228,7 @@ const toc = c
                             {m.block_id !== m.acronym && <code class="inline-id">{m.block_id}</code>}
                             {m.note && <div class="muted small">{m.note}</div>}
                           </td>
-                          <td title={statusDescription(m.status)}>
+                          <td>
                             {statusLabel(m.status)}
                             {statusDeprecated(m.status) && <span class="muted small"> (deprecated label)</span>}
                           </td>
@@ -240,6 +240,7 @@ const toc = c
                   ))}
                 </table>
               </div>
+              <StatusDefs table="memberships-table" statuses={statusOptions} />
             </>
           )}
 

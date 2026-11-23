@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "astro build && pagefind --site dist --quiet --exclude-selectors '.table-wrap, .page-toc, .chart, .map, .cite, .filters, .explorer-controls, .bars, [aria-labelledby=links], [aria-labelledby=provenance]'",
+    "build": "astro build && pagefind --site dist --quiet --exclude-selectors '.table-wrap, .page-toc, .chart, .map, .cite, .status-defs, .filters, .explorer-controls, .bars, [aria-labelledby=links], [aria-labelledby=provenance]'",
     "preview": "astro preview",
     "audit": "node scripts/audit.mjs"
   },

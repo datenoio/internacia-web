@@ -23,28 +23,32 @@ const bibtex = `@misc{${key},
   doi          = {${DOI}},
   url          = {${url}}
 }`;
-const csl = JSON.stringify(
-  {
-    type: 'dataset',
-    title,
-    author: [{ literal: 'Dateno (Common Data Index)' }],
-    'container-title': 'Internacia Datasets',
-    version: meta.data.version,
-    issued: { 'date-parts': [released.split('-').map(Number)] },
-    DOI,
-    URL: url,
-  },
-  null,
-  2,
-);
+// One property per line, each value compact: the same JSON as an indented one, in fewer bytes
+// on each of ~2,700 cards (SPEC §10.3, site size).
+const cslData = {
+  type: 'dataset',
+  title,
+  author: [{ literal: 'Dateno (Common Data Index)' }],
+  'container-title': 'Internacia Datasets',
+  version: meta.data.version,
+  issued: { 'date-parts': [released.split('-').map(Number)] },
+  DOI,
+  URL: url,
+};
+const csl = `{\n${Object.entries(cslData)
+  .map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)}`)
+  .join(',\n')}\n}`;
+// Text inside <pre> needs only &, < and > escaped; Astro's {…} also escapes every quote
+// (&quot;, six bytes each), which the JSON is full of.
+const pre = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 ---
 
 <details class="cite">
   <summary class="small">Cite this record</summary>
   <p class="small">{plain}</p>
-  <pre><code>{bibtex}</code></pre>
+  <pre><code set:html={pre(bibtex)} /></pre>
   <details>
     <summary class="small">CSL-JSON</summary>
-    <pre><code>{csl}</code></pre>
+    <pre><code set:html={pre(csl)} /></pre>
   </details>
 </details>

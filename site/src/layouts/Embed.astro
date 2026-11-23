@@ -17,6 +17,9 @@ interface Props {
 }
 
 const { title, description, canonical, card, cardLabel } = Astro.props;
+// Written compact because it is repeated in every widget (SPEC §10.3, site size).
+const FIRST_PAINT =
+  "(()=>{const d=document.documentElement;d.classList.add('js');const t=new URLSearchParams(location.search).get('theme');if(t==='light'||t==='dark')d.dataset.theme=t})()";
 ---
 
 <!doctype html>
@@ -31,13 +34,7 @@ const { title, description, canonical, card, cardLabel } = Astro.props;
     <meta name="color-scheme" content="light dark" />
     <base target="_blank" />
     <link rel="icon" type="image/svg+xml" href={path('favicon.svg')} />
-    <script is:inline>
-      (() => {
-        document.documentElement.classList.add('js');
-        const theme = new URLSearchParams(location.search).get('theme');
-        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
-      })();
-    </script>
+    <script is:inline set:html={FIRST_PAINT} />
   </head>
   <body class="embed-page">
     <div class="embed" data-embed-root>

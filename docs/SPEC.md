@@ -336,7 +336,8 @@ the header sticks to the top of the window (also on the intblock card).
    - Count of current memberships, with a breakdown by status.
    - Grouped by block type; each row: block name and acronym (link; the ID only where it differs
      from the acronym), status label, route role (pipelines and corridors; the column appears only
-     when used), joined, left.
+     when used), joined, left. Under the table, the definitions of the statuses it uses (from
+     `includes_status.yaml`), which are also each status cell's tooltip.
    - Filter by status and block type; search within the list.
    - Former memberships in a separate, collapsed list.
    - Mini chart: memberships by block type.
@@ -392,7 +393,8 @@ the header sticks to the top of the window (also on the intblock card).
    member, observer, partner, former member, …). Legend uses labels from `includes_status.yaml`.
    Small or point-like territories are drawn as dots at their centroid.
 5. **Roster**: table of every `includes[]` entry — country or intblock (link), status, route role
-   (pipelines and corridors; the column appears only when used), joined, left. Filters by status. Download the roster as CSV (`/blocks/{id}/members.csv`, every entry
+   (pipelines and corridors; the column appears only when used), joined, left. Filters by status.
+   Under the table, the definitions of the statuses it uses, also each status cell's tooltip. Download the roster as CSV (`/blocks/{id}/members.csv`, every entry
    with a `current` column) and JSON (the card's JSON, `_roster`). Hovering a row highlights its
    country on the map, and the other way round.
    When `membership_applicability = not_applicable`, show the explanation instead of an empty table.
@@ -617,7 +619,10 @@ Every card embeds JSON-LD:
 
 schema.org has no property that makes a `Place` (such as `Country`) a member of an
 `Organization`: `memberOf` and `member` accept only `Organization` and `Person`. Memberships are
-therefore published as `ItemList` blocks, not as `memberOf` / `member` statements.
+therefore published as `ItemList` blocks, not as `memberOf` / `member` statements. The items of
+these lists are the `Organization`, `Country` or other entities themselves (`itemListElement`
+accepts a `Thing`), without a `ListItem` and `position` around each: the lists are unordered, and
+the wrapper was a quarter of the JSON-LD bytes (§10.3). `BreadcrumbList` keeps its `ListItem`s.
 
 The `Dataset` markup must validate in Google's Rich Results test so the dataset appears in
 Google Dataset Search.
@@ -763,12 +768,19 @@ checks (§12) ──► deploy to GitHub Pages
 ```
 
 - Target build time on GitHub Actions: ≤ 10 minutes.
-- Output size target: ≤ 300 MB (GitHub Pages limit is 1 GB). With v5.0.0 the site is about 313 MB
-  (`du -sh site/dist`; 283 MB of file content), above the target: blocks 92 MB, API 60 MB,
-  countries 54 MB, social images 45 MB, widgets 21 MB, trade agreement cards 17 MB, Pagefind
-  14 MB. The trade agreements registry (839 cards with Markdown twins, their JSON, and the
-  trade agreement sections of country cards) adds about 30 MB; the shared layout (head, header and
-  footer) is about 7 KB of every one of the 4,776 pages. With v4.4.0 the site was about 272 MB
+- Output size target: ≤ 300 MB (GitHub Pages limit is 1 GB). With v5.0.0 the site is about 294 MB
+  (`du -sh site/dist`; 263 MB of file content): blocks 83 MB, API 60 MB, social images 45 MB,
+  countries 46 MB, widgets 21 MB, trade agreement cards 16 MB, Pagefind 14 MB. The trade
+  agreements registry (839 cards with Markdown twins, their JSON, and the trade agreement sections
+  of country cards) added about 30 MB and took the site to 313 MB (283 MB of file content); four
+  repeats brought it back under the target, about 20 MB in all, with the same pages and facts.
+  A title with the status definition on every membership row (about 10 MB: "Full member state or
+  participant…" 134,000 times) became one list of definitions under each table, which
+  `scripts/site.ts` copies to the cells as tooltips. The `ListItem` around each JSON-LD list item
+  (about 6 MB, §7.5) is gone. The theme icons are CSS masks instead of three inline SVGs, and the
+  first-paint script is compact (about 3 MB); the citation's CSL-JSON is one property per line,
+  without `&quot;` escapes in `<pre>`. The shared layout of a small card (head, header, footer and
+  citation) is about 7 KB of its 11 KB. With v4.4.0 the site was about 272 MB
   (248 MB of file content). It had grown above the target by data alone
   (322 MB with v4.3.0, 375 MB with v4.4.0: 1,538 intblocks, 69,191 membership edges), not by new
   kinds of pages. Template indentation was 84 MB of the HTML and JSON indentation 25 MB of the

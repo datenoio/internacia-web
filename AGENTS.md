@@ -172,10 +172,13 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   are excluded from the index in the build script.
 - Social images (`src/lib/og.ts`) take about 50 ms each; keep their SVG simple. They use about
   eight colours, so a smaller palette saves nothing. Trade agreement cards use the default image.
-  Site size is about 313 MB with v5.0.0, above the target of ≤ 300 MB (SPEC §10.3): the trade
-  agreements registry added about 30 MB (it was 272 MB with v4.4.0, 375 MB before indentation was
-  removed); check `du -sh site/dist` when adding per-entity files. Write per-entity JSON with
-  `json(body, false)`: indentation was a third of the API's bytes.
+  Site size is about 294 MB with v5.0.0, under the target of ≤ 300 MB (SPEC §10.3) by little:
+  the trade agreements registry added about 30 MB (313 MB; it was 272 MB with v4.4.0, 375 MB
+  before indentation was removed); check `du -sh site/dist` when adding per-entity files or
+  per-row markup. Write per-entity JSON with `json(body, false)`: indentation was a third of the
+  API's bytes. Anything per membership row is paid about 140,000 times (both cards of each edge):
+  status definitions are listed once under the table (`StatusDefs.astro`; `site.ts` makes them
+  the cells' tooltips), never a `title` per row, and JSON-LD list items carry no `ListItem`.
 - Coverage on the Statistics page follows internacia-db's `*_completeness.yaml` gates; records
   empty by design (`timezone_status`, `membership_applicability`) count as filled.
 - Tables with hundreds of rows use the `chunked` class: rows in `<tbody>` chunks with

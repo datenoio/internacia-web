@@ -53,6 +53,12 @@ const more = [
   { href: path('stats/'), label: 'Statistics' },
   { href: path('about/'), label: 'About' },
 ];
+// The one inline script, in <head> before the first paint: elements that need JavaScript are
+// styled .js-only and the class "js" shows them from the first paint, so they never shift the
+// layout when scripts attach behaviour; a stored theme applies before anything is drawn. It is
+// written compact because it is repeated in every page (SPEC §10.3, site size).
+const FIRST_PAINT =
+  "(()=>{const d=document.documentElement;d.classList.add('js');try{const t=localStorage.getItem('theme');if(t==='light'||t==='dark')d.dataset.theme=t}catch{}})()";
 const current = Astro.url.pathname;
 const isCurrent = (href: string) => current.startsWith(href);
 const moreCurrent = more.some((item) => isCurrent(item.href));
@@ -85,17 +91,7 @@ const moreCurrent = more.some((item) => isCurrent(item.href));
     <link rel="alternate" type="application/atom+xml" title="internacia-db data releases" href={path('feed.xml')} />
     {ld && <script type="application/ld+json" set:html={toScript(ld)} />}
     <slot name="head" />
-    <script is:inline>
-      (() => {
-        // Elements that need JavaScript are styled .js-only; this class shows them from the
-        // first paint, so they never shift the layout when scripts attach behaviour.
-        document.documentElement.classList.add('js');
-        try {
-          const theme = localStorage.getItem('theme');
-          if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
-        } catch {}
-      })();
-    </script>
+    <script is:inline set:html={FIRST_PAINT} />
   </head>
   <body>
     <a class="skip-link" href="#content">Skip to content</a>
@@ -121,11 +117,7 @@ const moreCurrent = more.some((item) => isCurrent(item.href));
           <ul class="nav-wide">
             {
               nav.map((item) => (
-                <li>
-                  <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
-                    {item.label}
-                  </a>
-                </li>
+                <li><a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a></li>
               ))
             }
             <li>
@@ -134,11 +126,7 @@ const moreCurrent = more.some((item) => isCurrent(item.href));
                 <ul>
                   {
                     more.map((item) => (
-                      <li>
-                        <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
-                          {item.label}
-                        </a>
-                      </li>
+                      <li><a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a></li>
                     ))
                   }
                 </ul>
@@ -150,21 +138,13 @@ const moreCurrent = more.some((item) => isCurrent(item.href));
             <ul>
               {
                 [...nav, ...more].map((item) => (
-                  <li>
-                    <a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
-                      {item.label}
-                    </a>
-                  </li>
+                  <li><a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>{item.label}</a></li>
                 ))
               }
             </ul>
           </details>
         </nav>
-        <button class="theme-toggle js-only" id="theme-toggle" type="button" aria-label="Theme: auto">
-          <svg class="i-auto" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.6" /><path d="M10 3a7 7 0 0 1 0 14Z" fill="currentColor" /></svg>
-          <svg class="i-light" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.6" fill="currentColor" /><path d="M10 1.8v2.4M10 15.8v2.4M1.8 10h2.4M15.8 10h2.4M4.2 4.2l1.7 1.7M14.1 14.1l1.7 1.7M4.2 15.8l1.7-1.7M14.1 5.9l1.7-1.7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" /></svg>
-          <svg class="i-dark" viewBox="0 0 20 20" aria-hidden="true"><path d="M15.5 12.6A6.5 6.5 0 0 1 7.4 4.5a6.5 6.5 0 1 0 8.1 8.1Z" fill="currentColor" /></svg>
-        </button>
+        <button class="theme-toggle js-only" id="theme-toggle" type="button" aria-label="Theme: auto"></button>
       </div>
     </header>
 

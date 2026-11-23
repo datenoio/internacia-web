@@ -4,6 +4,7 @@ import Facts from '../../../components/Facts.astro';
 import MembershipMap from '../../../components/MembershipMap.astro';
 import Cite from '../../../components/Cite.astro';
 import PageToc from '../../../components/PageToc.astro';
+import StatusDefs from '../../../components/StatusDefs.astro';
 import EmbedCode from '../../../components/EmbedCode.astro';
 import Base from '../../../layouts/Base.astro';
 import { aliases, blockById, blocks, type Block, type BlockRef } from '../../../lib/data';
@@ -17,7 +18,6 @@ import {
   roleLabel,
   splitCode,
   statusDeprecated,
-  statusDescription,
   statusLabel,
   topicLabel,
 } from '../../../lib/format';
@@ -382,7 +382,7 @@ const toc = b
                           <th scope="col" data-sort="text">Name</th>
                           <th scope="col" data-sort="text">Code</th>
                           {listedCols.type && <th scope="col" data-sort="text">Type</th>}
-                          <th scope="col" data-sort="text">Status</th>
+                          <th scope="col" data-sort="text" data-status-col>Status</th>
                           {listedCols.role && <th scope="col" data-sort="text">Route role</th>}
                           {listedCols.joined && <th scope="col" data-sort="text">Joined</th>}
                           {!b._active && listedCols.left && <th scope="col" data-sort="text">Left</th>}
@@ -406,7 +406,7 @@ const toc = b
                               <code>{r.id}</code>
                             </td>
                             {listedCols.type && <td>{enumLabel('include_type', r.type)}</td>}
-                            <td title={statusDescription(r.status)}>
+                            <td>
                               {statusLabel(r.status)}
                               {statusDeprecated(r.status) && <span class="muted small"> (deprecated label)</span>}
                             </td>
@@ -418,6 +418,7 @@ const toc = b
                       </tbody>
                     </table>
                   </div>
+                  <StatusDefs table="roster-table" statuses={statusOptions} />
                 </>
               )}
               {b._active && other.length > 0 && (
