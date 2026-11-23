@@ -93,6 +93,13 @@ const facets = [
 // The summary's values link to the list with that filter set (the query string is the filter state).
 const listHref = (key: string, value: string) => `${path('agreements/')}?${key}=${encodeURIComponent(value || NONE)}#list`;
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+// Headline figures above the list; each label opens the list it counts.
+const figures = [
+  { label: 'Agreements', value: rows.length, href: `${path('agreements/')}#list` },
+  { label: 'In force', value: inForce, href: listHref('status', 'in_force') },
+  { label: 'With two parties', value: bilateral, href: listHref('parties', 'two') },
+  { label: 'Checked against official sources', value: rows.length - catalogue, href: listHref('verification', 'official') },
+];
 const DATE_LABELS = ['Signed', 'In force', 'Ended'];
 const CHUNK = 100;
 const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => rows.slice(i * CHUNK, (i + 1) * CHUNK));
@@ -109,33 +116,29 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
   <section class="container page-head">
     <h1>Trade agreements</h1>
     <p class="lead">
-      {`${num(rows.length)} records in the internacia-db trade agreements registry, bilateral agreements included: ${num(inForce)} in force, ${num(bilateral)} with two parties. ${num(linked)} agreements with three or more parties also have an organization record with their roster and map.`}
+      Free trade agreements, customs unions, preferential agreements and preference schemes in the internacia-db
+      registry, bilateral agreements included.
     </p>
-    <p class="muted small">
-      {`${REGISTRY_SCOPE_NOTE} ${num(catalogue)} records come from a catalogue (WTO RTA-IS or ADB ARIC) and were not checked against the treaty text; the ${num(rows.length - catalogue)} checked against official sources are marked "Official sources".`}
-    </p>
-  </section>
-
-  <section class="container">
-    <div class="grid-2">
-      <div>
-        <h2>By status</h2>
-        <BarList
-          items={byStatus.map(([s, n]) => ({ label: agreementStatusLabel(s) || 'Not set', value: n, href: listHref('status', s) }))}
-          label="Trade agreements by status"
-        />
-      </div>
-      <div>
-        <h2>By type</h2>
-        <BarList
-          items={byType.map(([t, n]) => ({ label: agreementTypeLabel(t) || 'Not set', value: n, href: listHref('type', t) }))}
-          label="Trade agreements by type"
-        />
-        <p class="muted small">
-          {byVerification.map(([v, n], i) => <>{i > 0 && '; '}<a href={listHref('verification', v)}>{`${num(n)} ${lowerFirst(enumLabel('verification', v) || 'not set')}`}</a></>)}.
-        </p>
-      </div>
-    </div>
+    <dl class="figures figures-compact">
+      {
+        figures.map((f) => (
+          <div class="figure">
+            <dt>
+              <a href={f.href}>{f.label}</a>
+            </dt>
+            <dd>
+              <span class="figure-value">{num(f.value)}</span>
+            </dd>
+          </div>
+        ))
+      }
+    </dl>
+    <details class="registry-note">
+      <summary>About the registry</summary>
+      <p class="small">
+        {`${REGISTRY_SCOPE_NOTE} ${num(catalogue)} records come from a catalogue (WTO RTA-IS or ADB ARIC) and were not checked against the treaty text; the ${num(rows.length - catalogue)} checked against official sources are marked "Official sources". ${num(linked)} agreements with three or more parties also have an organization record with their roster and map.`}
+      </p>
+    </details>
   </section>
 
   <section class="container" id="list">
@@ -258,6 +261,29 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
         <button type="button" class="pri" data-sheet-close data-sheet-done>Show results</button>
       </div>
     </dialog>
+  </section>
+
+  <section class="container card-section" aria-labelledby="summary-heading">
+    <h2 id="summary-heading">By status and type</h2>
+    <div class="grid-2">
+      <div>
+        <h3>By status</h3>
+        <BarList
+          items={byStatus.map(([s, n]) => ({ label: agreementStatusLabel(s) || 'Not set', value: n, href: listHref('status', s) }))}
+          label="Trade agreements by status"
+        />
+      </div>
+      <div>
+        <h3>By type</h3>
+        <BarList
+          items={byType.map(([t, n]) => ({ label: agreementTypeLabel(t) || 'Not set', value: n, href: listHref('type', t) }))}
+          label="Trade agreements by type"
+        />
+        <p class="muted small">
+          {byVerification.map(([v, n], i) => <>{i > 0 && '; '}<a href={listHref('verification', v)}>{`${num(n)} ${lowerFirst(enumLabel('verification', v) || 'not set')}`}</a></>)}.
+        </p>
+      </div>
+    </div>
   </section>
   <script>
     import '../../scripts/tables.ts';

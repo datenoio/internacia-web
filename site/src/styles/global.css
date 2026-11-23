@@ -406,6 +406,72 @@ html {
   gap: var(--space-3) var(--space-5);
 }
 
+/* Headline figures (home page, trade agreements index): a label, which may link to the list it
+   counts, over its value. The compact row sits above a list and keeps two tiles a row on a phone. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.figure {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+}
+
+.figure dt {
+  color: var(--color-muted);
+  font-size: 0.95rem;
+}
+
+.figure dd {
+  margin: var(--space-1) 0 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.figure-value {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.figure-note {
+  color: var(--color-muted);
+  font-size: 0.9rem;
+}
+
+.figures-compact {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-2);
+  margin-block: var(--space-3);
+}
+
+.figures-compact .figure {
+  padding: var(--space-2) var(--space-3);
+}
+
+.figures-compact .figure-value {
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The trade agreements registry's scope note, collapsed under the headline figures. */
+.registry-note {
+  max-width: 48rem;
+}
+
+.registry-note > summary {
+  font-size: 0.9rem;
+  color: var(--color-muted);
+}
+
+.registry-note p {
+  margin-top: 0;
+}
+
 .facts {
   display: grid;
   grid-template-columns: minmax(9rem, max-content) 1fr;
