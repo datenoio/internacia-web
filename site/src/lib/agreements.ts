@@ -174,3 +174,25 @@ export const byStatusOrder = (a: string, b: string): number => agreementStatusRa
 // that no longer applies or never did is marked, the stages before entry into force are plain.
 export const agreementStatusBadge = (status: string | null | undefined): string =>
   status === 'in_force' ? 'badge badge-status' : agreementEnded(status) ? 'badge badge-warn' : 'badge';
+
+// Facet values of a row of the trade agreements index (/agreements/). The page counts them for its
+// default view and /agreements/facets.json carries them for the filters (scripts/tables.ts,
+// data-rows), so the counts and the filters use the same values. The rows carry none of them: with
+// v5.1.0 (5,195 rows) they were an eighth of the page's gzip bytes, and Lighthouse's simulated 4G
+// waits for the whole document before the first paint.
+export const NO_VALUE = '_none';
+export const AGREEMENT_FACETS = ['countries', 'status', 'type', 'parties', 'verification'] as const;
+export type AgreementFacet = (typeof AGREEMENT_FACETS)[number];
+export const PARTIES_LABELS: Record<string, string> = { two: 'Two', 'three-plus': 'Three or more', one: 'One', none: 'None recorded' };
+const partiesBucket = (n: number): string => (n >= 3 ? 'three-plus' : n === 2 ? 'two' : n === 1 ? 'one' : 'none');
+// Countries covered: the country_trade_agreements view's rows for the agreement (current coverage,
+// a bloc party expanded to its current members), the same as the card's "Countries covered".
+export function agreementFacetValues(a: Agreement): Record<AgreementFacet, string[]> {
+  return {
+    countries: [...new Set(a._countries.map((c) => c.code))].sort(),
+    status: [a.status ?? NO_VALUE],
+    type: [a.agreement_type ?? NO_VALUE],
+    parties: [partiesBucket(a._party_count)],
+    verification: [a.verification ?? NO_VALUE],
+  };
+}
