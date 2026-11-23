@@ -22,7 +22,18 @@ import {
   yesNo,
 } from '../../../lib/format';
 import { BORDER_EVIDENCE_NOTE, borderStatusText } from '../../../lib/design';
-import { COUNTRY_AGREEMENTS_NOTE, agreementStatusLabel, agreementTypeLabel, byStatusOrder } from '../../../lib/agreements';
+import {
+  AGREEMENT_KINDS,
+  AGREEMENT_KIND_LABELS,
+  COUNTRY_AGREEMENTS_NOTE,
+  agreementKind,
+  agreementStatusLabel,
+  agreementTypeLabel,
+  byStatusOrder,
+  kindSummary,
+  partyRoleLabel,
+  showsRole,
+} from '../../../lib/agreements';
 import { countryEmbeddable } from '../../../lib/embed';
 import { countryLd } from '../../../lib/jsonld';
 import {
@@ -85,9 +96,15 @@ const formerTrade = c ? c._former_trade_agreements : [];
 const tradeInForce = trade.filter((r) => r.status === 'in_force').length;
 const tradeVia = trade.filter((r) => r.via).length;
 const tradeStatuses = [...new Set(trade.map((r) => r.status ?? ''))].sort(byStatusOrder);
+// Contract 5.1: the registry also holds investment treaties, trade relations agreements and the
+// roles of preference schemes; the summary and the kind filter keep them apart (ai-consumers.md).
+const tradeKinds = AGREEMENT_KINDS.filter((k) => trade.some((r) => agreementKind(r) === k));
+const tradeRole = trade.some((r) => showsRole(r.role));
+const tradeProvisional = trade.some((r) => r.party_provisional_application);
+const formerTradeRole = formerTrade.some((r) => showsRole(r.role));
 const tradeSummary = c
   ? trade.length > 0
-    ? `${c.name} is a current party to ${num(trade.length)} trade ${trade.length === 1 ? 'agreement' : 'agreements'} in the registry, ${num(tradeInForce)} of them in force${tradeVia > 0 ? `; ${num(tradeVia)} through a bloc that is a party` : ''}.`
+    ? `${c.name} is a current party to ${num(trade.length)} ${trade.length === 1 ? 'agreement' : 'agreements'} in the registry, ${num(tradeInForce)} of them in force: ${kindSummary(trade, num)}${tradeVia > 0 ? `; ${num(tradeVia)} through a bloc that is a party` : ''}.`
     : `The trade agreements registry records no agreement that ${c.name} is a current party to.`
   : '';
 // In-page navigation, in page order: memberships first, reference sections after them.
@@ -297,6 +314,17 @@ const toc = c
                   Search
                   <input type="search" data-filter="text" placeholder="Agreement or ID" />
                 </label>
+                {tradeKinds.length > 1 && (
+                  <label>
+                    Kind
+                    <select data-filter="kind">
+                      <option value="">All</option>
+                      {tradeKinds.map((k) => (
+                        <option value={k}>{AGREEMENT_KIND_LABELS[k]}</option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 <label>
                   Status
                   <select data-filter="status">
@@ -315,13 +343,15 @@ const toc = c
                       <th scope="col">Agreement</th>
                       <th scope="col">Type</th>
                       <th scope="col">Status</th>
+                      {tradeRole && <th scope="col">Role</th>}
+                      {tradeProvisional && <th scope="col">Provisional application</th>}
                       <th scope="col">In force</th>
                       {tradeVia > 0 && <th scope="col">Via</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {trade.map((r) => (
-                      <tr data-agreement={r.agreement_id} data-status={r.status ?? ''} data-via={r.via ?? ''}>
+                      <tr data-agreement={r.agreement_id} data-kind={agreementKind(r)} data-status={r.status ?? ''} data-via={r.via ?? ''}>
                         <td>
                           <a href={agreementPath(r.agreement_id)}>{r.name}</a>
                           {r.acronym && <span class="muted"> ({r.acronym})</span>}
@@ -330,6 +360,8 @@ const toc = c
                         </td>
                         <td>{agreementTypeLabel(r.agreement_type)}</td>
                         <td>{agreementStatusLabel(r.status)}</td>
+                        {tradeRole && <td>{showsRole(r.role) ? partyRoleLabel(r.role) : ''}</td>}
+                        {tradeProvisional && <td class="date">{r.party_provisional_application}</td>}
                         <td class="date">{r.party_in_force ?? r.in_force}</td>
                         {tradeVia > 0 && <td>{r.via ? <a href={blockPath(r.via)}>{r.via_name ?? r.via}</a> : ''}</td>}
                       </tr>
@@ -347,7 +379,9 @@ const toc = c
                   <thead>
                     <tr>
                       <th scope="col">Agreement</th>
+                      <th scope="col">Type</th>
                       <th scope="col">Status</th>
+                      {formerTradeRole && <th scope="col">Role</th>}
                       <th scope="col">Left</th>
                     </tr>
                   </thead>
@@ -358,7 +392,9 @@ const toc = c
                           <a href={agreementPath(r.agreement_id)}>{r.name}</a>
                           {r.agreement_id !== r.acronym && <code class="inline-id">{r.agreement_id}</code>}
                         </td>
+                        <td>{agreementTypeLabel(r.agreement_type)}</td>
                         <td>{agreementStatusLabel(r.status)}</td>
+                        {formerTradeRole && <td>{showsRole(r.role) ? partyRoleLabel(r.role) : ''}</td>}
                         <td class="date">{r.left}</td>
                       </tr>
                     ))}

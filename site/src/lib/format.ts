@@ -85,13 +85,16 @@ export const ENUM_LABELS: Record<string, Record<string, string>> = {
     organization: 'Organization',
     'historical-country': 'Historical country',
   },
-  // Trade agreements registry (contract 5.0); open enums, as everywhere else.
+  // Trade agreements registry (contract 5.0); open enums, as everywhere else. Contract 5.1 adds
+  // `investment` and `trade_relations`, and narrows `services` to services-only agreements.
   agreement_type: {
     fta: 'Free trade agreement',
     customs_union: 'Customs union',
     pta: 'Preferential or partial-scope agreement',
     preference_scheme: 'Non-reciprocal preference scheme',
-    services: 'Services or investment agreement',
+    services: 'Services agreement',
+    investment: 'Investment treaty',
+    trade_relations: 'Trade relations agreement',
     digital: 'Digital agreement',
     framework: 'Framework agreement',
     other: 'Other',
@@ -99,6 +102,7 @@ export const ENUM_LABELS: Record<string, Record<string, string>> = {
   agreement_status: {
     proposed: 'Proposed',
     negotiating: 'Under negotiation',
+    suspended: 'Negotiations suspended',
     signed: 'Signed, not in force',
     in_force: 'In force',
     terminated: 'Terminated',
@@ -107,9 +111,28 @@ export const ENUM_LABELS: Record<string, Record<string, string>> = {
   },
   verification: {
     official: 'Checked against official sources',
-    catalogue: 'From a catalogue (WTO RTA-IS or ADB ARIC)',
+    catalogue: 'From a catalogue',
   },
   party_status: { party: 'Party', former_party: 'Former party' },
+  // Contract 5.1: grantor or beneficiary on a preference scheme, party on every other agreement.
+  party_role: { party: 'Party', grantor: 'Grantor', beneficiary: 'Beneficiary' },
+  instrument_kind: {
+    amending_protocol: 'Amending protocol',
+    supplementary_agreement: 'Supplementary agreement',
+    early_harvest: 'Early harvest arrangement',
+    joint_committee_decision: 'Joint committee decision',
+    exchange_of_letters: 'Exchange of letters',
+    other: 'Other',
+  },
+  instrument_status: {
+    negotiating: 'Under negotiation',
+    signed: 'Signed, not in force',
+    in_force: 'In force',
+    terminated: 'Terminated',
+    abandoned: 'Abandoned',
+  },
+  instrument_coverage: { goods: 'Goods', services: 'Services', investment: 'Investment' },
+  link_type: { website: 'Website', wikipedia: 'Wikipedia', wikidata: 'Wikidata', treaty_text: 'Treaty text' },
   party_type: {
     country: 'Country',
     territory: 'Territory',

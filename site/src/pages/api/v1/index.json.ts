@@ -30,7 +30,7 @@ export const GET: APIRoute = () =>
     notes: [
       '{CODE} is the ISO 3166-1 alpha-2 code as in the data (uppercase); {ID} is the exact intblock ID (case-sensitive).',
       'Derived fields start with an underscore; every other field is an internacia-db export field.',
-      'Trade agreements are the internacia-db trade agreements registry (contract 5.0): parties, status, dates and catalogue IDs, no trade values. {ID} of an agreement is its exact registry ID. Two-party agreements that were intblocks before v5.0.0 keep their ID; their old block documents redirect to the agreement.',
+      'Trade agreements are the internacia-db trade agreements registry (contract 5.0): parties, status, dates and catalogue IDs, no trade values. {ID} of an agreement is its exact registry ID. Two-party agreements that were intblocks before v5.0.0 keep their ID; their old block documents redirect to the agreement. Since contract 5.1 the registry also holds investment treaties (agreement_type investment) and trade relations agreements (trade_relations); preference scheme parties have role grantor or beneficiary.',
       'Current members follow the current_memberships view of internacia-db: not former_member, no left date, intblock not historical or dissolved.',
     ],
     llms_txt: absolute(path('llms.txt')),

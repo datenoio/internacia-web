@@ -104,22 +104,39 @@ const aliasNote = {
 };
 
 // Trade agreements registry (contract 5.0): one agreement as country and intblock cards list it.
+const roleProp = {
+  ...strOrNull,
+  description: 'Contract 5.1: grantor or beneficiary on a non-reciprocal preference scheme, party on every other agreement (open enum).',
+};
 const agreementRowProps = {
   agreement_id: str,
   name: str,
   acronym: strOrNull,
-  agreement_type: { ...strOrNull, description: 'fta, customs_union, pta, preference_scheme, services, digital, framework, other (open enum).' },
-  status: { ...strOrNull, description: "The agreement's own status: proposed, negotiating, signed, in_force, terminated, abandoned, superseded (open enum)." },
+  agreement_type: {
+    ...strOrNull,
+    description: 'fta, customs_union, pta, preference_scheme, services, investment, trade_relations, digital, framework, other (open enum; investment and trade_relations from contract 5.1).',
+  },
+  status: {
+    ...strOrNull,
+    description: "The agreement's own status: proposed, negotiating, suspended, signed, in_force, terminated, abandoned, superseded (open enum; suspended from contract 5.1).",
+  },
   signed: strOrNull,
-  in_force: strOrNull,
+  provisional_application: { ...strOrNull, description: 'Contract 5.1: the date the agreement began to apply provisionally. An agreement applied only provisionally has no in_force.' },
+  in_force: { ...strOrNull, description: 'Definitive entry into force (contract 5.1; catalogue records may hold a provisional date).' },
   ended: strOrNull,
-  verification: { ...strOrNull, description: 'official (checked against the treaty text, a depositary or a party government) or catalogue (WTO RTA-IS or ADB ARIC only).' },
+  verification: {
+    ...strOrNull,
+    description:
+      'official (checked against the treaty text, a depositary or a party government) or catalogue (WTO RTA-IS, the WTO PTA Database, ADB ARIC, GPTAD, the UNCTAD IIA Navigator, EDIT or the UN Treaty Series only).',
+  },
 };
 const countryAgreement = {
   type: 'object',
   required: ['agreement_id', 'name', 'status', 'via'],
   properties: {
     ...agreementRowProps,
+    role: roleProp,
+    party_provisional_application: { ...strOrNull, description: 'provisional_application of the country_trade_agreements view: the party date, else the agreement date.' },
     party_in_force: { ...strOrNull, description: 'in_force of the country_trade_agreements view: the party date, else the agreement date.' },
     via: { ...strOrNull, description: 'Intblock ID of the bloc party the country is covered through (its current members), or null for a direct party.' },
     via_name: strOrNull,
@@ -129,7 +146,7 @@ const countryAgreement = {
 const formerCountryAgreement = {
   type: 'object',
   required: ['agreement_id', 'name', 'status'],
-  properties: { ...agreementRowProps, joined: strOrNull, left: strOrNull },
+  properties: { ...agreementRowProps, role: roleProp, joined: strOrNull, left: strOrNull },
   additionalProperties: false,
 };
 const agreementRef = blockRef;
@@ -140,8 +157,10 @@ const agreementParty = {
     id: str,
     name: strOrNull,
     type: { type: 'string', description: 'country, territory, intblock or historical-country (open enum).' },
+    role: roleProp,
     status: { type: 'string', description: 'party or former_party (open enum).' },
     signed: strOrNull,
+    provisional_application: strOrNull,
     in_force: strOrNull,
     joined: strOrNull,
     left: strOrNull,
@@ -161,8 +180,16 @@ const agreement: Schema = {
     agreement_type: strOrNull,
     status: strOrNull,
     intblock_id: { ...strOrNull, description: 'The intblock that holds the roster of an agreement with three or more parties.' },
+    provisional_application: agreementRowProps.provisional_application,
+    in_force: agreementRowProps.in_force,
+    parent: { ...strOrNull, description: 'Contract 5.1: the preference scheme a sub-scheme belongs to (GSP → EU-GSP → EU-GSP-EBA).' },
     wto_rta_id: { type: ['integer', 'null'] },
     aric_id: { type: ['integer', 'null'] },
+    wto_pta_ids: { type: ['array', 'null'], items: { type: 'integer' }, description: 'Contract 5.1: WTO Preferential Trade Arrangements Database ids.' },
+    gptad_id: { type: ['integer', 'null'], description: 'Contract 5.1: World Bank GPTAD agreement id.' },
+    dta_id: { type: ['integer', 'null'], description: 'Contract 5.1: World Bank Deep Trade Agreements id.' },
+    unctad_iia_id: { type: ['integer', 'null'], description: 'Contract 5.1: UNCTAD IIA Navigator treaty id.' },
+    unts_registration: { ...strOrNull, description: 'Contract 5.1: UN Treaty Series registration number.' },
     verification: strOrNull,
     _name: { ...str, description: "The record's name, or its intblock's name for a linked record without one." },
     _acronym: strOrNull,
@@ -174,13 +201,37 @@ const agreement: Schema = {
       items: {
         type: 'object',
         required: ['code', 'via'],
-        properties: { code: str, name: strOrNull, flag_emoji: strOrNull, via: strOrNull, in_force: strOrNull },
+        properties: { code: str, name: strOrNull, flag_emoji: strOrNull, via: strOrNull, role: roleProp, provisional_application: strOrNull, in_force: strOrNull },
         additionalProperties: false,
       },
     },
     _block: blockRef,
     _supersedes: { type: 'array', items: agreementRef, description: "Records this one replaced: its own supersedes and every record whose superseded_by names it." },
     _superseded_by: agreementRef,
+    _parent: { ...agreementRef, description: 'Contract 5.1: the scheme named by parent.' },
+    _children: { type: 'array', items: agreementRef, description: 'Contract 5.1: records whose parent is this one (sub-schemes).' },
+    _instruments: {
+      type: 'array',
+      description: 'Contract 5.1: rows of trade_agreement_instruments for this agreement (protocols, supplements, early harvests, joint committee decisions).',
+      items: {
+        type: 'object',
+        required: ['instrument_id'],
+        properties: {
+          instrument_id: str,
+          kind: { ...strOrNull, description: 'amending_protocol, supplementary_agreement, early_harvest, joint_committee_decision, exchange_of_letters, other (open enum).' },
+          name: strOrNull,
+          status: { ...strOrNull, description: 'negotiating, signed, in_force, terminated, abandoned (open enum).' },
+          signed: strOrNull,
+          in_force: strOrNull,
+          ended: strOrNull,
+          coverage: { type: ['array', 'null'], items: { type: 'string' }, description: 'goods, services, investment (open enum).' },
+          other_names: { type: ['array', 'null'] },
+          notes: strOrNull,
+          provenance: { type: ['array', 'null'] },
+        },
+        additionalProperties: false,
+      },
+    },
     _alias_notes: { type: 'array', items: aliasNote },
     _source_path: str,
   },
@@ -288,7 +339,7 @@ const block: Schema = {
     _party_to_agreements: {
       type: 'array',
       description: 'Agreements this intblock is a party to as a bloc.',
-      items: { type: 'object', required: ['agreement_id', 'name', 'status'], properties: { ...agreementRowProps, party_status: strOrNull }, additionalProperties: false },
+      items: { type: 'object', required: ['agreement_id', 'name', 'status'], properties: { ...agreementRowProps, role: roleProp, party_status: strOrNull }, additionalProperties: false },
     },
     _source_path: str,
   },
@@ -466,9 +517,11 @@ export const SCHEMAS: Record<string, Schema> = {
             agreement_type: strOrNull,
             status: strOrNull,
             signed: strOrNull,
+            provisional_application: strOrNull,
             in_force: strOrNull,
             ended: strOrNull,
             intblock_id: strOrNull,
+            parent: strOrNull,
             wto_rta_id: { type: ['integer', 'null'] },
             aric_id: { type: ['integer', 'null'] },
             verification: strOrNull,

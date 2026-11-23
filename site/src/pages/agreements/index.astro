@@ -5,6 +5,7 @@
 import BarList from '../../components/BarList.astro';
 import Base from '../../layouts/Base.astro';
 import {
+  CATALOGUE_SOURCES,
   REGISTRY_SCOPE_NOTE,
   agreementStatusBadge,
   agreementStatusLabel,
@@ -22,8 +23,8 @@ type Row = ReturnType<typeof agreements>[number];
 
 const NONE = '_none';
 // Default order: by status (in force first), then newest first by the latest date recorded (ended,
-// in force, signed); records without a date come last within their status.
-const latest = (a: Row) => a.ended ?? a.in_force ?? a.signed ?? '';
+// in force, provisional application, signed); records without a date come last within their status.
+const latest = (a: Row) => a.ended ?? a.in_force ?? a.provisional_application ?? a.signed ?? '';
 const rows = agreements()
   .slice()
   .sort(
@@ -36,7 +37,7 @@ const rows = agreements()
 const byStatus = groupCounts(rows, (a) => a.status).sort((x, y) => byStatusOrder(x[0], y[0]));
 const byType = groupCounts(rows, (a) => a.agreement_type).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
 const byVerification = groupCounts(rows, (a) => a.verification).sort((x, y) => y[1] - x[1]);
-const bilateral = rows.filter((a) => a._party_count === 2).length;
+const investment = rows.filter((a) => a.agreement_type === 'investment').length;
 const linked = rows.filter((a) => a._block?.exists).length;
 const inForce = rows.filter((a) => a.status === 'in_force').length;
 const catalogue = rows.filter((a) => a.verification === 'catalogue').length;
@@ -97,7 +98,7 @@ const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 const figures = [
   { label: 'Agreements', value: rows.length, href: `${path('agreements/')}#list` },
   { label: 'In force', value: inForce, href: listHref('status', 'in_force') },
-  { label: 'With two parties', value: bilateral, href: listHref('parties', 'two') },
+  { label: 'Investment treaties', value: investment, href: listHref('type', 'investment') },
   { label: 'Checked against official sources', value: rows.length - catalogue, href: listHref('verification', 'official') },
 ];
 const DATE_LABELS = ['Signed', 'In force', 'Ended'];
@@ -108,7 +109,7 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
 <Base
   section="Trade agreements"
   title="Trade agreements"
-  description={`All ${rows.length} trade agreements in the internacia-db registry, ${inForce} of them in force: free trade agreements, customs unions, preferential agreements and preference schemes, with parties, status and dates.`}
+  description={`All ${rows.length} agreements in the internacia-db trade agreements registry, ${inForce} of them in force: free trade agreements, customs unions, preferential agreements, preference schemes, investment treaties and trade relations agreements, with parties, status and dates.`}
   breadcrumbs={[{ name: 'Trade agreements', href: path('agreements/') }]}
   markdown={path('agreements.md')}
   json={path('api/v1/agreements.json')}
@@ -116,8 +117,8 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
   <section class="container page-head">
     <h1>Trade agreements</h1>
     <p class="lead">
-      Free trade agreements, customs unions, preferential agreements and preference schemes in the internacia-db
-      registry, bilateral agreements included.
+      Free trade agreements, customs unions, preferential agreements, preference schemes, investment treaties and
+      trade relations agreements in the internacia-db registry, bilateral agreements included.
     </p>
     <dl class="figures figures-compact">
       {
@@ -136,7 +137,7 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
     <details class="registry-note">
       <summary>About the registry</summary>
       <p class="small">
-        {`${REGISTRY_SCOPE_NOTE} ${num(catalogue)} records come from a catalogue (WTO RTA-IS or ADB ARIC) and were not checked against the treaty text; the ${num(rows.length - catalogue)} checked against official sources are marked "Official sources". ${num(linked)} agreements with three or more parties also have an organization record with their roster and map.`}
+        {`${REGISTRY_SCOPE_NOTE} ${num(catalogue)} records come from a catalogue (${CATALOGUE_SOURCES}) and were not checked against the treaty text; the ${num(rows.length - catalogue)} checked against official sources are marked "Official sources". ${num(linked)} agreements with three or more parties also have an organization record with their roster and map. Investment treaties and trade relations agreements grant no trade preferences: the type filter keeps them apart.`}
       </p>
     </details>
   </section>
@@ -200,7 +201,7 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
         <div class="table-wrap">
           <table class="data chunked" id="agreements-table" role="table" data-chunk={CHUNK}>
             <caption class="muted small" style="text-align:left;padding:0.5rem 0.65rem">
-              {`Trade agreements in internacia-db v${meta.data.version}, in force first, then newest first.`}
+              {`Trade agreements in internacia-db v${meta.data.version}, in force first, then newest first. An agreement applied only provisionally shows the date of provisional application.`}
             </caption>
             <thead role="rowgroup">
               <tr role="row">
@@ -236,11 +237,16 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
                       <td role="cell" data-label="Status" data-value={`${String(agreementStatusRank(a.status)).padStart(2, '0')} ${a.status ?? ''}`}>
                         <span class={agreementStatusBadge(a.status)}>{agreementStatusLabel(a.status) || 'Not set'}</span>
                       </td>
-                      {[a.signed, a.in_force, a.ended].map((d, i) => (
-                        <td role="cell" class={d ? 'date' : 'date is-empty'} data-label={DATE_LABELS[i]} data-value={d ? undefined : ''}>
-                          {d ?? '—'}
-                        </td>
-                      ))}
+                      {[a.signed, a.in_force ?? a.provisional_application, a.ended].map((d, i) => {
+                        // Applied provisionally only (contract 5.1): the date of provisional application, marked.
+                        const provisional = i === 1 && !a.in_force && Boolean(a.provisional_application);
+                        return (
+                          <td role="cell" class={d ? 'date' : 'date is-empty'} data-label={DATE_LABELS[i]} data-value={d ? (provisional ? d : undefined) : ''}>
+                            {d ?? '—'}
+                            {provisional && <span class="muted small cell-note">provisional</span>}
+                          </td>
+                        );
+                      })}
                       <td role="cell" class="num" data-label="Parties">{num(a._party_count)}</td>
                     </tr>
                   ))}

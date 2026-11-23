@@ -355,8 +355,8 @@ def derive_blocks(release: Release, similar: dict[str, list[dict]], alias_notes:
 
 
 # Trade agreement statuses in the order cards list them (contract 5.0; open enum: an unknown
-# status sorts last).
-AGREEMENT_STATUS_ORDER = ("in_force", "signed", "negotiating", "proposed", "terminated", "superseded", "abandoned")
+# status sorts last). `suspended` (contract 5.1): negotiations on hold, not formally ended.
+AGREEMENT_STATUS_ORDER = ("in_force", "signed", "negotiating", "suspended", "proposed", "terminated", "superseded", "abandoned")
 
 
 def _agreement_status_rank(status: str | None) -> int:
@@ -382,6 +382,9 @@ def _agreement_row(agreement: dict, blocks: dict[str, dict]) -> dict:
         "agreement_type": agreement.get("agreement_type"),
         "status": agreement.get("status"),
         "signed": agreement.get("signed"),
+        # Contract 5.1: in_force is the definitive entry into force; an agreement applied only
+        # provisionally has provisional_application and no in_force.
+        "provisional_application": agreement.get("provisional_application"),
         "in_force": agreement.get("in_force"),
         "ended": agreement.get("ended"),
         "verification": agreement.get("verification"),
@@ -399,6 +402,8 @@ def country_trade_agreements(release: Release) -> dict[str, dict[str, list[dict]
     current party to, directly (`via` None) or through a bloc that is a party (`via` = bloc ID,
     expanded to the bloc's current members), whatever the agreement's own status. Coverage is
     current, not historical. `former` rows are the country's own `former_party` entries.
+    `role` (contract 5.1) is grantor or beneficiary on a preference scheme and party on every
+    other agreement; the view's dates are the country's own where its party row has them.
     """
     blocks = {b["id"]: b for b in release.intblocks}
     agreements = {a["id"]: a for a in release.trade_agreements}
@@ -409,6 +414,8 @@ def country_trade_agreements(release: Release) -> dict[str, dict[str, list[dict]
         out[row["country_code"]]["current"].append(
             {
                 **_agreement_row(a, blocks),
+                "role": row.get("role"),
+                "party_provisional_application": row.get("provisional_application"),
                 "party_in_force": row.get("in_force"),
                 "via": via,
                 "via_name": blocks[via]["name"] if via in blocks else None,
@@ -418,7 +425,7 @@ def country_trade_agreements(release: Release) -> dict[str, dict[str, list[dict]
     for p in release.trade_agreement_parties:
         if p.get("party_type") in COUNTRY_TYPES and p.get("status") == "former_party" and (p["party_id"], p["agreement_id"]) not in current:
             out[p["party_id"]]["former"].append(
-                {**_agreement_row(agreements[p["agreement_id"]], blocks), "joined": p.get("joined"), "left": p.get("left")}
+                {**_agreement_row(agreements[p["agreement_id"]], blocks), "role": p.get("role"), "joined": p.get("joined"), "left": p.get("left")}
             )
     return {k: {"current": _sort_agreements(v["current"]), "former": _sort_agreements(v["former"])} for k, v in out.items()}
 
@@ -436,7 +443,7 @@ def block_trade_agreements(release: Release) -> dict[str, dict]:
     for p in release.trade_agreement_parties:
         if p.get("party_type") == "intblock":
             parties[p["party_id"]].append(
-                {**_agreement_row(agreements[p["agreement_id"]], blocks), "party_status": p.get("status")}
+                {**_agreement_row(agreements[p["agreement_id"]], blocks), "role": p.get("role"), "party_status": p.get("status")}
             )
     return {
         bid: {"linked": linked.get(bid), "party": _sort_agreements(parties.get(bid, []))}
@@ -450,6 +457,9 @@ def derive_agreements(release: Release, alias_notes: dict) -> list[dict]:
     `_parties` are the trade_agreement_parties rows (a linked record's parties come from its
     intblock's includes, `source = intblock`). `_countries` are the country_trade_agreements view's
     rows for the agreement: current coverage, with a bloc party expanded to its current members.
+    Contract 5.1: parties carry `role` and `provisional_application`; `_instruments` are the
+    trade_agreement_instruments rows (protocols, supplements, joint committee decisions); `_parent`
+    and `_children` link a preference sub-scheme and its scheme (`parent`).
     """
     blocks = {b["id"]: b for b in release.intblocks}
     countries = {c["code"]: c for c in release.countries}
@@ -470,8 +480,10 @@ def derive_agreements(release: Release, alias_notes: dict) -> list[dict]:
                 "id": p["party_id"],
                 "name": name,
                 "type": kind,
+                "role": p.get("role"),
                 "status": p.get("status"),
                 "signed": p.get("signed"),
+                "provisional_application": p.get("provisional_application"),
                 "in_force": p.get("in_force"),
                 "joined": p.get("joined"),
                 "left": p.get("left"),
@@ -485,7 +497,15 @@ def derive_agreements(release: Release, alias_notes: dict) -> list[dict]:
     for row in release.country_trade_agreements:
         c = countries.get(row["country_code"], {})
         covered[row["agreement_id"]].append(
-            {"code": row["country_code"], "name": c.get("name"), "flag_emoji": c.get("flag_emoji"), "via": row.get("via"), "in_force": row.get("in_force")}
+            {
+                "code": row["country_code"],
+                "name": c.get("name"),
+                "flag_emoji": c.get("flag_emoji"),
+                "via": row.get("via"),
+                "role": row.get("role"),
+                "provisional_application": row.get("provisional_application"),
+                "in_force": row.get("in_force"),
+            }
         )
 
     def block_ref(block_id: str | None) -> dict | None:
@@ -500,9 +520,15 @@ def derive_agreements(release: Release, alias_notes: dict) -> list[dict]:
         return {"id": agreement_id, "name": _agreement_name(known, blocks) if known else None, "exists": known is not None}
 
     replaced: dict[str, list[str]] = defaultdict(list)
+    children: dict[str, list[str]] = defaultdict(list)
     for x in release.trade_agreements:
         if x.get("superseded_by"):
             replaced[x["superseded_by"]].append(x["id"])
+        if x.get("parent"):
+            children[x["parent"]].append(x["id"])
+    instruments: dict[str, list[dict]] = defaultdict(list)
+    for row in release.trade_agreement_instruments:
+        instruments[row["agreement_id"]].append({k: v for k, v in row.items() if k != "agreement_id"})
 
     out = []
     for a in sorted(release.trade_agreements, key=lambda x: x["id"]):
@@ -520,6 +546,11 @@ def derive_agreements(release: Release, alias_notes: dict) -> list[dict]:
                 # `superseded_by` names it (most records set only one side).
                 "_supersedes": [agreement_ref(x) for x in sorted({*([a["supersedes"]] if a.get("supersedes") else []), *replaced.get(a["id"], [])})],
                 "_superseded_by": agreement_ref(a.get("superseded_by")),
+                "_parent": agreement_ref(a.get("parent")),
+                "_children": sorted(
+                    (agreement_ref(x) for x in children.get(a["id"], [])), key=lambda r: ((r["name"] or r["id"]).casefold(), r["id"])
+                ),
+                "_instruments": instruments.get(a["id"], []),
                 "_alias_notes": alias_notes.get(("agreements", a["id"]), []),
                 "_source_path": _source_path_agreement(a),
             }
@@ -527,6 +558,9 @@ def derive_agreements(release: Release, alias_notes: dict) -> list[dict]:
     unknown = {p["agreement_id"] for p in release.trade_agreement_parties} - set(agreements)
     if unknown:
         raise DeriveError(f"trade_agreement_parties reference unknown agreements: {sorted(unknown)[:5]}")
+    unknown = {r["agreement_id"] for r in release.trade_agreement_instruments} - set(agreements)
+    if unknown:
+        raise DeriveError(f"trade_agreement_instruments reference unknown agreements: {sorted(unknown)[:5]}")
     return out
 
 

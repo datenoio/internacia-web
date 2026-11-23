@@ -9,6 +9,9 @@ import { agreementPath, blockPath, countryPath } from '../../../lib/urls';
 //   [kind, id, label, path, active, names]   names: [[text, lang], ...]
 // kind is "c" (country), "b" (intblock) or "a" (trade agreement, contract 5.0); lang is "" for
 // codes and IDs. An agreement is active unless it is terminated, superseded or abandoned.
+// Investment treaties (contract 5.1: 3,503 records in v5.1.0, two thirds of the registry) are left
+// out: with them the index is about 360 KB gzip. Full-text search (/search/) and the country cards
+// still find them.
 type Name = [string, string];
 
 const uniq = (names: Name[]): Name[] => {
@@ -49,6 +52,7 @@ export const GET: APIRoute = () => {
     rows.push(['b', b.id, label, blockPath(b.id), b._active ? 1 : 0, uniq(names)]);
   }
   for (const a of agreements()) {
+    if (a.agreement_type === 'investment') continue;
     const names: Name[] = [
       [a._name, 'en'],
       [a.id, ''],
