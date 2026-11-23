@@ -339,3 +339,57 @@ def test_trade_agreement_parties_must_name_known_agreements():
     release.trade_agreement_parties.append({"agreement_id": "NOPE", "party_id": "FR", "party_type": "country", "status": "party"})
     with pytest.raises(DeriveError, match="unknown agreements"):
         derive_agreements(release, {})
+
+
+def test_trade_agreement_instruments_must_name_known_agreements():
+    release = make_release()
+    release.trade_agreement_instruments.append({"agreement_id": "NOPE", "instrument_id": "upgrade-2020"})
+    with pytest.raises(DeriveError, match="trade_agreement_instruments"):
+        derive_agreements(release, {})
+
+
+def test_contract_5_1_registry_fields():
+    """Roles of a preference scheme, provisional application, instruments and sub-schemes."""
+    release = make_release()
+    release.trade_agreements += [
+        {"id": "GSP", "name": "Generalized System of Preferences", "agreement_type": "preference_scheme", "status": "in_force", "acronyms": []},
+        {"id": "EU-GSP", "name": "EU GSP", "agreement_type": "preference_scheme", "status": "in_force", "parent": "GSP", "acronyms": []},
+        {"id": "EUFR-IPA", "name": "EU-France Investment Agreement", "agreement_type": "investment", "status": "suspended", "acronyms": []},
+        {"id": "DEFR-PA", "name": "Provisional Agreement", "agreement_type": "fta", "status": "in_force", "provisional_application": "2021-01-01", "in_force": None, "acronyms": []},
+    ]
+    release.trade_agreement_parties += [
+        {"agreement_id": "EU-GSP", "party_id": "EU", "party_type": "intblock", "role": "grantor", "status": "party", "source": "record"},
+        {"agreement_id": "EU-GSP", "party_id": "HK", "party_type": "territory", "role": "beneficiary", "status": "party", "source": "record"},
+        {"agreement_id": "EU-GSP", "party_id": "DE", "party_type": "country", "role": "beneficiary", "status": "former_party", "left": "2014-01-01", "source": "record"},
+    ]
+    release.country_trade_agreements += [
+        {"country_code": "HK", "agreement_id": "EU-GSP", "via": None, "role": "beneficiary", "agreement_type": "preference_scheme", "agreement_status": "in_force", "provisional_application": None, "in_force": None},
+        {"country_code": "FR", "agreement_id": "EU-GSP", "via": "EU", "role": "grantor", "agreement_type": "preference_scheme", "agreement_status": "in_force", "provisional_application": None, "in_force": None},
+        {"country_code": "FR", "agreement_id": "DEFR-PA", "via": None, "role": "party", "agreement_type": "fta", "agreement_status": "in_force", "provisional_application": "2021-01-01", "in_force": None},
+        {"country_code": "FR", "agreement_id": "EUFR-IPA", "via": None, "role": "party", "agreement_type": "investment", "agreement_status": "suspended", "provisional_application": None, "in_force": None},
+    ]
+    release.trade_agreement_instruments += [
+        {"agreement_id": "DEFR", "instrument_id": "upgrade-2020", "kind": "amending_protocol", "name": "Upgrade Protocol", "status": "in_force"},
+    ]
+    agreements = {a["id"]: a for a in derive_agreements(release, {})}
+    gsp = agreements["EU-GSP"]
+    assert [(p["id"], p["role"], p["status"]) for p in gsp["_parties"]] == [
+        ("EU", "grantor", "party"),
+        ("HK", "beneficiary", "party"),
+        ("DE", "beneficiary", "former_party"),
+    ]
+    assert [(c["code"], c["role"]) for c in gsp["_countries"]] == [("FR", "grantor"), ("HK", "beneficiary")]
+    assert gsp["_parent"] == {"id": "GSP", "name": "Generalized System of Preferences", "exists": True}
+    assert agreements["GSP"]["_children"] == [{"id": "EU-GSP", "name": "EU GSP", "exists": True}]
+    assert agreements["DEFR"]["_instruments"] == [{"instrument_id": "upgrade-2020", "kind": "amending_protocol", "name": "Upgrade Protocol", "status": "in_force"}]
+    assert agreements["EUBR"]["_instruments"] == [] and agreements["EUBR"]["_parent"] is None
+
+    fr = {r["agreement_id"]: r for r in {c["code"]: c for c in derive_countries(release, {}, {})}["FR"]["_trade_agreements"]}
+    assert fr["EU-GSP"]["role"] == "grantor" and fr["EU-GSP"]["via"] == "EU"
+    assert fr["DEFR-PA"]["party_provisional_application"] == "2021-01-01" and fr["DEFR-PA"]["provisional_application"] == "2021-01-01"
+    order = list(fr)
+    assert order.index("EUBR") < order.index("EUFR-IPA")  # negotiating before suspended
+    de = {c["code"]: c for c in derive_countries(release, {}, {})}["DE"]
+    assert [(r["agreement_id"], r["role"], r["left"]) for r in de["_former_trade_agreements"]] == [("EU-GSP", "beneficiary", "2014-01-01")]
+    eu = {b["id"]: b for b in derive_blocks(release, {}, {})}["EU"]
+    assert {r["agreement_id"]: r["role"] for r in eu["_party_to_agreements"]} == {"EUBR": None, "EU-GSP": "grantor"}

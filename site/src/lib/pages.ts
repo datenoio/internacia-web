@@ -43,11 +43,13 @@ WHERE m.intblock_id = 'ASEAN'
 ORDER BY c.name;`,
     },
     {
-      title: 'Trade agreements of the Republic of Korea in DuckDB, directly or through a bloc',
+      title: 'Trade agreements of the Republic of Korea in DuckDB, directly or through a bloc (no investment treaties, trade relations agreements or preference schemes)',
       code: `SELECT a.agreement_id, t.name, t.status, a.via
 FROM country_trade_agreements a
 JOIN trade_agreements t ON t.id = a.agreement_id
 WHERE a.country_code = 'KR'
+  AND a.role = 'party'
+  AND a.agreement_type NOT IN ('investment', 'trade_relations')
 ORDER BY t.status, t.name;`,
     },
   ];
@@ -113,7 +115,7 @@ Internacia presents internacia-db, an open reference dataset maintained by Daten
 
 - **Countries and territories**: ISO 3166-1 codes and crosswalks, geography, World Bank classifications, languages, currencies, time zones and other stable reference attributes. Records with non-standard codes exist only where a roster needs a join target; they carry \`code_status\`, \`entity_type\` and \`un_status\` so they are never mistaken for ISO entries.
 - **Intblocks**: intergovernmental organizations, treaties and agreements, policy forums, sports federations and named country groupings, with block types, topics and membership rosters (status, joined and left dates).
-- **Trade agreements**: a registry of free trade agreements, customs unions, preferential and partial-scope agreements and preference schemes, bilateral ones included, with parties, status, dates and WTO RTA-IS and ADB ARIC IDs. Agreements with three or more parties are also intblocks, which hold their roster. Catalogue-level records come from WTO RTA-IS or ADB ARIC only. The registry has no trade values, tariff lines or depth scores.
+- **Trade agreements**: a registry of free trade agreements, customs unions, preferential and partial-scope agreements, preference schemes (with grantors and beneficiaries), investment treaties and trade relations agreements, bilateral ones included, with parties, status, dates, the instruments that amend them and catalogue IDs (WTO RTA-IS, WTO PTA Database, ADB ARIC, GPTAD, World Bank DTA, UNCTAD IIA Navigator, UN Treaty Series). Agreements with three or more parties are also intblocks, which hold their roster. Catalogue-level records come from those catalogues or EDIT only. The registry has no trade values, tariff lines or depth scores.
 - **Not covered**: socioeconomic indicators such as GDP, HDI or government type. Population, area and Gini are reference values with year and source: country cards show them, and the compare explorer adds up population and land area for the selected organizations. No page ranks countries by them.
 
 ## Methodology

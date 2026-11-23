@@ -9,7 +9,9 @@ Runs after `astro build`. Fails (exit 1) when any check fails:
 - twin parity       HTML, Markdown and JSON carry the same current members / memberships
 - trade agreements  agreement parties and every country's trade agreements match the release's
                     trade_agreement_parties table and country_trade_agreements view in every form;
-                    each index row's countries covered (its filter) match the view
+                    each index row's countries covered (its filter) match the view; grantor and
+                    beneficiary roles and the instruments of each agreement (contract 5.1) match
+                    the tables in HTML, Markdown and JSON
 - JSON validity     every API file parses, carries meta.data_version and matches its JSON Schema
 - internal links    every site-internal href/src points to a built file
 - redirects         every alias page points to an existing card (moved IDs: an agreement card)
@@ -236,16 +238,26 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
     # the release's own table and view
     problems = []
     with duckdb.connect(str(db), read_only=True) as con:
-        party_rows = con.execute("SELECT agreement_id, party_id FROM trade_agreement_parties WHERE status = 'party'").fetchall()
-        view_rows = con.execute("SELECT country_code, agreement_id, coalesce(via, '') FROM country_trade_agreements").fetchall()
+        party_rows = con.execute("SELECT agreement_id, party_id, role FROM trade_agreement_parties WHERE status = 'party'").fetchall()
+        view_rows = con.execute("SELECT country_code, agreement_id, coalesce(via, ''), role FROM country_trade_agreements").fetchall()
+        instrument_rows = con.execute("SELECT agreement_id, instrument_id FROM trade_agreement_instruments").fetchall()
     parties_of: dict[str, set[str]] = {}
-    for agreement_id, party_id in party_rows:
+    # Contract 5.1: grantor and beneficiary of a preference scheme; `party` is not shown.
+    roles_of: dict[str, set[tuple[str, str]]] = {}
+    for agreement_id, party_id, role in party_rows:
         parties_of.setdefault(agreement_id, set()).add(party_id)
+        if role in ("grantor", "beneficiary"):
+            roles_of.setdefault(agreement_id, set()).add((party_id, role))
+    instruments_of: dict[str, set[str]] = {}
+    for agreement_id, instrument_id in instrument_rows:
+        instruments_of.setdefault(agreement_id, set()).add(instrument_id)
     covered_of: dict[str, set[tuple[str, str]]] = {}
     countries_of: dict[str, set[str]] = {}
-    for code, agreement_id, via in view_rows:
+    view_role: dict[tuple[str, str], str | None] = {}
+    for code, agreement_id, via, role in view_rows:
         covered_of.setdefault(code, set()).add((agreement_id, via))
         countries_of.setdefault(agreement_id, set()).add(code)
+        view_role[(code, agreement_id)] = role
     # The index filters on the countries each row covers (data-countries): the view's rows.
     index_rows = {r["agreement"]: r for r in table_rows((dist / "agreements/index.html").read_text(encoding="utf-8"), "agreements-table") if "agreement" in r}
     for a in agreements:
@@ -258,22 +270,52 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
         aid, slug = a["id"], a["id"].lower()
         expected = parties_of.get(aid, set())
         doc = json.loads((dist / f"api/v1/agreements/{aid}.json").read_text(encoding="utf-8"))
+        html = (dist / f"agreements/{slug}/index.html").read_text(encoding="utf-8")
+        md = (dist / f"agreements/{slug}.md").read_text(encoding="utf-8")
         j = {p["id"] for p in doc["data"]["_parties"] if p["status"] == "party"}
-        h = {r["party"] for r in table_rows((dist / f"agreements/{slug}/index.html").read_text(encoding="utf-8"), "parties-table") if "party" in r}
-        m = md_section_ids((dist / f"agreements/{slug}.md").read_text(encoding="utf-8"), "Parties (")
+        party_cells = [r for r in table_rows(html, "parties-table") if "party" in r]
+        h = {r["party"] for r in party_cells}
+        m = md_section_ids(md, "Parties (")
         if not (j == h == m == expected):
             problems.append(f"agreement {aid}: parties differ (table {len(expected)}, JSON {len(j)}, HTML {len(h)}, Markdown {len(m)})")
         if doc["data"]["_party_count"] != len(expected):
             problems.append(f"agreement {aid}: _party_count {doc['data']['_party_count']}, table has {len(expected)}")
+        roles = roles_of.get(aid, set())
+        j = {(p["id"], p["role"]) for p in doc["data"]["_parties"] if p["status"] == "party" and p.get("role") in ("grantor", "beneficiary")}
+        h = {(r["party"], r.get("role", "")) for r in party_cells if r.get("role") in ("grantor", "beneficiary")}
+        header, rows = md_table(md, "Parties (")
+        m = set()
+        if "Role" in header:
+            ci, ri = header.index("Code"), header.index("Role")
+            m = {(r[ci], r[ri].lower()) for r in rows if r[ri].lower() in ("grantor", "beneficiary")}
+        if not (j == h == m == roles):
+            problems.append(f"agreement {aid}: party roles differ (table {len(roles)}, JSON {len(j)}, HTML {len(h)}, Markdown {len(m)})")
+        expected_instruments = instruments_of.get(aid, set())
+        j = {i["instrument_id"] for i in doc["data"].get("_instruments", [])}
+        h = {r["instrument"] for r in table_rows(html, "instruments-table") if "instrument" in r} if expected_instruments or 'id="instruments-table"' in html else set()
+        m = md_section_ids(md, "Instruments (")
+        if not (j == h == m == expected_instruments):
+            problems.append(f"agreement {aid}: instruments differ (table {len(expected_instruments)}, JSON {len(j)}, HTML {len(h)}, Markdown {len(m)})")
     for country in countries:
         code = country["code"]
         expected = covered_of.get(code, set())
         doc = json.loads((dist / f"api/v1/countries/{code}.json").read_text(encoding="utf-8"))
         j = {(r["agreement_id"], r["via"] or "") for r in doc["data"]["_trade_agreements"]}
-        h = {(r["agreement"], r.get("via", "")) for r in table_rows((dist / f"countries/{code.lower()}/index.html").read_text(encoding="utf-8"), "trade-table") if "agreement" in r}
+        cells = [r for r in table_rows((dist / f"countries/{code.lower()}/index.html").read_text(encoding="utf-8"), "trade-table") if "agreement" in r]
+        h = {(r["agreement"], r.get("via", "")) for r in cells}
         m = md_section_ids((dist / f"countries/{code.lower()}.md").read_text(encoding="utf-8"), "Trade agreements (")
         if not (j == h == expected) or m != {i for i, _ in expected}:
             problems.append(f"country {code}: trade agreements differ (view {len(expected)}, JSON {len(j)}, HTML {len(h)}, Markdown {len(m)})")
+        # Contract 5.1: the view's role; the HTML kind filter marks grantor and beneficiary rows.
+        wrong = [r["agreement_id"] for r in doc["data"]["_trade_agreements"] if r.get("role") != view_role.get((code, r["agreement_id"]))]
+        wrong += [
+            r["agreement"]
+            for r in cells
+            if (r.get("kind") in ("grantor", "beneficiary") or view_role.get((code, r["agreement"])) in ("grantor", "beneficiary"))
+            and r.get("kind") != view_role.get((code, r["agreement"]))
+        ]
+        if wrong:
+            problems.append(f"country {code}: trade agreement roles differ from the view ({', '.join(sorted(set(wrong))[:3])})")
     report.check("trade agreements", problems)
 
     # Contract 4.1 facts in every form: route roles (pipelines, corridors) and border status

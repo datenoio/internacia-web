@@ -45,12 +45,16 @@ const AXE_PAGES = [
   'blocks/unsc/', // institutional design with veto holders (contract 4.1)
   'blocks/btc/', // route roles in the roster (contract 4.1)
   'blocks/iata/', // roster removed: membership_applicability not_applicable (contract 4.1)
-  'agreements/', // trade agreements registry index, 839 rows in chunks (contract 5.0)
+  'agreements/', // trade agreements registry index, 5,195 rows in chunks (contract 5.0, v5.1.0)
   'agreements/uskr/', // two-party agreement, formerly an intblock (moved alias)
   'agreements/euvn/', // bloc party: countries covered via the EU
   'agreements/aege/', // catalogue record
   'agreements/agoa/', // non-reciprocal preference scheme
   'agreements/rcep/', // linked to its intblock
+  'agreements/eu-gsp/', // grantor and beneficiary roles, parent and sub-schemes (contract 5.1)
+  'agreements/cnhk/', // instruments: CEPA supplements (contract 5.1)
+  'agreements/ceta/', // applied provisionally only (contract 5.1)
+  'agreements/adae-bit/', // investment treaty, catalogue record (contract 5.1)
   'data/',
   'about/',
   'types/',
@@ -78,6 +82,10 @@ const AXE_PAGES = [
   'embed/blocks/jcpoa/',
   'embed/countries/fr/',
 ];
+// Pages whose DOM is too large for axe's partial run: runPartial sends every node's results back
+// through the protocol, and the page's context is lost (agreements/ with v5.1.0: 5,195 rows, about
+// 55,000 elements). Legacy mode runs axe.run in the page and returns the violations only.
+const AXE_LEGACY = new Set(['agreements/']);
 const LH_PAGES = ['', 'countries/fr/', 'blocks/un/', 'blocks/eu/', 'blocks/', 'agreements/', 'agreements/euvn/', 'types/intorg/', 'stats/', 'explore/map/', 'explore/headquarters/', 'explore/compare/', 'embed/blocks/un/', 'embed/countries/fr/'];
 const LH_MIN = 0.95;
 const LCP_MAX_MS = 2500;
@@ -131,7 +139,9 @@ for (const colorScheme of ['light', 'dark']) {
   for (const p of AXE_PAGES) {
     const page = await context.newPage();
     await page.goto(pageUrl(p), { waitUntil: 'networkidle' });
-    const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+    const builder = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']);
+    if (AXE_LEGACY.has(p)) builder.setLegacyMode().options({ resultTypes: ['violations'] });
+    const result = await builder.analyze();
     const bad = result.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
     for (const v of bad) {
       const targets = v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join('; ');

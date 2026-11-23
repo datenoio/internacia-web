@@ -57,6 +57,8 @@ export interface AliasNote {
 }
 
 // Trade agreements registry (contract 5.0). One row per agreement on a country or intblock card.
+// Contract 5.1: in_force is the definitive entry into force; provisional_application the date the
+// agreement began to apply provisionally (an agreement applied only provisionally has no in_force).
 export interface AgreementRow {
   agreement_id: string;
   name: string;
@@ -64,19 +66,24 @@ export interface AgreementRow {
   agreement_type: string | null;
   status: string | null;
   signed: string | null;
+  provisional_application: string | null;
   in_force: string | null;
   ended: string | null;
   verification: string | null;
 }
 
 // country_trade_agreements view: current coverage; `via` is the bloc a country is covered through.
+// `role` (contract 5.1): grantor or beneficiary on a preference scheme, party on every other one.
 export interface CountryAgreement extends AgreementRow {
+  role: string | null;
+  party_provisional_application: string | null;
   party_in_force: string | null;
   via: string | null;
   via_name: string | null;
 }
 
 export interface FormerCountryAgreement extends AgreementRow {
+  role: string | null;
   joined: string | null;
   left: string | null;
 }
@@ -85,8 +92,10 @@ export interface AgreementParty {
   id: string;
   name: string | null;
   type: string;
+  role: string | null;
   status: string;
   signed: string | null;
+  provisional_application: string | null;
   in_force: string | null;
   joined: string | null;
   left: string | null;
@@ -102,20 +111,43 @@ export interface AgreementRef {
   exists: boolean;
 }
 
+// trade_agreement_instruments (contract 5.1): protocols, supplements, early harvest arrangements
+// and joint committee decisions that amend or add to an agreement.
+export interface AgreementInstrument {
+  instrument_id: string;
+  kind: string | null;
+  name: string | null;
+  status: string | null;
+  signed: string | null;
+  in_force: string | null;
+  ended: string | null;
+  coverage: string[] | null;
+  other_names: { lang: string; name: string }[] | null;
+  notes: string | null;
+  provenance: Provenance[] | null;
+}
+
 export interface Agreement {
   id: string;
   name: string | null;
   agreement_type: string | null;
   status: string | null;
   signed: string | null;
+  provisional_application: string | null;
   in_force: string | null;
   ended: string | null;
   intblock_id: string | null;
   party_count: number | null;
   supersedes: string | null;
   superseded_by: string | null;
+  parent: string | null;
   wto_rta_id: number | null;
   aric_id: number | null;
+  wto_pta_ids: number[] | null;
+  gptad_id: number | null;
+  dta_id: number | null;
+  unctad_iia_id: number | null;
+  unts_registration: string | null;
   wikidata_id: string | null;
   acronyms: { lang: string; value: string }[] | null;
   other_names: { lang: string; name: string }[] | null;
@@ -129,10 +161,21 @@ export interface Agreement {
   _acronym: string | null;
   _party_count: number;
   _parties: AgreementParty[];
-  _countries: { code: string; name: string | null; flag_emoji: string | null; via: string | null; in_force: string | null }[];
+  _countries: {
+    code: string;
+    name: string | null;
+    flag_emoji: string | null;
+    via: string | null;
+    role: string | null;
+    provisional_application: string | null;
+    in_force: string | null;
+  }[];
   _block: BlockRef | null;
   _supersedes: AgreementRef[];
   _superseded_by: AgreementRef | null;
+  _parent: AgreementRef | null;
+  _children: AgreementRef[];
+  _instruments: AgreementInstrument[];
   _alias_notes: AliasNote[];
   _source_path: string;
   [key: string]: unknown;
@@ -323,7 +366,7 @@ export interface Block {
   // Trade agreements registry (contract 5.0): the record linked to this intblock, and the
   // agreements it is a party to as a bloc.
   _trade_agreement: (AgreementRow & { wto_rta_id: number | null }) | null;
-  _party_to_agreements: (AgreementRow & { party_status: string | null })[];
+  _party_to_agreements: (AgreementRow & { role: string | null; party_status: string | null })[];
   _source_path: string;
   [key: string]: unknown;
 }

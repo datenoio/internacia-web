@@ -26,7 +26,7 @@ import { designRows } from '../../../lib/design';
 import { meta } from '../../../lib/meta';
 import { steps } from '../../../scripts/charts';
 import { blockLd } from '../../../lib/jsonld';
-import { agreementStatusLabel, agreementTypeLabel } from '../../../lib/agreements';
+import { agreementStatusLabel, agreementTypeLabel, kindSummary, partyRoleLabel, showsRole } from '../../../lib/agreements';
 import { agreementPath, blockJson, blockMd, blockPath, countryPath, path, reportErrorUrl, sourceUrl, topicPath, typePath, wikidataUrl } from '../../../lib/urls';
 
 export function getStaticPaths() {
@@ -87,6 +87,9 @@ const acronyms = b ? [...new Map((b.acronyms ?? []).map((a) => [`${a.lang}:${a.v
 // Institutional design (contract 4.1): absent subfields are unknown and left out.
 const design = b ? designRows(b.institutional_design) : [];
 const hasStructure = b ? b._parents.length > 0 || b._children.length > 0 || Boolean(b._predecessor) || Boolean(b._successor) || (b.previous_names?.length ?? 0) > 0 : false;
+// Contract 5.1: grantor or beneficiary of a preference scheme, and provisional application dates.
+const blocTradeRole = b ? b._party_to_agreements.some((r) => showsRole(r.role)) : false;
+const blocTradeProvisional = b ? b._party_to_agreements.some((r) => r.provisional_application) : false;
 // In-page navigation, in page order.
 const toc = b
   ? [
@@ -510,7 +513,7 @@ const toc = b
           <section class="card-section" aria-labelledby="trade">
             <h2 id="trade">Trade agreements</h2>
             <p>
-              {`${b._acronym ?? b.name} is itself a party to ${num(b._party_to_agreements.length)} trade ${b._party_to_agreements.length === 1 ? 'agreement' : 'agreements'} in the registry. Its current members are covered through it; the country cards list these agreements with "via ${b.id}".`}
+              {`${b._acronym ?? b.name} is itself a party to ${num(b._party_to_agreements.length)} ${b._party_to_agreements.length === 1 ? 'agreement' : 'agreements'} in the registry: ${kindSummary(b._party_to_agreements, num)}. Its current members are covered through it; the country cards list these agreements with "via ${b.id}".`}
             </p>
             <div class="filters js-only" data-table-tools="bloc-trade-table">
               <label>
@@ -526,6 +529,8 @@ const toc = b
                     <th scope="col">Agreement</th>
                     <th scope="col">Type</th>
                     <th scope="col">Status</th>
+                    {blocTradeRole && <th scope="col">Role</th>}
+                    {blocTradeProvisional && <th scope="col">Provisional application</th>}
                     <th scope="col">In force</th>
                   </tr>
                 </thead>
@@ -539,6 +544,8 @@ const toc = b
                       </td>
                       <td>{agreementTypeLabel(r.agreement_type)}</td>
                       <td>{agreementStatusLabel(r.status)}</td>
+                      {blocTradeRole && <td>{showsRole(r.role) ? partyRoleLabel(r.role) : ''}</td>}
+                      {blocTradeProvisional && <td class="date">{r.provisional_application}</td>}
                       <td class="date">{r.in_force}</td>
                     </tr>
                   ))}

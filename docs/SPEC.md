@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft 0.1 — for review |
 | **Date** | 2026-11-19 |
-| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v5.0.0 (contract 5.0) |
+| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v5.1.0 (contract 5.1) |
 | **Owner** | Dateno ([datenoio](https://github.com/datenoio)) |
 | **Hosting** | GitHub Pages, custom domain (to be registered; written as `<DOMAIN>` below) |
 
@@ -30,7 +30,7 @@ All corrections go to internacia-db.
 
 1. **Make the product visible.** Anyone can see what internacia-db contains, how complete it is
    and how current it is, without installing anything.
-2. **One card per entity.** Every country (256), intblock (1,581), trade agreement (839), block
+2. **One card per entity.** Every country (256), intblock (1,606), trade agreement (5,195), block
    type (83) and topic (154) has its own permanent page.
 3. **Answer common questions visually.** Who belongs to X? What does country Y belong to? What do
    X and Z have in common? When were these organizations founded? Where are they based?
@@ -80,7 +80,7 @@ Assets used:
 
 | Asset | Use |
 |-------|-----|
-| `internacia.duckdb` | Main query source: tables `countries`, `intblocks`, `blocktypes`, `memberships`, `border_status` (from v4.1.0), `trade_agreements` and `trade_agreement_parties` (from v5.0.0), `_meta`, alias tables; views `current_memberships`, `country_trade_agreements` (from v5.0.0), `country_currencies`, `country_languages`, `country_timezones`. The trade agreements registry is read from DuckDB: its JSONL exports carry the same columns. The pipeline applies the rule of the `country_borders` view (v4.1.0) to `border_status`, whose rows carry the note, dates and sources, and fails if the result differs from the view. The view runs on DuckDB 1.5.4 (`min_duckdb`) from v4.3.0; before, it needed DuckDB 2.0 |
+| `internacia.duckdb` | Main query source: tables `countries`, `intblocks`, `blocktypes`, `memberships`, `border_status` (from v4.1.0), `trade_agreements` and `trade_agreement_parties` (from v5.0.0), `trade_agreement_instruments` (from v5.1.0), `_meta`, alias tables; views `current_memberships`, `country_trade_agreements` (from v5.0.0), `country_currencies`, `country_languages`, `country_timezones`. The trade agreements registry is read from DuckDB: its JSONL exports carry the same columns. The pipeline applies the rule of the `country_borders` view (v4.1.0) to `border_status`, whose rows carry the note, dates and sources, and fails if the result differs from the view. The view runs on DuckDB 1.5.4 (`min_duckdb`) from v4.3.0; before, it needed DuckDB 2.0 |
 | `countries.jsonl.zst`, `intblocks.jsonl.zst` | Entity records as cards and JSON twins show them, with every field, including those exported to full JSON only (`suborganizations`, `founding_members`, `membership_applicability`, `notes`, `recognition_status`, `previous_names`, `official_documents`, `social_media`, `secretariat`). Intblock rosters come from `includes[]`: the `memberships` table leaves out organization members |
 | `contract.json` | Contract version check, enum values, deprecated enum values (`deprecated[]`), table schemas |
 | `SHA256SUMS` | Integrity check of every downloaded asset |
@@ -107,10 +107,10 @@ The repository commits a lock file, `internacia.lock.json`:
 ```json
 {
   "repository": "datenoio/internacia-db",
-  "tag": "v5.0.0",
-  "git_commit": "e3500d4333d53c3fe9ac458c018517d47a230806",
+  "tag": "v5.1.0",
+  "git_commit": "e147990effa2a8a789966b485100823652c0d1c9",
   "contract_major": 5,
-  "sha256sums_sha256": "459f69abfd7fe8e8999bdd94e650e21c3ce788d1cf9f23eb8b2ae17d1735fdf3"
+  "sha256sums_sha256": "bde644290700659e5671e04b817e61bba64ce90bacbf89f133d3c6fa810d34c2"
 }
 ```
 
@@ -206,15 +206,30 @@ The site's data code must follow them.
 - Trade agreements registry (v5.0.0): one `trade_agreements` row per agreement, bilateral ones
   included, with `agreement_type`, `status`, `signed`, `in_force`, `ended`, `wto_rta_id`,
   `aric_id`, `verification` and provenance; parties in `trade_agreement_parties`. It holds no
-  trade values, tariff lines or depth scores, and the site adds none. A record with `intblock_id`
+  trade values, tariff lines or depth scores, and the site adds none.
+- Contract 5.1 (v5.1.0) widens the registry: `agreement_type` `investment` (bilateral and
+  plurilateral investment treaties, IDs ending in `-BIT`) and `trade_relations` (most-favoured-nation
+  treatment without preferences, `-TRA`), and `services` now means services only; `status`
+  `suspended` (negotiations on hold, not ended); `in_force` is the definitive entry into force and
+  `provisional_application` the date provisional application began (an agreement applied only
+  provisionally has `status = in_force` and no `in_force`); parties of a preference scheme have the
+  `role` grantor or beneficiary (`party` on every other agreement); `parent` links a sub-scheme to
+  its scheme (`GSP` → `EU-GSP` → `EU-GSP-EBA`); more catalogue IDs (`wto_pta_ids`, `gptad_id`,
+  `dta_id`, `unctad_iia_id`, `unts_registration`), shown as codes, because the records link the
+  catalogue pages themselves; a `treaty_text` link type; and the `trade_agreement_instruments`
+  table (protocols, supplements, early harvests, joint committee decisions), which never changes
+  the agreement's own row. Following internacia-db's consumer guide, cards count investment
+  treaties, trade relations agreements and preference schemes apart from trade agreements, and
+  show "applies since" as `provisional_application` when there is no `in_force`. A record with `intblock_id`
   (an agreement with three or more parties, such as `RCEP`) reads its parties from that
   intblock's `includes` (`source = intblock`), under the same ID; the card links the two.
 - A country's trade agreements are the `country_trade_agreements` view: one row per agreement it
   is a current party to, directly or through a bloc party (the EU) expanded to the bloc's current
   members, with `via` set to the bloc. Coverage is current, not historical; the card says so.
   `former_party` rows of the country itself are listed apart.
-- `verification = catalogue` records come from WTO RTA-IS or ADB ARIC only: catalogue statuses can
-  lag and ARIC lists only ADB-member parties. Cards and twins say so in the same words
+- `verification = catalogue` records come from a catalogue only (WTO RTA-IS, the WTO PTA Database,
+  ADB ARIC, GPTAD, the UNCTAD IIA Navigator, EDIT or the UN Treaty Series; before v5.1.0 WTO RTA-IS
+  or ADB ARIC): catalogue statuses can lag and ARIC lists only ADB-member parties. Cards and twins say so in the same words
   (`CATALOGUE_NOTE`, `lib/agreements.ts`). A `preference_scheme` (GSP, AGOA) lists grantors and
   beneficiaries as parties; two grantors are not partners under it.
 - Aliases with `reason = moved` and `target_dataset = trade_agreements` (v5.0.0: 34 two-party
@@ -222,25 +237,27 @@ The site's data code must follow them.
   under the same ID. Their old intblock URLs redirect to the agreement card, and the card notes the
   former record.
 
-### 4.5 Baseline figures (v5.0.0)
+### 4.5 Baseline figures (v5.1.0)
 
 For sizing only; the site computes all figures at build time.
 
 | Measure | Value |
 |---------|------:|
 | Country records / ISO 3166-1 entries | 256 / 249 |
-| Intblocks | 1,581 |
+| Intblocks | 1,606 |
 | Block types (deprecated) / topics | 83 (3) / 154 |
-| Membership edges / current / with `joined` date / with `left` date | 72,510 / 71,146 / 32,029 / 483 |
+| Membership edges / current / with `joined` date / with `left` date | 73,101 / 71,734 / 32,411 / 486 |
 | Membership edges with a route `role` / intblocks with roles | 125 / 44 |
-| Intblocks with `founded` / headquarters / `partof` | 1,471 / 1,016 / 387 |
-| Intblocks with Wikidata ID / `last_verified` / `institutional_design` | 1,309 / 1,518 / 112 |
+| Intblocks with `founded` / headquarters / `partof` | 1,495 / 1,031 / 399 |
+| Intblocks with Wikidata ID / `last_verified` / `institutional_design` | 1,324 / 1,543 / 112 |
 | `border_status` rows | 18 |
-| Trade agreements / in force / two parties / linked to an intblock / `official` | 839 / 442 / 620 / 89 / 126 |
-| `trade_agreement_parties` rows / `country_trade_agreements` rows / countries | 3,167 / 6,194 / 224 |
-| Languages in intblock `other_names` | 81 |
+| Trade agreements / in force / two parties / linked to an intblock / `official` | 5,195 / 3,195 / 4,827 / 99 / 1,109 |
+| Of them investment treaties / trade relations agreements / preference schemes / `suspended` | 3,503 / 369 / 59 / 6 |
+| With `provisional_application` (no `in_force`) / instruments (agreements with any) | 30 (13) / 141 (51) |
+| `trade_agreement_parties` rows / `country_trade_agreements` rows / countries | 15,481 / 19,172 / 238 |
+| Languages in intblock `other_names` | 82 |
 | Country `native_names` entries / languages | 388 / 126 |
-| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 6.5 MB / 919 KB / 148 KB |
+| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 8.7 MB / 955 KB / 154 KB |
 
 ## 5. Information architecture and URLs
 
@@ -346,6 +363,9 @@ the header sticks to the top of the window (also on the intblock card).
    country is covered through a bloc party. Search and status filter. The section states that
    coverage is current and includes every agreement status; the country's own `former_party`
    entries follow in a collapsed list. With no rows the section says the registry records none.
+   From v5.1.0 the summary counts each kind apart (trade agreements, investment treaties, trade
+   relations agreements, preference schemes as beneficiary or as grantor), a "Kind" filter selects
+   one, and "Role" and "Provisional application" columns appear when a row has one.
 4. **Similar countries**: the five countries with the highest Jaccard overlap of current
    memberships, with the overlap figure. Computed at build time.
 5. **Identifiers**: alpha-2, alpha-3, numeric, M49, Wikidata, GeoNames, IOC, FIFA, FIPS (marked
@@ -408,7 +428,8 @@ the header sticks to the top of the window (also on the intblock card).
    country cards), with labels and descriptions from `institutional_design.yaml`. Absent subfields
    are unknown and left out; the section says so.
 8. **Trade agreements** (v5.0.0, blocs that are parties such as the EU, EAEU, MERCOSUR): the
-   agreements the intblock is a party to, with type, status and in-force date. Its current members
+   agreements the intblock is a party to, with type, status and in-force date (role and
+   provisional application from v5.1.0, when a row has one), counted by kind. Its current members
    are covered through it ("via").
 9. **Overlap**: the five intblocks with the highest overlap of current member countries, with a
    link to the Compare explorer prefilled.
@@ -471,8 +492,10 @@ See [§8](#8-visualizations). Each explorer has a shareable URL with its state i
 
 - Client-side, no server. Two layers:
   1. **Entity finder** in the header: prefix and fuzzy match over names, `other_names`, native
-     names, acronyms and codes of countries and intblocks, in all languages
+     names, acronyms and codes of countries, intblocks and trade agreements, in all languages
      (`/api/v1/search-index.json`, budget ≤ 300 KB gzip). Typing "НАТО", "北约" or "OTAN" finds NATO.
+     Investment treaties (v5.1.0: 3,503 records) are left out: with them the index is about
+     360 KB gzip, without them about 280 KB. Full-text search and the country cards list them.
   2. **Full-text search** page over all HTML (Pagefind).
 - Results show entity type, code or acronym, and the matched name with its language.
 
@@ -481,16 +504,18 @@ See [§8](#8-visualizations). Each explorer has a shareable URL with its state i
 - `404.html` suggests close matches by edit distance over IDs and names (client-side, using the
   search index), so `/blocks/g20/` suggests `/blocks/g-20/`.
 
-### 6.14 Trade agreements (v5.0.0)
+### 6.14 Trade agreements (v5.0.0, contract 5.1 from v5.1.0)
 
-- **Index** (`/agreements/`): a one-line lead; four headline figures (records, in force, with two
-  parties, checked against official sources), each a link to the list it counts; the registry's
+- **Index** (`/agreements/`): a one-line lead; four headline figures (records, in force,
+  investment treaties, checked against official sources; "with two parties" until v5.1.0, when
+  investment treaties made nearly every record bilateral), each a link to the list it counts; the registry's
   scope note and the share of catalogue records in a collapsed "About the registry"; then the list,
   and below it the counts by status and by type (bars with their values as text, each a link to the
-  list with that filter). The list is a table of all 839 agreements — name and acronym (link, with
+  list with that filter). The list is a table of all 5,195 agreements — name and acronym (link, with
   an "Official sources" badge on the records checked against them), type, status (badge: in force
   filled; terminated, superseded and abandoned marked, as on the card), signed, in force, ended
-  ("—" when not recorded), number of parties. Rows are in force first, then newest first by the
+  ("—" when not recorded), number of parties. An agreement applied only provisionally shows the
+  date of provisional application in the "In force" column, marked "provisional". Rows are in force first, then newest first by the
   latest date recorded; empty cells sort last. The ID is not shown, but the search matches it.
   Search and facets as on the intblocks index (§6.4): countries covered, status, type, number of
   parties (two, three or more) and verification. "Countries covered" follows the
@@ -501,21 +526,28 @@ See [§8](#8-visualizations). Each explorer has a shareable URL with its state i
   1. Header: name and acronym; badges for status, type and verification level; `description`;
      the catalogue notice for `verification = catalogue`; "Cite"; a note when the ID was an
      intblock before v5.0.0 (`moved` alias).
-  2. Key facts: ID, type, status, signed, in force, ended, number of parties (and former), WTO RTA
-     ID and ADB ARIC ID (links to the catalogues), Wikidata, verification, `last_verified`, and the
-     registry's scope note (no trade values, tariff lines or depth scores).
+  2. Key facts: ID, type, status, signed, provisional application, in force, ended, number of
+     parties (and former), WTO RTA ID and ADB ARIC ID (links to the catalogues), WTO PTA Database
+     IDs, GPTAD ID, World Bank DTA ID, UNCTAD IIA Navigator ID and UN Treaty Series registration
+     (codes; the records' links lead to those catalogues), Wikidata, verification,
+     `last_verified`, the note that tells provisional application from entry into force (when the
+     record has one), and the registry's scope note (no trade values, tariff lines or depth scores).
   3. Related records: the intblock that holds the roster (link), the records this one supersedes
-     (its `supersedes` and every record whose `superseded_by` names it), and its successor.
+     (its `supersedes` and every record whose `superseded_by` names it), its successor, the scheme
+     it is part of (`parent`) and the schemes under it.
   4. Notes (`notes`; IDs in backticks link to agreement or intblock cards).
-  5. Parties: name (link to the country or intblock card), code, type, signed, in force, joined
-     (columns appear when used); former parties in a collapsed list. Preference schemes carry the
-     grantor note.
-  6. Countries covered (when a party is a bloc): the view's rows with "via".
-  7. Names, links, provenance.
+  5. Parties: name (link to the country or intblock card), code, type, role (grantor or
+     beneficiary), signed, provisional application, in force, joined (columns appear when used);
+     former parties in a collapsed list. Preference schemes carry the grantor note.
+  6. Countries covered (when a party is a bloc): the view's rows with "via" (and role).
+  7. Instruments (`trade_agreement_instruments`): name with notes, kind, status, signed, in force,
+     ended, coverage.
+  8. Names, links, provenance. Provenance lists each source once with the fields it gives (a
+     catalogue record cites one page for parties, status and dates); the JSON twin keeps the rows.
 - No map and no per-card social image: a linked intblock card has the map, and two-party
   agreements gain little from one. The Markdown twin has the same facts and tables; the JSON twin
   is the registry row with `_` fields (`_parties`, `_countries`, `_block`, `_supersedes`,
-  `_superseded_by`, `_alias_notes`).
+  `_superseded_by`, `_parent`, `_children`, `_instruments`, `_alias_notes`).
 
 ## 7. Machine-readable layer
 
@@ -600,8 +632,8 @@ Formal intergovernmental organization, regional scope. Founded 1967. Headquarter
 | `countries/{CODE}.json` | Full country record + `memberships` (current and former, with block name and type) + `similar` | 40 KB |
 | `blocks.json` | Lite list: id, name, acronyms, block types, status, scope, founded, HQ country, member count | 120 KB |
 | `blocks/{ID}.json` | Full intblock record (including full-JSON-only fields) + resolved roster with country names | 60 KB |
-| `agreements.json` | Lite list of the trade agreements registry: id, name, acronym, type, status, dates, intblock, catalogue IDs, verification, party count | 40 KB |
-| `agreements/{ID}.json` | Registry row + resolved parties + countries covered (bloc parties expanded) + related records | 10 KB |
+| `agreements.json` | Lite list of the trade agreements registry: id, name, acronym, type, status, dates (provisional application included), intblock, parent scheme, WTO RTA and ADB ARIC IDs, verification, party count | 1.8 MB (5,195 records) |
+| `agreements/{ID}.json` | Registry row + resolved parties (with role) + countries covered (bloc parties expanded) + related records + instruments | 4 KB (most are two-party investment treaties) |
 | `types.json`, `types/{key}.json` | Block types with counts and member intblock IDs | — |
 | `topics.json`, `topics/{key}.json` | Topics with counts and intblock IDs | — |
 | `geography/{slug}.json` | Countries and intblocks of an area | — |
@@ -766,7 +798,7 @@ Generated data (`.cache/`, `site/src/generated/`) is not committed.
 ### 10.3 Build pipeline
 
 ```text
-fetch.py ──► .cache/internacia/v5.0.0/  (assets + vocab files, verified)
+fetch.py ──► .cache/internacia/v5.1.0/  (assets + vocab files, verified)
    │
 build_data.py ──► site/src/generated/*.json  (cards, indexes, stats, search index, aliases)
    │
@@ -778,7 +810,15 @@ checks (§12) ──► deploy to GitHub Pages
 ```
 
 - Target build time on GitHub Actions: ≤ 10 minutes.
-- Output size target: ≤ 300 MB (GitHub Pages limit is 1 GB). With v5.0.0 the site is about 294 MB
+- Output size target: ≤ 450 MB (GitHub Pages limit is 1 GB); it was ≤ 300 MB until v5.1.0. With
+  v5.1.0 the site is about 427 MB (`du -sh site/dist`; 356 MB of file content): trade agreement
+  cards 92 MB, API 88 MB, blocks 84 MB, countries 53 MB, social images 45 MB, Pagefind 32 MB,
+  widgets 21 MB. The trade agreements registry grew from 839 to 5,195 records (3,503 investment
+  treaties), and one card per record (§1, goal 2) cannot stay under 300 MB: a small agreement card
+  is about 11.6 KB, of which the shared layout is about 6.5 KB, and each card with its Markdown twin
+  takes 16 KB on disk. Grouping provenance by source is the one trim made with v5.1.0. The target
+  was raised rather than leaving cards out; M3b must still plan its size before adding languages.
+  With v5.0.0 the site was about 294 MB
   (`du -sh site/dist`; 263 MB of file content): blocks 83 MB, API 60 MB, social images 45 MB,
   countries 46 MB, widgets 21 MB, trade agreement cards 16 MB, Pagefind 14 MB. The trade
   agreements registry (839 cards with Markdown twins, their JSON, and the trade agreement sections
@@ -863,10 +903,10 @@ The build fails when any of these checks fails.
 | Check | Rule |
 |-------|------|
 | Integrity | [§4.3](#43-verification) checks pass |
-| Count parity | Country cards = rows in `countries` (256 in v5.0.0); intblock cards = rows in `intblocks` (1,581); trade agreement cards = rows in `trade_agreements` (839); type pages = 83; topic pages = distinct topic keys |
+| Count parity | Country cards = rows in `countries` (256 in v5.1.0); intblock cards = rows in `intblocks` (1,606); trade agreement cards = rows in `trade_agreements` (5,195); type pages = 83; topic pages = distinct topic keys |
 | Roster parity | For every intblock, the number of current members on the card = rows in `current_memberships` for it |
 | Twin parity | For a sample of 50 entities (and all featured ones), HTML, Markdown and JSON carry the same codes, names, statuses and dates; for every entity, route roles (HTML, Markdown, JSON, CSV) and border status (HTML, Markdown, JSON) agree |
-| Trade agreements | For every agreement, the parties in HTML, Markdown and JSON = its `party` rows in `trade_agreement_parties`; for every country, its trade agreements (with `via`) in HTML and JSON, and their IDs in Markdown, = its rows in `country_trade_agreements` |
+| Trade agreements | For every agreement, the parties in HTML, Markdown and JSON = its `party` rows in `trade_agreement_parties`, their grantor and beneficiary roles = the table's `role`, and its instruments = its rows in `trade_agreement_instruments` (contract 5.1); for every country, its trade agreements (with `via`) in HTML and JSON, and their IDs in Markdown, = its rows in `country_trade_agreements`, with the view's `role` in JSON and in the HTML kind filter |
 | JSON validity | Every `/api/v1/` file validates against its schema in `/api/v1/schemas/` and against `openapi.json` |
 | Links | No broken internal links (lychee, offline mode); external links checked weekly, not on every build |
 | Redirects | Every non-disambiguated alias has a redirect page that points to an existing page in its target section (a `moved` intblock ID: an agreement card) |

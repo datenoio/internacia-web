@@ -15,7 +15,10 @@ images (`/og/…png`). M3a adds embeddable widgets (`/embed/`, `public/embed/wid
 `repository_dispatch` trigger of `data-bump.yml`. M3c moves the site to its domain, `internacia.io`
 (`site.config.mjs`, `public/CNAME`). Data v5.0.0 (contract 5) adds the trade agreements registry:
 `/agreements/` cards with Markdown and JSON twins, a trade agreements section on country cards, and
-redirects from the intblock IDs that moved there. Next are interface translations (M3b)
+redirects from the intblock IDs that moved there. Data v5.1.0 (contract 5.1) widens the registry
+to 5,195 records (investment treaties, trade relations agreements, preference schemes with grantor
+and beneficiary roles) and adds provisional application, sub-schemes and instruments. Next are
+interface translations (M3b)
 ([SPEC §13](docs/SPEC.md#13-milestones)).
 
 ## Rules
@@ -47,7 +50,7 @@ redirects from the intblock IDs that moved there. Next are interface translation
 - `.github/workflows/data-bump.yml` — daily; `pipeline/bump.py` moves the lock to a newer release,
   the workflow builds and checks the site and opens a pull request.
 - The pipeline reads one internacia-db contract MAJOR, `CONTRACT_MAJOR` in `pipeline/lock.py`
-  (currently 5; the lock pins v5.0.0, contract 5.0). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
+  (currently 5; the lock pins v5.1.0, contract 5.1). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
   is; a lock with another `contract_major` fails to load. For a new MAJOR, raise the constant
   together with the code the new contract needs, then run `bump.py update` in the same pull request.
 
@@ -92,6 +95,25 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   cards and twins is in `lib/agreements.ts` (`CATALOGUE_NOTE`, `COVERAGE_NOTE`, …). The registry
   has no trade values: never add or rank by any. `check_site.py` compares parties and country
   coverage in every form with the table and the view.
+- Contract 5.1 registry facts: `investment` (3,503 records, `-BIT` IDs) and `trade_relations`
+  (`-TRA`) grant no preferences, and a preference scheme's parties have `role` grantor or
+  beneficiary (`party` on every other agreement). Count them apart from trade agreements
+  (internacia-db `docs/ai-consumers.md`): `agreementKind` and `kindSummary` (`lib/agreements.ts`)
+  give the kind of a country's or bloc's row, the summaries and the country card's "Kind" filter.
+  Show a role only when it is grantor or beneficiary (`showsRole`). `in_force` is the definitive
+  entry into force and `provisional_application` the start of provisional application: an
+  agreement applied only provisionally (`CETA`) is `in_force` with no `in_force` date, so the
+  index shows the provisional date marked "provisional"; never copy one date into the other.
+  `parent` makes `_parent`/`_children` (GSP → EU-GSP → EU-GSP-EBA); `trade_agreement_instruments`
+  make `_instruments`, which never change the agreement's own status or dates. The new catalogue
+  IDs (`wto_pta_ids`, `gptad_id`, `dta_id`, `unctad_iia_id`, `unts_registration`) are shown as
+  codes: the records' `links` hold the catalogue URLs, so build none from an ID.
+  `check_site.py` compares party roles and instruments in every form with the tables.
+- The entity finder index (`/api/v1/search-index.json`, ≤ 300 KB gzip) leaves out investment
+  treaties: with them it is about 360 KB gzip (v5.1.0), without them about 280 KB. Pagefind and
+  the country cards still find them.
+- Agreement cards list provenance grouped by source (`provenanceGroups`): a catalogue record cites
+  one page for four fields. The JSON twin keeps the rows as they are.
 - A linked registry record (`intblock_id`, three or more parties) has the intblock's ID and reads
   its parties from the intblock's `includes`; its `name` may be null upstream, so show `_name`.
 - Intblock aliases with `reason = moved`, `target_dataset = trade_agreements` (34 two-party FTAs in
@@ -172,10 +194,11 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   are excluded from the index in the build script.
 - Social images (`src/lib/og.ts`) take about 50 ms each; keep their SVG simple. They use about
   eight colours, so a smaller palette saves nothing. Trade agreement cards use the default image.
-  Site size is about 294 MB with v5.0.0, under the target of ≤ 300 MB (SPEC §10.3) by little:
-  the trade agreements registry added about 30 MB (313 MB; it was 272 MB with v4.4.0, 375 MB
-  before indentation was removed); check `du -sh site/dist` when adding per-entity files or
-  per-row markup. Write per-entity JSON with `json(body, false)`: indentation was a third of the
+  Site size is about 427 MB with v5.1.0 (356 MB of file content), under the target of ≤ 450 MB
+  (SPEC §10.3), raised from 300 MB when the registry grew from 839 to 5,195 records: agreement
+  cards take 92 MB, each card with its twin 16 KB on disk (it was 294 MB with v5.0.0, 272 MB with
+  v4.4.0, 375 MB before indentation was removed); check `du -sh site/dist` when adding per-entity
+  files or per-row markup. Write per-entity JSON with `json(body, false)`: indentation was a third of the
   API's bytes. Anything per membership row is paid about 140,000 times (both cards of each edge):
   status definitions are listed once under the table (`StatusDefs.astro`; `site.ts` makes them
   the cells' tooltips), never a `title` per row, and JSON-LD list items carry no `ListItem`.
@@ -188,7 +211,11 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   fails on a chunked table with one grid column. A chunk's `--chunk-height` (its
   `contain-intrinsic-size` until rendered) must exceed its real height: a skipped chunk's rows
   overflow a smaller estimate, overlap the next chunk's, and axe fails `target-size`. Re-measure
-  when rows get taller.
+  when rows get taller (v5.1.0: long official titles of `-TRA` and `-TIFA` records make rows up to
+  406px; the tallest agreements chunk is 13,200px at 1280px and 18,700px on a phone).
+- axe's partial run (`@axe-core/playwright` default) loses the page's context on `/agreements/`
+  (about 55,000 elements): `audit.mjs` runs it in legacy mode with violations only (`AXE_LEGACY`).
+  Add any other page of that size there.
 - In `.astro` templates, build sentences that end in punctuation as one string expression:
   JSX-style whitespace otherwise leaves a space before the period.
 - The compare explorer (`scripts/compare.ts`) colours by combination only for two intblocks (the

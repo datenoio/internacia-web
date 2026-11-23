@@ -1013,14 +1013,21 @@ table.chunked td {
    line (scripts/audit.mjs fails on that). */
 /* Fits the list column beside the facet panel (52.4rem): the date columns have narrower padding
    so that a date ("2026-10-20", 5.3rem) stays on one line in 6.5rem. */
+/* v5.1.0: tallest chunk 13,200px at 1280px (long official titles of trade relations agreements and
+   TIFAs, up to 406px a row; 76px on average). */
 #agreements-table {
   --cols: minmax(12rem, 3fr) minmax(7rem, 1.2fr) 8rem 6.5rem 6.5rem 6.5rem 4.75rem;
-  --chunk-height: 10000px;
+  --chunk-height: 16500px;
   min-width: 51.25rem;
 }
 
 #agreements-table .date {
   padding-inline: 0.45rem;
+}
+
+/* "provisional" under the date of an agreement applied only provisionally (contract 5.1). */
+#agreements-table .cell-note {
+  display: block;
 }
 
 /* Badges in table cells: smaller, and a long status ("Signed, not in force") wraps inside its
@@ -1266,6 +1273,11 @@ table.data .tag-official {
   :is(#blocks-table, #agreements-table) {
     --chunk-height: 19000px;
     min-width: 0;
+  }
+
+  /* v5.1.0: tallest agreements chunk 18,700px on a phone (390px). */
+  #agreements-table {
+    --chunk-height: 23500px;
   }
 
   :is(#blocks-table, #agreements-table) thead {

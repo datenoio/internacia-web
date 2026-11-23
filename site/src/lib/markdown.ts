@@ -5,14 +5,22 @@ import {
   CATALOGUE_NOTE,
   COUNTRY_AGREEMENTS_NOTE,
   COVERAGE_NOTE,
+  INSTRUMENTS_NOTE,
   PREFERENCE_SCHEME_NOTE,
+  PROVISIONAL_NOTE,
   REGISTRY_SCOPE_NOTE,
   agreementFacts,
   agreementStatusLabel,
   agreementTitle,
   agreementTypeLabel,
+  coverageLabel,
+  instrumentKindLabel,
+  instrumentStatusLabel,
+  kindSummary,
+  partyRoleLabel,
+  showsRole,
 } from './agreements';
-import { blockById, type Agreement, type Block, type Country } from './data';
+import { blockById, type Agreement, type AgreementRef, type Block, type Country } from './data';
 import { BORDER_EVIDENCE_NOTE, borderStatusText, designRows } from './design';
 import { blocktypeDeprecated, blocktypeLabel, enumLabel, nativeNameList, num, roleLabel, statusDeprecated, statusLabel, topicLabel, vocabLabel } from './format';
 import { meta } from './meta';
@@ -59,6 +67,16 @@ const withRole = <T extends { role: string | null }>(rows: T[], headers: string[
   rows.some((r) => r.role)
     ? [[...headers, 'Route role'], rows.map((r) => [...cells(r), roleLabel(r.role)])]
     : [headers, rows.map(cells)];
+
+// A table without the columns that are empty in every row (the first `keep` columns stay).
+const compact = (headers: string[], rows: unknown[][], keep: number): [string[], unknown[][]] => {
+  const used = headers.map((_, i) => i < keep || rows.some((r) => r[i] !== null && r[i] !== undefined && r[i] !== ''));
+  return [headers.filter((_, i) => used[i]), rows.map((r) => r.filter((_, i) => used[i]))];
+};
+
+const refText = (r: AgreementRef): string => (r.name ? `${r.name} (${r.id})` : r.id);
+// Grantor or beneficiary of a preference scheme (contract 5.1); `party` is left blank.
+const shownRole = (role: string | null | undefined): string | undefined => (showsRole(role) ? partyRoleLabel(role) : undefined);
 
 export function countryMarkdown(c: Country): string {
   const current = c._memberships.filter((m) => m.current);
@@ -163,21 +181,31 @@ export function countryMarkdown(c: Country): string {
     table(...withRole(current, ['ID', 'Organization', 'Type', 'Status', 'Joined'], (m) => [m.block_id, m.block_name, blocktypeLabel(m.blocktype), status(m.status), m.joined])),
     `\n## Former memberships and memberships of historical organizations (${former.length})\n`,
     table(...withRole(former, ['ID', 'Organization', 'Status', 'Joined', 'Left'], (m) => [m.block_id, m.block_name, status(m.status), m.joined, m.left])),
-    `\n## Trade agreements (${c._trade_agreements.length})\n\n${COUNTRY_AGREEMENTS_NOTE}\n\n${table(
-      ['ID', 'Agreement', 'Type', 'Status', 'In force', 'Via'],
-      c._trade_agreements.map((r) => [
-        r.agreement_id,
-        r.name,
-        agreementTypeLabel(r.agreement_type),
-        agreementStatusLabel(r.status),
-        r.party_in_force ?? r.in_force,
-        r.via ? `${r.via_name ?? r.via} (${r.via})` : '',
-      ]),
+    `\n## Trade agreements (${c._trade_agreements.length})\n\n${
+      c._trade_agreements.length ? `${kindSummary(c._trade_agreements, num)}.\n\n` : ''
+    }${COUNTRY_AGREEMENTS_NOTE}\n\n${table(
+      ...compact(
+        ['ID', 'Agreement', 'Type', 'Status', 'Role', 'Provisional application', 'In force', 'Via'],
+        c._trade_agreements.map((r) => [
+          r.agreement_id,
+          r.name,
+          agreementTypeLabel(r.agreement_type),
+          agreementStatusLabel(r.status),
+          shownRole(r.role),
+          r.party_provisional_application,
+          r.party_in_force ?? r.in_force,
+          r.via ? `${r.via_name ?? r.via} (${r.via})` : '',
+        ]),
+        4,
+      ),
     )}\n`,
     c._former_trade_agreements.length
       ? `\n## Former trade agreements (${c._former_trade_agreements.length})\n\n${table(
-          ['ID', 'Agreement', 'Type', 'Status', 'Left'],
-          c._former_trade_agreements.map((r) => [r.agreement_id, r.name, agreementTypeLabel(r.agreement_type), agreementStatusLabel(r.status), r.left]),
+          ...compact(
+            ['ID', 'Agreement', 'Type', 'Status', 'Role', 'Left'],
+            c._former_trade_agreements.map((r) => [r.agreement_id, r.name, agreementTypeLabel(r.agreement_type), agreementStatusLabel(r.status), shownRole(r.role), r.left]),
+            4,
+          ),
         )}\n`
       : '',
     '\n## Most similar countries by shared current memberships\n',
@@ -273,8 +301,19 @@ export function blockMarkdown(b: Block): string {
         ])}${
           b._party_to_agreements.length
             ? `\n\n### Agreements this organization is a party to (${b._party_to_agreements.length})\n\n${table(
-                ['ID', 'Agreement', 'Type', 'Status', 'In force'],
-                b._party_to_agreements.map((r) => [r.agreement_id, r.name, agreementTypeLabel(r.agreement_type), agreementStatusLabel(r.status), r.in_force]),
+                ...compact(
+                  ['ID', 'Agreement', 'Type', 'Status', 'Role', 'Provisional application', 'In force'],
+                  b._party_to_agreements.map((r) => [
+                    r.agreement_id,
+                    r.name,
+                    agreementTypeLabel(r.agreement_type),
+                    agreementStatusLabel(r.status),
+                    shownRole(r.role),
+                    r.provisional_application,
+                    r.in_force,
+                  ]),
+                  4,
+                ),
               )}`
             : ''
         }\n`
@@ -302,12 +341,6 @@ export function blockMarkdown(b: Block): string {
   return out.join('\n');
 }
 
-// A table without the columns that are empty in every row (the first `keep` columns stay).
-const compact = (headers: string[], rows: unknown[][], keep: number): [string[], unknown[][]] => {
-  const used = headers.map((_, i) => i < keep || rows.some((r) => r[i] !== null && r[i] !== undefined && r[i] !== ''));
-  return [headers.filter((_, i) => used[i]), rows.map((r) => r.filter((_, i) => used[i]))];
-};
-
 export function agreementMarkdown(a: Agreement): string {
   const parties = a._parties.filter((p) => p.status === 'party');
   const former = a._parties.filter((p) => p.status !== 'party');
@@ -328,15 +361,18 @@ export function agreementMarkdown(a: Agreement): string {
     a.description ? `${a.description}\n` : '',
     a.verification === 'catalogue' ? `> ${CATALOGUE_NOTE}\n` : '',
     facts(agreementFacts(a).map(([k, v]) => [k, v === '' ? undefined : v])),
+    a.provisional_application ? `\n${PROVISIONAL_NOTE}\n` : '',
     `\n${REGISTRY_SCOPE_NOTE}\n`,
     a._alias_notes.length
       ? `\n${a._alias_notes.map((n) => `Until internacia-db v${n.since} this agreement was an intblock record under the same ID (${absolute(blockPath(n.alias))} now leads here).`).join('\n')}\n`
       : '',
-    a._block || a._supersedes.length || a._superseded_by
+    a._block || a._supersedes.length || a._superseded_by || a._parent || a._children.length
       ? `\n## Related records\n\n${facts([
           ['Organization record', a._block ? `${a._block.name ?? a._block.id} (${a._block.id})${a._block.exists ? `: ${absolute(blockPath(a._block.id))}` : ''}` : undefined],
-          ['Supersedes', a._supersedes.map((r) => (r.name ? `${r.name} (${r.id})` : r.id))],
-          ['Superseded by', a._superseded_by ? (a._superseded_by.name ? `${a._superseded_by.name} (${a._superseded_by.id})` : a._superseded_by.id) : undefined],
+          ['Supersedes', a._supersedes.map(refText)],
+          ['Superseded by', a._superseded_by ? refText(a._superseded_by) : undefined],
+          ['Part of', a._parent ? refText(a._parent) : undefined],
+          [a.agreement_type === 'preference_scheme' ? 'Schemes under it' : 'Records under it', a._children.map(refText)],
         ])}\n`
       : '',
     a.notes ? `\n## Notes\n\n${a.notes}\n` : '',
@@ -344,24 +380,46 @@ export function agreementMarkdown(a: Agreement): string {
     a.agreement_type === 'preference_scheme' ? `${PREFERENCE_SCHEME_NOTE}\n` : '',
     table(
       ...compact(
-        ['Code', 'Name', 'Type', 'Signed', 'In force', 'Joined'],
-        parties.map((p) => [p.id, p.name ?? p.id, enumLabel('party_type', p.type), p.signed, p.in_force, p.joined]),
+        ['Code', 'Name', 'Type', 'Role', 'Signed', 'Provisional application', 'In force', 'Joined'],
+        parties.map((p) => [p.id, p.name ?? p.id, enumLabel('party_type', p.type), shownRole(p.role), p.signed, p.provisional_application, p.in_force, p.joined]),
         3,
       ),
     ),
     former.length
       ? `\n## Former parties (${former.length})\n\n${table(
           ...compact(
-            ['Code', 'Name', 'Type', 'Joined', 'Left'],
-            former.map((p) => [p.id, p.name ?? p.id, enumLabel('party_type', p.type), p.joined, p.left]),
+            ['Code', 'Name', 'Type', 'Role', 'In force', 'Joined', 'Left'],
+            former.map((p) => [p.id, p.name ?? p.id, enumLabel('party_type', p.type), shownRole(p.role), p.in_force, p.joined, p.left]),
             3,
           ),
         )}\n`
       : '',
     viaBloc && a._countries.length
       ? `\n## Countries covered (${a._countries.length})\n\n${COVERAGE_NOTE}\n\n${table(
-          ['Code', 'Country', 'Via'],
-          a._countries.map((c) => [c.code, c.name ?? c.code, c.via ?? 'direct party']),
+          ...compact(
+            ['Code', 'Country', 'Via', 'Role'],
+            a._countries.map((c) => [c.code, c.name ?? c.code, c.via ?? 'direct party', shownRole(c.role)]),
+            3,
+          ),
+        )}\n`
+      : '',
+    a._instruments.length
+      ? `\n## Instruments (${a._instruments.length})\n\n${INSTRUMENTS_NOTE}\n\n${table(
+          ...compact(
+            ['ID', 'Instrument', 'Kind', 'Status', 'Signed', 'In force', 'Ended', 'Covers', 'Notes'],
+            a._instruments.map((i) => [
+              i.instrument_id,
+              i.name ?? i.instrument_id,
+              instrumentKindLabel(i.kind),
+              instrumentStatusLabel(i.status),
+              i.signed,
+              i.in_force,
+              i.ended,
+              coverageLabel(i.coverage),
+              i.notes,
+            ]),
+            4,
+          ),
         )}\n`
       : '',
     '\n## Names\n',
@@ -370,7 +428,7 @@ export function agreementMarkdown(a: Agreement): string {
       ['Other names', (a.other_names ?? []).map((n) => `${n.name} (${n.lang})`)],
     ]) || '_None recorded._',
     '\n## Links\n',
-    (a.links ?? []).map((l) => `- ${l.type}: ${l.url}`).join('\n') || '_None recorded._',
+    (a.links ?? []).map((l) => `- ${enumLabel('link_type', l.type) || l.type}: ${l.url}`).join('\n') || '_None recorded._',
     footer(),
   ];
   // Sections without data are empty strings: leave them out rather than as blank lines.

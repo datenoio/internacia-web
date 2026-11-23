@@ -68,9 +68,13 @@ class Release:
     # Trade agreements registry (contract 5.0): the trade_agreements and trade_agreement_parties
     # tables, and the rows of the country_trade_agreements view, which expands a bloc party (the
     # EU) to its current members with `via` set to the bloc. Coverage of the view is current only.
+    # Contract 5.1 adds the parties' `role` (grantor or beneficiary of a preference scheme, party
+    # on every other agreement) and `provisional_application`, and the trade_agreement_instruments
+    # table (protocols, supplements, early harvests, joint committee decisions).
     trade_agreements: list[dict] = field(default_factory=list)
     trade_agreement_parties: list[dict] = field(default_factory=list)
     country_trade_agreements: list[dict] = field(default_factory=list)
+    trade_agreement_instruments: list[dict] = field(default_factory=list)
 
 
 def _text(value) -> str:
@@ -183,13 +187,16 @@ def load_release(cache_dir: Path, repository: str, tag: str) -> Release:
         trade_agreements = _rows(con, "SELECT * FROM trade_agreements ORDER BY id")
         trade_agreement_parties = _rows(
             con,
-            'SELECT agreement_id, party_id, party_type, status, signed, in_force, joined, "left", note, source '
+            'SELECT agreement_id, party_id, party_type, role, status, signed, provisional_application, in_force, joined, "left", note, source '
             "FROM trade_agreement_parties ORDER BY agreement_id, party_id",
         )
         country_trade_agreements = _rows(
             con,
-            "SELECT country_code, agreement_id, via, agreement_type, agreement_status, in_force "
+            "SELECT country_code, agreement_id, via, role, agreement_type, agreement_status, provisional_application, in_force "
             "FROM country_trade_agreements ORDER BY country_code, agreement_id",
+        )
+        trade_agreement_instruments = _rows(
+            con, "SELECT * FROM trade_agreement_instruments ORDER BY agreement_id, coalesce(signed, in_force, ''), instrument_id"
         )
 
     statuses = _yaml(source / "schemas" / "includes_status.yaml")["statuses"]
@@ -231,4 +238,5 @@ def load_release(cache_dir: Path, repository: str, tag: str) -> Release:
         trade_agreements=trade_agreements,
         trade_agreement_parties=trade_agreement_parties,
         country_trade_agreements=country_trade_agreements,
+        trade_agreement_instruments=trade_agreement_instruments,
     )
