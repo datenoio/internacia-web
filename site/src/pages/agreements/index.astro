@@ -6,7 +6,9 @@ import BarList from '../../components/BarList.astro';
 import Base from '../../layouts/Base.astro';
 import {
   REGISTRY_SCOPE_NOTE,
+  agreementStatusBadge,
   agreementStatusLabel,
+  agreementStatusRank,
   agreementTypeLabel,
   byStatusOrder,
   groupCounts,
@@ -19,13 +21,25 @@ import { agreementPath, path } from '../../lib/urls';
 type Row = ReturnType<typeof agreements>[number];
 
 const NONE = '_none';
-const rows = agreements().slice().sort((a, b) => a._name.localeCompare(b._name) || a.id.localeCompare(b.id));
+// Default order: by status (in force first), then newest first by the latest date recorded (ended,
+// in force, signed); records without a date come last within their status.
+const latest = (a: Row) => a.ended ?? a.in_force ?? a.signed ?? '';
+const rows = agreements()
+  .slice()
+  .sort(
+    (a, b) =>
+      agreementStatusRank(a.status) - agreementStatusRank(b.status) ||
+      latest(b).localeCompare(latest(a)) ||
+      a._name.localeCompare(b._name) ||
+      a.id.localeCompare(b.id),
+  );
 const byStatus = groupCounts(rows, (a) => a.status).sort((x, y) => byStatusOrder(x[0], y[0]));
 const byType = groupCounts(rows, (a) => a.agreement_type).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
 const byVerification = groupCounts(rows, (a) => a.verification).sort((x, y) => y[1] - x[1]);
 const bilateral = rows.filter((a) => a._party_count === 2).length;
 const linked = rows.filter((a) => a._block?.exists).length;
 const inForce = rows.filter((a) => a.status === 'in_force').length;
+const catalogue = rows.filter((a) => a.verification === 'catalogue').length;
 
 // Countries covered: the country_trade_agreements view's rows for the agreement (current coverage,
 // a bloc party expanded to its current members), the same as the card's "Countries covered".
@@ -79,6 +93,7 @@ const facets = [
 // The summary's values link to the list with that filter set (the query string is the filter state).
 const listHref = (key: string, value: string) => `${path('agreements/')}?${key}=${encodeURIComponent(value || NONE)}#list`;
 const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+const DATE_LABELS = ['Signed', 'In force', 'Ended'];
 const CHUNK = 100;
 const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => rows.slice(i * CHUNK, (i + 1) * CHUNK));
 ---
@@ -97,7 +112,7 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
       {`${num(rows.length)} records in the internacia-db trade agreements registry, bilateral agreements included: ${num(inForce)} in force, ${num(bilateral)} with two parties. ${num(linked)} agreements with three or more parties also have an organization record with their roster and map.`}
     </p>
     <p class="muted small">
-      {`${REGISTRY_SCOPE_NOTE} Records marked "catalogue" come from WTO RTA-IS or ADB ARIC and were not checked against the treaty text.`}
+      {`${REGISTRY_SCOPE_NOTE} ${num(catalogue)} records come from a catalogue (WTO RTA-IS or ADB ARIC) and were not checked against the treaty text; the ${num(rows.length - catalogue)} checked against official sources are marked "Official sources".`}
     </p>
   </section>
 
@@ -182,15 +197,16 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
         <div class="table-wrap">
           <table class="data chunked" id="agreements-table" role="table" data-chunk={CHUNK}>
             <caption class="muted small" style="text-align:left;padding:0.5rem 0.65rem">
-              Trade agreements in internacia-db v{meta.data.version}
+              {`Trade agreements in internacia-db v${meta.data.version}, in force first, then newest first.`}
             </caption>
             <thead role="rowgroup">
               <tr role="row">
                 <th role="columnheader" scope="col" data-sort="text">Name</th>
                 <th role="columnheader" scope="col" data-sort="text">Type</th>
                 <th role="columnheader" scope="col" data-sort="text">Status</th>
-                <th role="columnheader" scope="col" data-sort="text">Signed</th>
-                <th role="columnheader" scope="col" data-sort="text">In force</th>
+                <th role="columnheader" scope="col" class="date" data-sort="text">Signed</th>
+                <th role="columnheader" scope="col" class="date" data-sort="text">In force</th>
+                <th role="columnheader" scope="col" class="date" data-sort="text">Ended</th>
                 <th role="columnheader" scope="col" class="num" data-sort="num">Parties</th>
               </tr>
             </thead>
@@ -206,17 +222,22 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
                       data-parties={partiesBucket(a)}
                       data-verification={a.verification ?? NONE}
                       data-countries={covered(a).join('|')}
+                      data-search={a.id !== a._acronym ? a.id : undefined}
                     >
                       <td role="cell" data-value={a._name}>
                         <a href={agreementPath(a.id)}>{a._name}</a>
                         {a._acronym && <span class="muted"> ({a._acronym})</span>}
-                        {a.id !== a._acronym && <code class="inline-id">{a.id}</code>}
-                        {a.verification === 'catalogue' && <span class="muted small"> catalogue</span>}
+                        {a.verification === 'official' && <span class="badge tag-official">Official sources</span>}
                       </td>
                       <td role="cell" data-label="Type">{agreementTypeLabel(a.agreement_type)}</td>
-                      <td role="cell" data-label="Status">{agreementStatusLabel(a.status)}</td>
-                      <td role="cell" class="date" data-label="Signed">{a.signed}</td>
-                      <td role="cell" class="date" data-label="In force">{a.in_force}</td>
+                      <td role="cell" data-label="Status" data-value={`${String(agreementStatusRank(a.status)).padStart(2, '0')} ${a.status ?? ''}`}>
+                        <span class={agreementStatusBadge(a.status)}>{agreementStatusLabel(a.status) || 'Not set'}</span>
+                      </td>
+                      {[a.signed, a.in_force, a.ended].map((d, i) => (
+                        <td role="cell" class={d ? 'date' : 'date is-empty'} data-label={DATE_LABELS[i]} data-value={d ? undefined : ''}>
+                          {d ?? '—'}
+                        </td>
+                      ))}
                       <td role="cell" class="num" data-label="Parties">{num(a._party_count)}</td>
                     </tr>
                   ))}

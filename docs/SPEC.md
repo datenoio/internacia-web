@@ -484,14 +484,17 @@ See [§8](#8-visualizations). Each explorer has a shareable URL with its state i
 ### 6.14 Trade agreements (v5.0.0)
 
 - **Index** (`/agreements/`): counts by status and by type (bars with their values as text), the
-  share of catalogue records, and a table of all 839 agreements — name and acronym (link), type,
-  status, signed, in force, number of parties — with search and facets as on the intblocks
-  index (§6.4): countries covered, status, type, number of parties (two, three or more) and
-  verification. "Countries covered" follows the `country_trade_agreements` view (a bloc party
-  counts its current members) and, unlike the other facets, combines its values with AND: two
-  checked countries show the agreements that cover both. Each value in the status, type and
-  verification summary links to the list with that filter. Rows are chunked
-  (`content-visibility`); on a phone they read as cards.
+  share of catalogue records, and a table of all 839 agreements — name and acronym (link, with an
+  "Official sources" badge on the records checked against them), type, status (badge: in force
+  filled; terminated, superseded and abandoned marked, as on the card), signed, in force, ended
+  ("—" when not recorded), number of parties. Rows are in force first, then newest first by the
+  latest date recorded; empty cells sort last. The ID is not shown, but the search matches it.
+  Search and facets as on the intblocks index (§6.4): countries covered, status, type, number of
+  parties (two, three or more) and verification. "Countries covered" follows the
+  `country_trade_agreements` view (a bloc party counts its current members) and, unlike the other
+  facets, combines its values with AND: two checked countries show the agreements that cover
+  both. Each value in the status, type and verification summary links to the list with that
+  filter. Rows are chunked (`content-visibility`); on a phone they read as cards.
 - **Card** (`/agreements/{id}/`), in order:
   1. Header: name and acronym; badges for status, type and verification level; `description`;
      the catalogue notice for `verification = catalogue`; "Cite"; a note when the ID was an

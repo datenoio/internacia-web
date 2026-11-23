@@ -17,7 +17,10 @@
 //     data-url-state             the filters are kept in the query string, so a filtered list
 //                                can be shared and reloaded
 //     [data-facets-open]         on narrow screens, opens the panel in dialog[data-facet-sheet]
-//   <table id="ID">              rows: tr[data-<attr>="a|b"]; sortable th[data-sort="text|num"]
+//   <table id="ID">              rows: tr[data-<attr>="a|b"], tr[data-search] (more text the search
+//                                matches, such as an ID the row does not show); sortable
+//                                th[data-sort="text|num"], sorting on a cell's data-value when it
+//                                has one; empty cells sort last either way
 //
 // Load cost matters on the 1,275-row index (SPEC §10.4): nothing walks the rows on load.
 // Checkbox filters are a table attribute plus one CSS rule, the count uses a native selector,
@@ -67,6 +70,18 @@ function setup(tools: HTMLElement) {
   const count = tools.querySelector<HTMLElement>('[data-count]');
   const rowSelector = 'tbody tr:not(.group)';
   const total = table.querySelectorAll(rowSelector).length;
+  const chunk = Number(table.dataset.chunk ?? 0);
+
+  // A <tbody> with no row left to show is hidden: a group drops its heading, and an empty chunk
+  // gives up the space its contain-intrinsic-size keeps until it is rendered (seconds of blank
+  // list when the shown rows are all in later chunks).
+  const syncBodies = () => {
+    table.querySelectorAll<HTMLTableSectionElement>('tbody').forEach((body) => {
+      if (!chunk && !body.querySelector('tr.group')) return;
+      const anyVisible = Array.from(body.querySelectorAll<HTMLTableRowElement>('tr:not(.group)')).some((r) => !r.hidden);
+      if (body.hidden === anyVisible) body.hidden = !anyVisible;
+    });
+  };
 
   // Checkbox filters: hide non-matching rows with CSS while the table carries data-only-<attr>.
   for (const box of checks) {
@@ -236,7 +251,7 @@ function setup(tools: HTMLElement) {
 
   const apply = () => {
     rows ??= Array.from(table.querySelectorAll<HTMLTableRowElement>(rowSelector));
-    haystack ??= new Map(rows.map((r) => [r, (r.textContent ?? '').toLocaleLowerCase()]));
+    haystack ??= new Map(rows.map((r) => [r, `${r.textContent ?? ''} ${r.dataset.search ?? ''}`.toLocaleLowerCase()]));
     const q = (text?.value ?? '').trim().toLocaleLowerCase();
     const activeSelects = selects.filter((s) => s.value);
     const picked = new Map(groups.map((g) => [g, checkedValues(g)] as const));
@@ -277,11 +292,7 @@ function setup(tools: HTMLElement) {
         else if (fails === 1 && !matchAll.has(failing)) add(failing, row);
       }
     }
-    table.querySelectorAll<HTMLTableSectionElement>('tbody').forEach((body) => {
-      if (!body.querySelector('tr.group')) return;
-      const anyVisible = Array.from(body.querySelectorAll<HTMLTableRowElement>('tr:not(.group)')).some((r) => !r.hidden);
-      if (body.hidden === anyVisible) body.hidden = !anyVisible;
-    });
+    syncBodies();
     if (groups.length) recount(counts);
     updateCount();
     renderChips();
@@ -349,7 +360,6 @@ function setup(tools: HTMLElement) {
 
   // Sorting applies to single-body tables and to chunked tables (rows are redistributed over the
   // chunks); grouped tables keep their grouping.
-  const chunk = Number(table.dataset.chunk ?? 0);
   const tbody = table.tBodies.length === 1 || chunk ? table.tBodies[0] : null;
   table.querySelectorAll<HTMLTableCellElement>('thead th[data-sort]').forEach((th) => {
     if (!tbody) return;
@@ -367,19 +377,23 @@ function setup(tools: HTMLElement) {
       table.querySelectorAll('thead th[aria-sort]').forEach((other) => other.removeAttribute('aria-sort'));
       th.setAttribute('aria-sort', ascending ? 'ascending' : 'descending');
       const list = Array.from(table.querySelectorAll<HTMLTableRowElement>(rowSelector));
+      // An empty cell (or an empty data-value, as on a "—" cell) has no key and sorts last.
       const key = (row: HTMLTableRowElement) => {
         const cell = row.cells[index];
-        const raw = cell?.dataset.value ?? cell?.textContent ?? '';
-        return numeric ? Number(raw.replace(/[^0-9.-]/g, '')) || 0 : raw.trim().toLocaleLowerCase();
+        const raw = (cell?.dataset.value ?? cell?.textContent ?? '').trim();
+        if (!raw) return null;
+        return numeric ? Number(raw.replace(/[^0-9.-]/g, '')) || 0 : raw.toLocaleLowerCase();
       };
       const keyed = list.map((r) => [key(r), r] as const);
       keyed.sort(([a], [b]) => {
+        if (a === null || b === null) return a === b ? 0 : a === null ? 1 : -1;
         const order = a < b ? -1 : a > b ? 1 : 0;
         return ascending ? order : -order;
       });
       const sorted = keyed.map(([, r]) => r);
       if (chunk) {
         Array.from(table.tBodies).forEach((tb, i) => tb.append(...sorted.slice(i * chunk, (i + 1) * chunk)));
+        syncBodies();
       } else {
         tbody.append(...sorted);
       }

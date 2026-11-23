@@ -922,7 +922,8 @@ table.chunked tr {
   grid-template-columns: var(--cols);
 }
 
-table.chunked tr[hidden] {
+table.chunked tr[hidden],
+table.chunked tbody[hidden] {
   display: none;
 }
 
@@ -938,9 +939,35 @@ table.chunked td {
 
 /* Every chunked table needs its own --cols: without one each row is a single column, one cell per
    line (scripts/audit.mjs fails on that). */
+/* Fits the list column beside the facet panel (52.4rem): the date columns have narrower padding
+   so that a date ("2026-10-20", 5.3rem) stays on one line in 6.5rem. */
 #agreements-table {
-  --cols: minmax(14rem, 3fr) minmax(8rem, 1.4fr) 8.5rem 6.5rem 6.5rem 5rem;
-  min-width: 49rem;
+  --cols: minmax(12rem, 3fr) minmax(7rem, 1.2fr) 8rem 6.5rem 6.5rem 6.5rem 4.75rem;
+  min-width: 51.25rem;
+}
+
+#agreements-table .date {
+  padding-inline: 0.45rem;
+}
+
+/* Badges in table cells: smaller, and a long status ("Signed, not in force") wraps inside its
+   badge. */
+table.data .badge {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  padding: 0.05rem 0.45rem;
+  border-radius: 0.6rem;
+}
+
+table.data .tag-official {
+  margin-left: var(--space-1);
+  white-space: nowrap;
+}
+
+/* Name links in the long lists are 24px touch targets (WCAG 2.5.8; an 18px line fails axe
+   target-size on phones). Padding on an inline link grows its box, not the line. */
+:is(#blocks-table, #agreements-table) td:first-child a {
+  padding-block: 3px;
 }
 
 /* List with a facet panel (organizations and trade agreements indexes). From 75rem the panel is a sticky column beside
@@ -1199,8 +1226,12 @@ table.chunked td {
     color: var(--color-muted);
   }
 
-  :is(#blocks-table, #agreements-table) td:empty {
+  :is(#blocks-table, #agreements-table) :is(td:empty, td.is-empty) {
     display: none;
+  }
+
+  #agreements-table td.date {
+    padding: 0;
   }
 }
 

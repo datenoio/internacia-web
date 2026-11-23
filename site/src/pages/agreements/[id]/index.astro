@@ -11,7 +11,7 @@ import {
   COVERAGE_NOTE,
   PREFERENCE_SCHEME_NOTE,
   REGISTRY_SCOPE_NOTE,
-  agreementEnded,
+  agreementStatusBadge,
   agreementStatusLabel,
   agreementTitle,
   agreementTypeLabel,
@@ -44,7 +44,6 @@ const partyCols = cols(parties);
 const formerCols = cols(former);
 const partyLinks = parties.some((p) => p.link);
 const formerLinks = former.some((p) => p.link);
-const ended = agreementEnded(a.status);
 const acronyms = [...new Map((a.acronyms ?? []).map((x) => [`${x.lang}:${x.value}`, x])).values()];
 const otherNames = (a.other_names ?? []).slice().sort((x, y) => x.lang.localeCompare(y.lang));
 const links = (a.links ?? []).map((l) => ({ label: humanize(l.type), url: l.url }));
@@ -84,7 +83,7 @@ const description = `${title}: ${agreementStatusLabel(a.status).toLowerCase()} $
       {a._acronym && <span class="muted"> ({a._acronym})</span>}
     </h1>
     <ul class="badges">
-      <li class={ended ? 'badge badge-warn' : 'badge badge-status'} data-agreement-status={a.status}>{agreementStatusLabel(a.status)}</li>
+      <li class={agreementStatusBadge(a.status)} data-agreement-status={a.status}>{agreementStatusLabel(a.status)}</li>
       <li class="badge">{agreementTypeLabel(a.agreement_type)}</li>
       <li class={a.verification === 'catalogue' ? 'badge badge-warn' : 'badge'}>{a.verification === 'catalogue' ? 'Catalogue record' : 'Checked against official sources'}</li>
     </ul>
