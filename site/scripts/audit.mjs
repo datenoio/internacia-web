@@ -138,6 +138,19 @@ for (const colorScheme of ['light', 'dark']) {
       failures.push(`axe ${colorScheme} /${p}: ${v.id} (${v.impact}, ${v.nodes.length} nodes) e.g. ${targets}`);
     }
     console.log(`axe   ${colorScheme.padEnd(5)} /${p} ${bad.length ? `${bad.length} serious/critical` : 'ok'}`);
+    // A chunked table lays its rows out as grids from its own --cols; without one each row is a
+    // single column and every cell takes a line of its own.
+    if (colorScheme === 'light') {
+      const flat = await page.evaluate(() =>
+        Array.from(document.querySelectorAll('table.chunked'))
+          .filter((t) => {
+            const row = t.tHead?.rows[0];
+            return row && getComputedStyle(row).gridTemplateColumns.split(' ').length < 2;
+          })
+          .map((t) => t.id || t.className),
+      );
+      for (const t of flat) failures.push(`layout /${p}: chunked table ${t} has one grid column (no --cols)`);
+    }
     await page.close();
   }
   await context.close();

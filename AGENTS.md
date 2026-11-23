@@ -183,6 +183,9 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   empty by design (`timezone_status`, `membership_applicability`) count as filled.
 - Tables with hundreds of rows use the `chunked` class: rows in `<tbody>` chunks with
   `content-visibility: auto` and explicit ARIA table roles. A plain 1,275-row table scored 0.77.
+  Each chunked table needs its own `--cols` in `global.css` (`#blocks-table`,
+  `#agreements-table`): without it every row is one column, one cell per line. `npm run audit`
+  fails on a chunked table with one grid column.
 - In `.astro` templates, build sentences that end in punctuation as one string expression:
   JSX-style whitespace otherwise leaves a space before the period.
 - The compare explorer (`scripts/compare.ts`) colours by combination only for two intblocks (the

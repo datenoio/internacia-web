@@ -14,8 +14,8 @@ export const GET: APIRoute = () =>
       `The internacia-db trade agreements registry: free trade agreements, customs unions, preferential and partial-scope agreements and preference schemes, bilateral ones included. ${REGISTRY_SCOPE_NOTE} Records marked "catalogue" come from WTO RTA-IS or ADB ARIC and were not checked against the treaty text.\n`,
       `Card per record: ${absolute(path('agreements/{id}.md'))} (ID in lowercase); JSON: ${absolute(path('api/v1/agreements/{ID}.json'))} (exact ID).\n`,
       table(
-        ['ID', 'Name', 'Type', 'Status', 'Signed', 'In force', 'Parties', 'Verification'],
-        agreements().map((a) => [a.id, a._name, agreementTypeLabel(a.agreement_type), agreementStatusLabel(a.status), a.signed, a.in_force, a._party_count, a.verification]),
+        ['ID', 'Name', 'Type', 'Status', 'Signed', 'In force', 'Ended', 'Parties', 'Verification'],
+        agreements().map((a) => [a.id, a._name, agreementTypeLabel(a.agreement_type), agreementStatusLabel(a.status), a.signed, a.in_force, a.ended, a._party_count, a.verification]),
       ),
     ].join('\n'),
   );

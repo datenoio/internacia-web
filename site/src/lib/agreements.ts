@@ -66,7 +66,15 @@ export const groupCounts = <T,>(rows: T[], key: (r: T) => string | null | undefi
   return [...m.entries()];
 };
 
-export const byStatusOrder = (a: string, b: string): number => {
-  const rank = (s: string) => (AGREEMENT_STATUS_ORDER.includes(s) ? AGREEMENT_STATUS_ORDER.indexOf(s) : AGREEMENT_STATUS_ORDER.length);
-  return rank(a) - rank(b) || a.localeCompare(b);
+// Position of a status in AGREEMENT_STATUS_ORDER; an unknown or missing status comes last.
+export const agreementStatusRank = (status: string | null | undefined): number => {
+  const i = AGREEMENT_STATUS_ORDER.indexOf(status ?? '');
+  return i < 0 ? AGREEMENT_STATUS_ORDER.length : i;
 };
+
+export const byStatusOrder = (a: string, b: string): number => agreementStatusRank(a) - agreementStatusRank(b) || a.localeCompare(b);
+
+// Status badge classes, the same on the card and in the index: in force is filled, an agreement
+// that no longer applies or never did is marked, the stages before entry into force are plain.
+export const agreementStatusBadge = (status: string | null | undefined): string =>
+  status === 'in_force' ? 'badge badge-status' : agreementEnded(status) ? 'badge badge-warn' : 'badge';
