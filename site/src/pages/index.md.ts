@@ -10,9 +10,10 @@ export const GET: APIRoute = () => {
     [
       frontMatter({ type: 'home', url: absolute(path('')), data_version: meta.data.version, license: 'CC-BY-4.0' }),
       '# Internacia\n',
-      'Countries, international organizations and country groupings from internacia-db, as cards for people and AI agents.\n',
+      'Countries, international organizations, country groupings and trade agreements from internacia-db, as cards for people and AI agents.\n',
       `- Countries and territories: ${c.countries} (${c.iso_countries} ISO 3166-1) — ${absolute(path('countries.md'))}`,
       `- Organizations and groupings: ${c.intblocks} — ${absolute(path('blocks.md'))}`,
+      `- Trade agreements: ${c.trade_agreements} (${c.trade_agreements_in_force} in force) — ${absolute(path('agreements.md'))}`,
       `- Block types: ${c.blocktypes}; topics: ${c.topics}`,
       `- Membership records: ${c.memberships} (${c.current_memberships} current)`,
       `- JSON API: ${absolute(path('api/v1/index.json'))}`,

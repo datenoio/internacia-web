@@ -2,7 +2,7 @@
 // Matches names in every language, acronyms and codes; ranks exact matches first.
 
 export interface Hit {
-  kind: 'c' | 'b';
+  kind: 'c' | 'b' | 'a';
   id: string;
   label: string;
   path: string;
@@ -14,7 +14,7 @@ export interface Hit {
 
 type Row = [string, string, string, string, number, [string, string][]];
 interface Entry {
-  kind: 'c' | 'b';
+  kind: 'c' | 'b' | 'a';
   id: string;
   label: string;
   path: string;
@@ -37,7 +37,7 @@ export function loadIndex(url: string): Promise<Entry[]> {
     .then((r) => r.json())
     .then((doc: { data: Row[] }) =>
       doc.data.map(([kind, id, label, path, active, names]) => ({
-        kind: kind as 'c' | 'b',
+        kind: kind as 'c' | 'b' | 'a',
         id,
         label,
         path,
@@ -77,8 +77,9 @@ export function search(entries: Entry[], query: string, limit = 8): Hit[] {
       }
     }
     if (best > 0) {
-      // Prefer active intblocks and countries slightly when scores tie.
-      const score = best + (e.active ? 1 : 0) + (e.kind === 'c' ? 0.5 : 0);
+      // Prefer active records and countries slightly when scores tie; an intblock wins a tie with
+      // its own trade agreement record (RCEP is both).
+      const score = best + (e.active ? 1 : 0) + (e.kind === 'c' ? 0.5 : e.kind === 'a' ? -0.25 : 0);
       hits.push({ kind: e.kind, id: e.id, label: e.label, path: e.path, active: e.active, matched: matched.text, lang: matched.lang, score });
     }
   }

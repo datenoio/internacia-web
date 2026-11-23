@@ -47,8 +47,95 @@ export interface AliasNote {
   reason: string;
   since: string;
   note?: string;
+  // intblocks_aliases (contract 5.0): `trade_agreements` for reason `moved`.
+  target_dataset?: string | null;
   section: 'blocks' | 'countries';
+  // Section of the target: an intblock moved to the trade agreements registry (contract 5.0)
+  // redirects to its agreement card.
+  target_section: 'blocks' | 'countries' | 'agreements';
   kind: 'reused' | 'former_id' | 'redirect' | 'disambiguation' | 'retired';
+}
+
+// Trade agreements registry (contract 5.0). One row per agreement on a country or intblock card.
+export interface AgreementRow {
+  agreement_id: string;
+  name: string;
+  acronym: string | null;
+  agreement_type: string | null;
+  status: string | null;
+  signed: string | null;
+  in_force: string | null;
+  ended: string | null;
+  verification: string | null;
+}
+
+// country_trade_agreements view: current coverage; `via` is the bloc a country is covered through.
+export interface CountryAgreement extends AgreementRow {
+  party_in_force: string | null;
+  via: string | null;
+  via_name: string | null;
+}
+
+export interface FormerCountryAgreement extends AgreementRow {
+  joined: string | null;
+  left: string | null;
+}
+
+export interface AgreementParty {
+  id: string;
+  name: string | null;
+  type: string;
+  status: string;
+  signed: string | null;
+  in_force: string | null;
+  joined: string | null;
+  left: string | null;
+  note: string | null;
+  source: string | null;
+  link: 'country' | 'block' | null;
+  flag_emoji: string | null;
+}
+
+export interface AgreementRef {
+  id: string;
+  name: string | null;
+  exists: boolean;
+}
+
+export interface Agreement {
+  id: string;
+  name: string | null;
+  agreement_type: string | null;
+  status: string | null;
+  signed: string | null;
+  in_force: string | null;
+  ended: string | null;
+  intblock_id: string | null;
+  party_count: number | null;
+  supersedes: string | null;
+  superseded_by: string | null;
+  wto_rta_id: number | null;
+  aric_id: number | null;
+  wikidata_id: string | null;
+  acronyms: { lang: string; value: string }[] | null;
+  other_names: { lang: string; name: string }[] | null;
+  links: { url: string; type: string }[] | null;
+  description: string | null;
+  notes: string | null;
+  verification: string | null;
+  last_verified: string | null;
+  provenance: Provenance[] | null;
+  _name: string;
+  _acronym: string | null;
+  _party_count: number;
+  _parties: AgreementParty[];
+  _countries: { code: string; name: string | null; flag_emoji: string | null; via: string | null; in_force: string | null }[];
+  _block: BlockRef | null;
+  _supersedes: AgreementRef[];
+  _superseded_by: AgreementRef | null;
+  _alias_notes: AliasNote[];
+  _source_path: string;
+  [key: string]: unknown;
 }
 
 export interface CountryMembership {
@@ -148,6 +235,8 @@ export interface Country {
   _parent_exists: boolean;
   _dependents: { code: string; name: string }[];
   _alias_notes: AliasNote[];
+  _trade_agreements: CountryAgreement[];
+  _former_trade_agreements: FormerCountryAgreement[];
   _source_path: string;
   [key: string]: unknown;
 }
@@ -231,6 +320,10 @@ export interface Block {
   _similar: { id: string; name: string; acronym: string | null; shared: number; jaccard: number }[];
   _hq_country_name: string | null;
   _alias_notes: AliasNote[];
+  // Trade agreements registry (contract 5.0): the record linked to this intblock, and the
+  // agreements it is a party to as a bloc.
+  _trade_agreement: (AgreementRow & { wto_rta_id: number | null }) | null;
+  _party_to_agreements: (AgreementRow & { party_status: string | null })[];
   _source_path: string;
   [key: string]: unknown;
 }
@@ -354,6 +447,7 @@ export interface ReleaseInfo {
 
 export const countries = once(() => load<Country[]>('countries.json'));
 export const blocks = once(() => load<Block[]>('blocks.json'));
+export const agreements = once(() => load<Agreement[]>('agreements.json'));
 export const blocktypes = once(() => load<BlockType[]>('blocktypes.json'));
 export const labels = once(() => load<Labels>('labels.json'));
 export const aliases = once(() => load<Aliases>('aliases.json'));
@@ -371,4 +465,5 @@ export const areaByName = once(() => new Map(geography().map((a) => [`${a.kind}:
 
 export const countryByCode = once(() => new Map(countries().map((c) => [c.code, c])));
 export const blockById = once(() => new Map(blocks().map((b) => [b.id, b])));
+export const agreementById = once(() => new Map(agreements().map((a) => [a.id, a])));
 export const blocktypeById = once(() => new Map(blocktypes().map((t) => [t.id, t])));

@@ -12,9 +12,9 @@ def test_repository_lock_file_is_valid():
 
 def test_valid_lock(write_lock, lock_dict):
     lock = load_lock(write_lock(lock_dict))
-    assert lock.version == "4.0.0"
+    assert lock.version == "5.0.0"
     assert lock.asset_url("SHA256SUMS") == (
-        "https://github.com/datenoio/internacia-db/releases/download/v4.0.0/SHA256SUMS"
+        "https://github.com/datenoio/internacia-db/releases/download/v5.0.0/SHA256SUMS"
     )
 
 

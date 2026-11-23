@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { apiMeta, json } from '../../../../lib/api';
 import { aliases, blockById, blocks } from '../../../../lib/data';
-import { absolute, blockJson, blockMd, blockPath } from '../../../../lib/urls';
+import { absolute, agreementJson, blockJson, blockMd, blockPath } from '../../../../lib/urls';
 
 export function getStaticPaths() {
   return [
@@ -15,11 +15,14 @@ export function getStaticPaths() {
 export const GET: APIRoute = ({ props }) => {
   if (props.alias) {
     const a = props.alias;
+    // An intblock moved to the trade agreements registry (contract 5.0) keeps its ID there.
+    const target = (id: string) => (a.target_section === 'agreements' ? agreementJson(id) : blockJson(id));
     return json({
       meta: apiMeta(),
-      redirect: a.target && a.kind === 'redirect' ? absolute(blockJson(a.target)) : null,
+      redirect: a.target && a.kind === 'redirect' ? absolute(target(a.target)) : null,
       candidate: a.target && a.kind === 'disambiguation' ? absolute(blockJson(a.target)) : null,
       kind: a.kind,
+      target_dataset: a.target_dataset ?? null,
       reason: a.reason,
       since: a.since,
       note: a.note ?? null,

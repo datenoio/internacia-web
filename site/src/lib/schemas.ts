@@ -96,9 +96,95 @@ const aliasNote = {
     reason: str,
     since: str,
     note: str,
+    target_dataset: { ...strOrNull, description: 'intblocks_aliases.target_dataset (contract 5.0): trade_agreements for reason moved.' },
     section: { enum: ['blocks', 'countries'] },
+    target_section: { enum: ['blocks', 'countries', 'agreements'], description: 'Section of the target card: agreements for an intblock moved to the trade agreements registry.' },
     kind: { enum: ['reused', 'former_id', 'redirect', 'disambiguation', 'retired'] },
   },
+};
+
+// Trade agreements registry (contract 5.0): one agreement as country and intblock cards list it.
+const agreementRowProps = {
+  agreement_id: str,
+  name: str,
+  acronym: strOrNull,
+  agreement_type: { ...strOrNull, description: 'fta, customs_union, pta, preference_scheme, services, digital, framework, other (open enum).' },
+  status: { ...strOrNull, description: "The agreement's own status: proposed, negotiating, signed, in_force, terminated, abandoned, superseded (open enum)." },
+  signed: strOrNull,
+  in_force: strOrNull,
+  ended: strOrNull,
+  verification: { ...strOrNull, description: 'official (checked against the treaty text, a depositary or a party government) or catalogue (WTO RTA-IS or ADB ARIC only).' },
+};
+const countryAgreement = {
+  type: 'object',
+  required: ['agreement_id', 'name', 'status', 'via'],
+  properties: {
+    ...agreementRowProps,
+    party_in_force: { ...strOrNull, description: 'in_force of the country_trade_agreements view: the party date, else the agreement date.' },
+    via: { ...strOrNull, description: 'Intblock ID of the bloc party the country is covered through (its current members), or null for a direct party.' },
+    via_name: strOrNull,
+  },
+  additionalProperties: false,
+};
+const formerCountryAgreement = {
+  type: 'object',
+  required: ['agreement_id', 'name', 'status'],
+  properties: { ...agreementRowProps, joined: strOrNull, left: strOrNull },
+  additionalProperties: false,
+};
+const agreementRef = blockRef;
+const agreementParty = {
+  type: 'object',
+  required: ['id', 'type', 'status', 'link'],
+  properties: {
+    id: str,
+    name: strOrNull,
+    type: { type: 'string', description: 'country, territory, intblock or historical-country (open enum).' },
+    status: { type: 'string', description: 'party or former_party (open enum).' },
+    signed: strOrNull,
+    in_force: strOrNull,
+    joined: strOrNull,
+    left: strOrNull,
+    note: strOrNull,
+    source: { ...strOrNull, description: "record, or intblock when read from the linked intblock's includes." },
+    link: { enum: ['country', 'block', null], description: 'Which card the party links to, if any. historical-country entries never link.' },
+    flag_emoji: strOrNull,
+  },
+  additionalProperties: false,
+};
+const agreement: Schema = {
+  type: 'object',
+  required: ['id', 'agreement_type', 'status', 'verification', '_name', '_party_count', '_parties', '_countries'],
+  properties: {
+    id: { type: 'string', pattern: '^[A-Za-z0-9_+-]+$', description: 'Registry ID; primary key, case-sensitive. A record linked to an intblock has the intblock ID.' },
+    name: strOrNull,
+    agreement_type: strOrNull,
+    status: strOrNull,
+    intblock_id: { ...strOrNull, description: 'The intblock that holds the roster of an agreement with three or more parties.' },
+    wto_rta_id: { type: ['integer', 'null'] },
+    aric_id: { type: ['integer', 'null'] },
+    verification: strOrNull,
+    _name: { ...str, description: "The record's name, or its intblock's name for a linked record without one." },
+    _acronym: strOrNull,
+    _party_count: { ...int, description: 'Parties with status party.' },
+    _parties: { type: 'array', items: agreementParty },
+    _countries: {
+      type: 'array',
+      description: 'Rows of the country_trade_agreements view for this agreement: current coverage, a bloc party expanded to its current members (via = bloc ID).',
+      items: {
+        type: 'object',
+        required: ['code', 'via'],
+        properties: { code: str, name: strOrNull, flag_emoji: strOrNull, via: strOrNull, in_force: strOrNull },
+        additionalProperties: false,
+      },
+    },
+    _block: blockRef,
+    _supersedes: { type: 'array', items: agreementRef, description: "Records this one replaced: its own supersedes and every record whose superseded_by names it." },
+    _superseded_by: agreementRef,
+    _alias_notes: { type: 'array', items: aliasNote },
+    _source_path: str,
+  },
+  additionalProperties: true,
 };
 
 const country: Schema = {
@@ -152,6 +238,8 @@ const country: Schema = {
     _parent_exists: bool,
     _dependents: { type: 'array', items: { type: 'object', required: ['code', 'name'] } },
     _alias_notes: { type: 'array', items: aliasNote },
+    _trade_agreements: { type: 'array', items: countryAgreement, description: 'Trade agreements the country is a current party to (country_trade_agreements view), whatever their status.' },
+    _former_trade_agreements: { type: 'array', items: formerCountryAgreement },
     _source_path: str,
   },
   additionalProperties: true,
@@ -190,6 +278,18 @@ const block: Schema = {
     },
     _hq_country_name: strOrNull,
     _alias_notes: { type: 'array', items: aliasNote },
+    _trade_agreement: {
+      type: ['object', 'null'],
+      description: 'The trade agreements registry record linked to this intblock (contract 5.0), if any.',
+      required: ['agreement_id', 'status'],
+      properties: { ...agreementRowProps, wto_rta_id: { type: ['integer', 'null'] } },
+      additionalProperties: false,
+    },
+    _party_to_agreements: {
+      type: 'array',
+      description: 'Agreements this intblock is a party to as a bloc.',
+      items: { type: 'object', required: ['agreement_id', 'name', 'status'], properties: { ...agreementRowProps, party_status: strOrNull }, additionalProperties: false },
+    },
     _source_path: str,
   },
   additionalProperties: true,
@@ -349,6 +449,39 @@ export const SCHEMAS: Record<string, Schema> = {
     ['count', 'data'],
   ),
   block: doc('block', 'One intblock with its resolved roster', { data: block }, ['data']),
+  'agreements-list': doc(
+    'agreements-list',
+    'All trade agreements (lite)',
+    {
+      count: int,
+      data: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['id', '_name', 'agreement_type', 'status', 'verification', '_party_count', '_json'],
+          properties: {
+            id: str,
+            _name: str,
+            _acronym: strOrNull,
+            agreement_type: strOrNull,
+            status: strOrNull,
+            signed: strOrNull,
+            in_force: strOrNull,
+            ended: strOrNull,
+            intblock_id: strOrNull,
+            wto_rta_id: { type: ['integer', 'null'] },
+            aric_id: { type: ['integer', 'null'] },
+            verification: strOrNull,
+            _party_count: int,
+            _json: url,
+          },
+          additionalProperties: false,
+        },
+      },
+    },
+    ['count', 'data'],
+  ),
+  agreement: doc('agreement', 'One trade agreement with its parties', { data: agreement }, ['data']),
   aliases: doc('aliases', 'Retired and renamed IDs', { intblocks: { type: 'array' }, countries: { type: 'array' } }, ['intblocks', 'countries']),
   'alias-document': doc(
     'alias-document',
@@ -357,6 +490,7 @@ export const SCHEMAS: Record<string, Schema> = {
       redirect: { type: ['string', 'null'], format: 'uri' },
       candidate: { type: ['string', 'null'], format: 'uri' },
       kind: { enum: ['redirect', 'disambiguation', 'retired'] },
+      target_dataset: { ...strOrNull, description: 'trade_agreements when the ID moved to the trade agreements registry (contract 5.0); redirect then names an agreement document.' },
       reason: str,
       since: str,
       note: strOrNull,
@@ -372,7 +506,7 @@ export const SCHEMAS: Record<string, Schema> = {
         type: 'array',
         items: {
           type: 'array',
-          prefixItems: [{ enum: ['c', 'b'] }, str, str, str, { enum: [0, 1] }, { type: 'array', items: { type: 'array', prefixItems: [str, str], minItems: 2, maxItems: 2 } }],
+          prefixItems: [{ enum: ['c', 'b', 'a'], description: 'c country, b intblock, a trade agreement.' }, str, str, str, { enum: [0, 1] }, { type: 'array', items: { type: 'array', prefixItems: [str, str], minItems: 2, maxItems: 2 } }],
           minItems: 6,
           maxItems: 6,
         },
@@ -394,9 +528,9 @@ export function openapi(): Schema {
     info: {
       title: 'Internacia static API',
       version: meta.data.version,
-      summary: 'Countries, international organizations and country groupings from internacia-db, as static JSON.',
+      summary: 'Countries, international organizations, country groupings and trade agreements from internacia-db, as static JSON.',
       description:
-        'Read-only JSON files built from internacia-db. No authentication, no rate limit, no query parameters: every resource is a file. Fields starting with an underscore are derived by the site; all other fields are internacia-db export fields. Retired IDs return an alias document instead of an entity.',
+        'Read-only JSON files built from internacia-db. No authentication, no rate limit, no query parameters: every resource is a file. Fields starting with an underscore are derived by the site; all other fields are internacia-db export fields. Retired IDs return an alias document instead of an entity; the two-party trade agreements that left intblocks in v5.0.0 return an alias document that redirects to their agreement document.',
       license: { name: 'CC-BY-4.0 (data); country centroids ODbL-1.0', identifier: 'CC-BY-4.0' },
       contact: { url: 'https://github.com/datenoio/internacia-web' },
     },
@@ -420,6 +554,15 @@ export function openapi(): Schema {
           summary: 'One intblock with its resolved roster and structure',
           parameters: [id],
           responses: { ...ok('block', 'Intblock document, or an alias document for a retired ID'), '404': { description: 'Unknown ID' } },
+        },
+      },
+      '/agreements.json': { get: { operationId: 'listAgreements', summary: 'All trade agreements of the registry (lite)', responses: ok('agreements-list', 'Lite list of trade agreements') } },
+      '/agreements/{ID}.json': {
+        get: {
+          operationId: 'getAgreement',
+          summary: 'One trade agreement with its parties and the countries it covers',
+          parameters: [{ ...id, description: 'Exact registry ID, case-sensitive (e.g. USKR, RCEP, EFTASG).' }],
+          responses: { ...ok('agreement', 'Trade agreement document'), '404': { description: 'Unknown ID' } },
         },
       },
       '/aliases.json': { get: { operationId: 'listAliases', summary: 'Retired and renamed IDs', responses: ok('aliases', 'Alias lists') } },

@@ -17,6 +17,12 @@ export const blockPath = (id: string) => path(`blocks/${id.toLowerCase()}/`);
 export const blockMd = (id: string) => path(`blocks/${id.toLowerCase()}.md`);
 export const blockJson = (id: string) => path(`api/v1/blocks/${id}.json`);
 
+// Trade agreements registry (contract 5.0). Registry and intblock IDs are one namespace upstream,
+// so a linked record (RCEP) has the same ID as its intblock.
+export const agreementPath = (id: string) => path(`agreements/${id.toLowerCase()}/`);
+export const agreementMd = (id: string) => path(`agreements/${id.toLowerCase()}.md`);
+export const agreementJson = (id: string) => path(`api/v1/agreements/${id}.json`);
+
 export const typePath = (key: string) => path(`types/${key}/`);
 export const topicPath = (key: string) => path(`topics/${key}/`);
 export const areaPath = (slug: string) => path(`geography/${slug}/`);
@@ -26,7 +32,7 @@ export const REPO_SITE = 'https://github.com/datenoio/internacia-web';
 
 export const sourceUrl = (sourcePath: string) => `${REPO_DATA}/blob/${meta.data.tag}/${sourcePath}`;
 
-export function reportErrorUrl(dataset: 'countries' | 'intblocks', id: string, name: string): string {
+export function reportErrorUrl(dataset: 'countries' | 'intblocks' | 'trade_agreements', id: string, name: string): string {
   const params = new URLSearchParams({
     template: 'data_error.yml',
     title: `[data] ${id}: ${name}`,

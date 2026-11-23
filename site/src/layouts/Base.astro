@@ -46,6 +46,7 @@ const nav = [
   { href: path('data/'), label: 'Data & API' },
 ];
 const more = [
+  { href: path('agreements/'), label: 'Trade agreements' },
   { href: path('types/'), label: 'Block types' },
   { href: path('topics/'), label: 'Topics' },
   { href: path('geography/'), label: 'Geography' },
@@ -212,7 +213,7 @@ const moreCurrent = more.some((item) => isCurrent(item.href));
 
     <script>
       // One bundled module for every page (cached once), instead of inline code repeated in each
-      // of the ~3,300 pages: the finder, then the header, theme, copy buttons and in-page nav.
+      // of the ~4,800 pages: the finder, then the header, theme, copy buttons and in-page nav.
       import '../scripts/finder.ts';
       import '../scripts/site.ts';
     </script>

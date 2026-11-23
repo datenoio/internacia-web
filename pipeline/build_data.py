@@ -9,6 +9,7 @@ Files written:
 - meta.json        data version, build identity, key figures
 - countries.json   country records with derived `_` fields (memberships, borders, similar)
 - blocks.json      intblock records with derived `_` fields (roster, structure, similar)
+- agreements.json  trade agreements registry records with resolved parties (contract 5.0)
 - blocktypes.json  block types with counts
 - labels.json      labels for membership statuses, topics and vocabularies
 - aliases.json     retired and renamed IDs and what the site does with each
@@ -34,6 +35,7 @@ from derive import (
     check_border_rule,
     check_current_rule,
     classify_aliases,
+    derive_agreements,
     derive_blocks,
     derive_blocktypes,
     derive_countries,
@@ -199,6 +201,7 @@ def build(lock: Lock, cache_root: Path, out_dir: Path) -> dict:
     write_json(out_dir / "meta.json", meta)
     write_json(out_dir / "countries.json", countries)
     write_json(out_dir / "blocks.json", blocks)
+    write_json(out_dir / "agreements.json", derive_agreements(release, aliases["notes"]))
     write_json(out_dir / "blocktypes.json", derive_blocktypes(release))
     write_json(out_dir / "labels.json", derive_labels(release))
     write_json(

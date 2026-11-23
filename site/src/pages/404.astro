@@ -25,7 +25,7 @@ import { path } from '../lib/urls';
     if (box) {
       const base = box.dataset.base!;
       const parts = decodeURIComponent(location.pathname.slice(base.length)).split('/').filter(Boolean);
-      const section = parts[0] === 'countries' ? 'c' : parts[0] === 'blocks' ? 'b' : null;
+      const section = parts[0] === 'countries' ? 'c' : parts[0] === 'blocks' ? 'b' : parts[0] === 'agreements' ? 'a' : null;
       const slug = (parts[1] ?? parts[0] ?? '').replace(/\.(md|json|html)$/, '');
       if (slug) {
         loadIndex(box.dataset.index!).then((entries) => {

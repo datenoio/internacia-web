@@ -1,0 +1,132 @@
+---
+// Trade agreements registry index (contract 5.0, SPEC §6.14). Every record, with filters by status,
+// type and verification level; the counts above the table are a server-rendered summary.
+import BarList from '../../components/BarList.astro';
+import Base from '../../layouts/Base.astro';
+import {
+  REGISTRY_SCOPE_NOTE,
+  agreementStatusLabel,
+  agreementTypeLabel,
+  byStatusOrder,
+  groupCounts,
+} from '../../lib/agreements';
+import { agreements } from '../../lib/data';
+import { enumLabel, num } from '../../lib/format';
+import { meta } from '../../lib/meta';
+import { agreementPath, path } from '../../lib/urls';
+
+const rows = agreements().slice().sort((a, b) => a._name.localeCompare(b._name) || a.id.localeCompare(b.id));
+const byStatus = groupCounts(rows, (a) => a.status).sort((x, y) => byStatusOrder(x[0], y[0]));
+const byType = groupCounts(rows, (a) => a.agreement_type).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
+const byVerification = groupCounts(rows, (a) => a.verification).sort((x, y) => y[1] - x[1]);
+const bilateral = rows.filter((a) => a._party_count === 2).length;
+const linked = rows.filter((a) => a._block?.exists).length;
+const inForce = rows.filter((a) => a.status === 'in_force').length;
+const CHUNK = 100;
+const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => rows.slice(i * CHUNK, (i + 1) * CHUNK));
+---
+
+<Base
+  section="Trade agreements"
+  title="Trade agreements"
+  description={`All ${rows.length} trade agreements in the internacia-db registry, ${inForce} of them in force: free trade agreements, customs unions, preferential agreements and preference schemes, with parties, status and dates.`}
+  breadcrumbs={[{ name: 'Trade agreements', href: path('agreements/') }]}
+  markdown={path('agreements.md')}
+  json={path('api/v1/agreements.json')}
+>
+  <section class="container page-head">
+    <h1>Trade agreements</h1>
+    <p class="lead">
+      {`${num(rows.length)} records in the internacia-db trade agreements registry, bilateral agreements included: ${num(inForce)} in force, ${num(bilateral)} with two parties. ${num(linked)} agreements with three or more parties also have an organization record with their roster and map.`}
+    </p>
+    <p class="muted small">
+      {`${REGISTRY_SCOPE_NOTE} Records marked "catalogue" come from WTO RTA-IS or ADB ARIC and were not checked against the treaty text.`}
+    </p>
+  </section>
+
+  <section class="container">
+    <div class="grid-2">
+      <div>
+        <h2>By status</h2>
+        <BarList items={byStatus.map(([s, n]) => ({ label: agreementStatusLabel(s) || 'Not set', value: n }))} label="Trade agreements by status" />
+      </div>
+      <div>
+        <h2>By type</h2>
+        <BarList items={byType.map(([t, n]) => ({ label: agreementTypeLabel(t) || 'Not set', value: n }))} label="Trade agreements by type" />
+        <p class="muted small">
+          {byVerification.map(([v, n]) => `${num(n)} ${enumLabel('verification', v).toLowerCase()}`).join('; ') + '.'}
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="container">
+    <h2>All trade agreements</h2>
+    <div class="filters js-only" data-table-tools="agreements-table" data-url-state>
+      <label>Search<input type="search" data-filter="text" placeholder="Name, acronym or ID" /></label>
+      <label>
+        Status
+        <select data-filter="status">
+          <option value="">All</option>
+          {byStatus.map(([s]) => <option value={s}>{agreementStatusLabel(s)}</option>)}
+        </select>
+      </label>
+      <label>
+        Type
+        <select data-filter="type">
+          <option value="">All</option>
+          {byType.map(([t]) => <option value={t}>{agreementTypeLabel(t)}</option>)}
+        </select>
+      </label>
+      <label>
+        Verification
+        <select data-filter="verification">
+          <option value="">All</option>
+          {byVerification.map(([v]) => <option value={v}>{v === 'catalogue' ? 'Catalogue' : 'Official sources'}</option>)}
+        </select>
+      </label>
+      <span class="count" data-count aria-live="polite"></span>
+    </div>
+    <div class="table-wrap">
+      <table class="data chunked" id="agreements-table" role="table" data-chunk={CHUNK}>
+        <caption class="muted small" style="text-align:left;padding:0.5rem 0.65rem">
+          Trade agreements in internacia-db v{meta.data.version}
+        </caption>
+        <thead role="rowgroup">
+          <tr role="row">
+            <th role="columnheader" scope="col" data-sort="text">Name</th>
+            <th role="columnheader" scope="col" data-sort="text">Type</th>
+            <th role="columnheader" scope="col" data-sort="text">Status</th>
+            <th role="columnheader" scope="col" data-sort="text">Signed</th>
+            <th role="columnheader" scope="col" data-sort="text">In force</th>
+            <th role="columnheader" scope="col" class="num" data-sort="num">Parties</th>
+          </tr>
+        </thead>
+        {
+          chunks.map((chunk) => (
+            <tbody role="rowgroup">
+              {chunk.map((a) => (
+                <tr role="row" data-agreement={a.id} data-status={a.status ?? ''} data-type={a.agreement_type ?? ''} data-verification={a.verification ?? ''}>
+                  <td role="cell" data-value={a._name}>
+                    <a href={agreementPath(a.id)}>{a._name}</a>
+                    {a._acronym && <span class="muted"> ({a._acronym})</span>}
+                    {a.id !== a._acronym && <code class="inline-id">{a.id}</code>}
+                    {a.verification === 'catalogue' && <span class="muted small"> catalogue</span>}
+                  </td>
+                  <td role="cell" data-label="Type">{agreementTypeLabel(a.agreement_type)}</td>
+                  <td role="cell" data-label="Status">{agreementStatusLabel(a.status)}</td>
+                  <td role="cell" class="date" data-label="Signed">{a.signed}</td>
+                  <td role="cell" class="date" data-label="In force">{a.in_force}</td>
+                  <td role="cell" class="num" data-label="Parties">{num(a._party_count)}</td>
+                </tr>
+              ))}
+            </tbody>
+          ))
+        }
+      </table>
+    </div>
+  </section>
+  <script>
+    import '../../scripts/tables.ts';
+  </script>
+</Base>

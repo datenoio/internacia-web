@@ -1,12 +1,14 @@
 import type { APIRoute } from 'astro';
 import { apiMeta, json } from '../../../lib/api';
-import { blocks, countries } from '../../../lib/data';
-import { blockPath, countryPath } from '../../../lib/urls';
+import { agreementEnded } from '../../../lib/agreements';
+import { agreements, blocks, countries } from '../../../lib/data';
+import { agreementPath, blockPath, countryPath } from '../../../lib/urls';
 
 // Entity finder index (SPEC §6.12): every name, acronym and code of every country and intblock,
 // in all languages. Compact rows keep it within the 300 KB gzip budget:
 //   [kind, id, label, path, active, names]   names: [[text, lang], ...]
-// kind is "c" (country) or "b" (intblock); lang is "" for codes and IDs.
+// kind is "c" (country), "b" (intblock) or "a" (trade agreement, contract 5.0); lang is "" for
+// codes and IDs. An agreement is active unless it is terminated, superseded or abandoned.
 type Name = [string, string];
 
 const uniq = (names: Name[]): Name[] => {
@@ -45,6 +47,16 @@ export const GET: APIRoute = () => {
     ];
     const label = b._acronym ? `${b.name} (${b._acronym})` : b.name;
     rows.push(['b', b.id, label, blockPath(b.id), b._active ? 1 : 0, uniq(names)]);
+  }
+  for (const a of agreements()) {
+    const names: Name[] = [
+      [a._name, 'en'],
+      [a.id, ''],
+      ...(a.acronyms ?? []).map((x): Name => [x.value, x.lang]),
+      ...(a.other_names ?? []).map((n): Name => [n.name, n.lang]),
+    ];
+    const label = a._acronym ? `${a._name} (${a._acronym})` : a._name;
+    rows.push(['a', a.id, label, agreementPath(a.id), agreementEnded(a.status) ? 0 : 1, uniq(names)]);
   }
   return json({ meta: apiMeta(), format: ['kind', 'id', 'label', 'path', 'active', 'names'], data: rows }, false);
 };

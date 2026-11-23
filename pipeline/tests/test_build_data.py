@@ -8,7 +8,7 @@ from build_data import BuildError, build_meta, check_duckdb_version
 META_ROW = "('{name}', '{version}', '2026-10-22T11:26:42Z', '{commit}', {rows}, 'hash', 'CC-BY-4.0', '{contract}')"
 
 
-def make_release(cache_root, lock, *, version=None, commit="88a0a27", contract="4.0", row_counts=None):
+def make_release(cache_root, lock, *, version=None, commit="e3500d4", contract="5.0", row_counts=None):
     """Write a tiny internacia.duckdb and contract.json shaped like a real release."""
     assets = cache_root / lock.tag / "assets"
     assets.mkdir(parents=True)
@@ -27,6 +27,7 @@ def make_release(cache_root, lock, *, version=None, commit="88a0a27", contract="
             ('EU', 'FR', 'member', NULL), ('EU', 'DE', 'member', NULL), ('NATO', 'XK', 'former_member', '2020')
         ) t(intblock_id, country_code, status, "left");
         CREATE VIEW current_memberships AS SELECT * FROM memberships WHERE "left" IS NULL;
+        CREATE TABLE trade_agreements AS SELECT * FROM (VALUES ('USKR', 'in_force'), ('EUMX', 'terminated')) t(id, status);
         CREATE TABLE _meta (dataset VARCHAR, version VARCHAR, build_date VARCHAR, git_commit VARCHAR,
             row_count BIGINT, schema_hash VARCHAR, data_license VARCHAR, contract_version VARCHAR);
     """)
@@ -49,9 +50,11 @@ def test_build_writes_meta(tmp_path, lock):
         "topics": 2,
         "memberships": 3,
         "current_memberships": 2,
+        "trade_agreements": 2,
+        "trade_agreements_in_force": 1,
     }
-    assert meta["data"]["version"] == "4.0.0"
-    assert meta["data"]["contract_version"] == "4.0"
+    assert meta["data"]["version"] == "5.0.0"
+    assert meta["data"]["contract_version"] == "5.0"
     assert meta["data"]["build_date"] == "2026-10-22T11:26:42Z"
 
 
@@ -63,10 +66,10 @@ def test_build_requires_fetch(tmp_path, lock):
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
-        ({"version": "3.1.0"}, "lock file pins 4.0.0"),
+        ({"version": "3.1.0"}, "lock file pins 5.0.0"),
         ({"commit": "deadbee"}, "git_commit"),
-        ({"contract": "3.1"}, "supports MAJOR 4"),
-        ({"contract": "5.0"}, "supports MAJOR 4"),
+        ({"contract": "4.4"}, "supports MAJOR 5"),
+        ({"contract": "6.0"}, "supports MAJOR 5"),
         ({"row_counts": {"countries": 256}}, "row_count of countries is 256"),
     ],
 )

@@ -1,0 +1,350 @@
+---
+// Trade agreement card (contract 5.0, SPEC §6.14): a registry record with its parties, dates and
+// catalogue IDs. A record linked to an intblock reads its parties from that intblock's roster.
+import Facts from '../../../components/Facts.astro';
+import Cite from '../../../components/Cite.astro';
+import PageToc from '../../../components/PageToc.astro';
+import Base from '../../../layouts/Base.astro';
+import { agreementById, agreements, type Agreement, type AgreementParty } from '../../../lib/data';
+import {
+  CATALOGUE_NOTE,
+  COVERAGE_NOTE,
+  PREFERENCE_SCHEME_NOTE,
+  REGISTRY_SCOPE_NOTE,
+  agreementEnded,
+  agreementStatusLabel,
+  agreementTitle,
+  agreementTypeLabel,
+  aricUrl,
+  wtoRtaUrl,
+} from '../../../lib/agreements';
+import { blockById } from '../../../lib/data';
+import { enumLabel, humanize, num, splitCode } from '../../../lib/format';
+import { agreementLd } from '../../../lib/jsonld';
+import { agreementJson, agreementMd, agreementPath, blockPath, countryPath, path, reportErrorUrl, sourceUrl, wikidataUrl } from '../../../lib/urls';
+
+export function getStaticPaths() {
+  return agreements().map((a) => ({ params: { id: a.id.toLowerCase() }, props: { id: a.id } }));
+}
+
+const a = agreementById().get(Astro.props.id) as Agreement;
+const title = agreementTitle(a);
+const parties = a._parties.filter((p) => p.status === 'party');
+const former = a._parties.filter((p) => p.status !== 'party');
+const viaBloc = a._parties.some((p) => p.type === 'intblock');
+// Columns that would be empty or the same in every row are left out.
+const cols = (rows: AgreementParty[]) => ({
+  type: new Set(rows.map((r) => r.type)).size > 1,
+  signed: rows.some((r) => r.signed),
+  in_force: rows.some((r) => r.in_force),
+  joined: rows.some((r) => r.joined),
+  left: rows.some((r) => r.left),
+});
+const partyCols = cols(parties);
+const formerCols = cols(former);
+const partyLinks = parties.some((p) => p.link);
+const formerLinks = former.some((p) => p.link);
+const ended = agreementEnded(a.status);
+const acronyms = [...new Map((a.acronyms ?? []).map((x) => [`${x.lang}:${x.value}`, x])).values()];
+const otherNames = (a.other_names ?? []).slice().sort((x, y) => x.lang.localeCompare(y.lang));
+const links = (a.links ?? []).map((l) => ({ label: humanize(l.type), url: l.url }));
+const known = (id: string) => agreementById().has(id);
+const knownBlock = (id: string) => blockById().has(id);
+const hasRelated = Boolean(a._block) || a._supersedes.length > 0 || Boolean(a._superseded_by);
+const toc = [
+  { id: 'facts', label: 'Key facts' },
+  ...(hasRelated ? [{ id: 'related', label: 'Related records' }] : []),
+  ...(a.notes ? [{ id: 'notes', label: 'Notes' }] : []),
+  { id: 'parties', label: 'Parties', count: parties.length },
+  ...(viaBloc && a._countries.length > 0 ? [{ id: 'covered', label: 'Countries covered', count: a._countries.length }] : []),
+  ...(acronyms.length > 0 || otherNames.length > 0 ? [{ id: 'names', label: 'Names' }] : []),
+  ...(links.length > 0 ? [{ id: 'links', label: 'Links' }] : []),
+  ...((a.provenance?.length ?? 0) > 0 ? [{ id: 'provenance', label: 'Provenance' }] : []),
+];
+const description = `${title}: ${agreementStatusLabel(a.status).toLowerCase()} ${agreementTypeLabel(a.agreement_type).toLowerCase()} with ${a._party_count} ${a._party_count === 1 ? 'party' : 'parties'}. Parties, dates and catalogue IDs from the internacia-db trade agreements registry.`;
+---
+
+<Base
+  section="Trade agreements"
+  title={title}
+  description={description}
+  breadcrumbs={[
+    { name: 'Trade agreements', href: path('agreements/') },
+    { name: a._acronym ?? a._name, href: agreementPath(a.id) },
+  ]}
+  markdown={agreementMd(a.id)}
+  json={agreementJson(a.id)}
+  sourceUrl={sourceUrl(a._source_path)}
+  reportUrl={reportErrorUrl('trade_agreements', a.id, a._name)}
+  jsonld={agreementLd(a)}
+>
+  <section class="container page-head">
+    <h1>
+      {a._name}
+      {a._acronym && <span class="muted"> ({a._acronym})</span>}
+    </h1>
+    <ul class="badges">
+      <li class={ended ? 'badge badge-warn' : 'badge badge-status'} data-agreement-status={a.status}>{agreementStatusLabel(a.status)}</li>
+      <li class="badge">{agreementTypeLabel(a.agreement_type)}</li>
+      <li class={a.verification === 'catalogue' ? 'badge badge-warn' : 'badge'}>{a.verification === 'catalogue' ? 'Catalogue record' : 'Checked against official sources'}</li>
+    </ul>
+    {a.description && <p class="lead">{a.description}</p>}
+    {a.verification === 'catalogue' && <p class="notice small">{CATALOGUE_NOTE}</p>}
+    <Cite title={title} href={agreementPath(a.id)} />
+    {a._alias_notes.map((n) => (
+      <p class="muted small">
+        {`Until internacia-db v${n.since} this agreement was an organization record under the same ID; `}
+        <code>{path(`blocks/${n.alias.toLowerCase()}/`)}</code>
+        {` now leads here. ${n.note ?? ''}`}
+      </p>
+    ))}
+  </section>
+
+  <PageToc items={toc} />
+
+  <div class="container">
+    <div class="grid-2">
+      <section class="card-section" aria-labelledby="facts">
+        <h2 id="facts">Key facts</h2>
+        <Facts
+          rows={[
+            { label: 'ID', value: a.id, code: true, copy: true },
+            { label: 'Type', value: agreementTypeLabel(a.agreement_type) },
+            { label: 'Status', value: agreementStatusLabel(a.status) },
+            { label: 'Signed', value: a.signed },
+            { label: 'In force', value: a.in_force },
+            { label: 'Ended', value: a.ended },
+            { label: 'Parties', value: num(a._party_count), note: former.length > 0 ? `(and ${former.length} former)` : undefined },
+            { label: 'WTO RTA ID', value: a.wto_rta_id, code: true, href: a.wto_rta_id ? wtoRtaUrl(a.wto_rta_id) : undefined },
+            { label: 'ADB ARIC ID', value: a.aric_id, code: true, href: a.aric_id ? aricUrl(a.aric_id) : undefined },
+            { label: 'Wikidata', value: a.wikidata_id, code: true, href: a.wikidata_id ? wikidataUrl(a.wikidata_id) : undefined, copy: true },
+            { label: 'Verification', value: enumLabel('verification', a.verification) },
+            { label: 'Last verified', value: a.last_verified },
+          ]}
+        />
+        <p class="muted small">{REGISTRY_SCOPE_NOTE}</p>
+      </section>
+
+      {hasRelated && (
+        <section class="card-section" aria-labelledby="related">
+          <h2 id="related">Related records</h2>
+          <Facts
+            rows={[
+              {
+                label: 'Organization record',
+                value: a._block ? (a._block.name ?? a._block.id) : undefined,
+                href: a._block?.exists ? blockPath(a._block.id) : undefined,
+                note: a._block?.exists ? '(roster, map and membership dates)' : undefined,
+              },
+              {
+                label: 'Superseded by',
+                value: a._superseded_by ? (a._superseded_by.name ?? a._superseded_by.id) : undefined,
+                href: a._superseded_by?.exists ? agreementPath(a._superseded_by.id) : undefined,
+              },
+            ]}
+          />
+          {a._supersedes.length > 0 && (
+            <>
+              <h3>Supersedes</h3>
+              <ul>
+                {a._supersedes.map((r) => (
+                  <li>
+                    {r.exists ? <a href={agreementPath(r.id)}>{r.name ?? r.id}</a> : <code>{r.id}</code>} <code class="muted small">{r.id}</code>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+      )}
+    </div>
+
+    {a.notes && (
+      <section class="card-section" aria-labelledby="notes">
+        <h2 id="notes">Notes</h2>
+        <p>
+          {splitCode(a.notes).map((part) =>
+            part.code ? known(part.text) ? <a href={agreementPath(part.text)}><code>{part.text}</code></a> : knownBlock(part.text) ? <a href={blockPath(part.text)}><code>{part.text}</code></a> : <code>{part.text}</code> : part.text,
+          )}
+        </p>
+      </section>
+    )}
+
+    <section class="card-section" aria-labelledby="parties">
+      <h2 id="parties">Parties</h2>
+      <p>
+        {parties.length > 0
+          ? `${num(parties.length)} ${parties.length === 1 ? 'party' : 'parties'}${former.length > 0 ? `, plus ${former.length} former` : ''}${a._block?.exists ? ', read from the roster of the organization record' : ''}.`
+          : 'No parties are recorded.'}
+      </p>
+      {a.agreement_type === 'preference_scheme' && <p class="muted small">{PREFERENCE_SCHEME_NOTE}</p>}
+      {parties.length > 0 && (
+        <div class="table-wrap" {...(partyLinks ? {} : { tabindex: '0', role: 'region', 'aria-label': 'Parties' })}>
+          <table class="data" id="parties-table">
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Code</th>
+                {partyCols.type && <th scope="col">Type</th>}
+                {partyCols.signed && <th scope="col">Signed</th>}
+                {partyCols.in_force && <th scope="col">In force</th>}
+                {partyCols.joined && <th scope="col">Joined</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {parties.map((p) => (
+                <tr data-party={p.id} data-type={p.type} data-status={p.status}>
+                  <td>
+                    {p.flag_emoji && <span aria-hidden="true">{p.flag_emoji} </span>}
+                    {p.link === 'country' ? <a href={countryPath(p.id)}>{p.name}</a> : p.link === 'block' ? <a href={blockPath(p.id)}>{p.name}</a> : (p.name ?? p.id)}
+                    {p.note && <div class="muted small">{p.note}</div>}
+                  </td>
+                  <td><code>{p.id}</code></td>
+                  {partyCols.type && <td>{enumLabel('party_type', p.type)}</td>}
+                  {partyCols.signed && <td class="date">{p.signed}</td>}
+                  {partyCols.in_force && <td class="date">{p.in_force}</td>}
+                  {partyCols.joined && <td class="date">{p.joined}</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {former.length > 0 && (
+        <details>
+          <summary>{`Former parties (${former.length})`}</summary>
+          <div class="table-wrap" {...(formerLinks ? {} : { tabindex: '0', role: 'region', 'aria-label': 'Former parties' })}>
+            <table class="data" id="former-parties-table">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Code</th>
+                  {formerCols.type && <th scope="col">Type</th>}
+                  {formerCols.joined && <th scope="col">Joined</th>}
+                  {formerCols.left && <th scope="col">Left</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {former.map((p) => (
+                  <tr data-party={p.id} data-type={p.type} data-status={p.status}>
+                    <td>
+                      {p.link === 'country' ? <a href={countryPath(p.id)}>{p.name}</a> : p.link === 'block' ? <a href={blockPath(p.id)}>{p.name}</a> : (p.name ?? p.id)}
+                      {p.note && <div class="muted small">{p.note}</div>}
+                    </td>
+                    <td><code>{p.id}</code></td>
+                    {formerCols.type && <td>{enumLabel('party_type', p.type)}</td>}
+                    {formerCols.joined && <td class="date">{p.joined}</td>}
+                    {formerCols.left && <td class="date">{p.left}</td>}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+    </section>
+
+    {viaBloc && a._countries.length > 0 && (
+      <section class="card-section" aria-labelledby="covered">
+        <h2 id="covered">Countries covered</h2>
+        <p class="muted small">{COVERAGE_NOTE}</p>
+        <div class="table-wrap">
+          <table class="data" id="covered-table">
+            <thead>
+              <tr>
+                <th scope="col">Country</th>
+                <th scope="col">Code</th>
+                <th scope="col">Via</th>
+              </tr>
+            </thead>
+            <tbody>
+              {a._countries.map((c) => (
+                <tr data-country={c.code} data-via={c.via ?? ''}>
+                  <td>
+                    {c.flag_emoji && <span aria-hidden="true">{c.flag_emoji} </span>}
+                    {c.name ? <a href={countryPath(c.code)}>{c.name}</a> : c.code}
+                  </td>
+                  <td><code>{c.code}</code></td>
+                  <td>{c.via ? <a href={blockPath(c.via)}>{blockById().get(c.via)?.name ?? c.via}</a> : 'Direct party'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )}
+
+    {(acronyms.length > 0 || otherNames.length > 0) && (
+      <section class="card-section" aria-labelledby="names">
+        <h2 id="names">Names</h2>
+        {acronyms.length > 0 && (
+          <>
+            <h3>Acronyms</h3>
+            <ul class="names">
+              {acronyms.map((x) => (
+                <li>
+                  <span class="lang">{x.lang}</span>
+                  <bdi lang={x.lang}>{x.value}</bdi>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        {otherNames.length > 0 && (
+          <>
+            <h3>{`Other names (${otherNames.length})`}</h3>
+            <ul class="names">
+              {otherNames.map((n) => (
+                <li>
+                  <span class="lang">{n.lang}</span>
+                  <bdi lang={n.lang}>{n.name}</bdi>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </section>
+    )}
+
+    {links.length > 0 && (
+      <section class="card-section" aria-labelledby="links">
+        <h2 id="links">Links</h2>
+        <ul>
+          {links.map((l) => (
+            <li>
+              <span class="muted">{l.label}:</span> <a href={l.url}>{l.url}</a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )}
+
+    {(a.provenance?.length ?? 0) > 0 && (
+      <section class="card-section" aria-labelledby="provenance">
+        <h2 id="provenance">Provenance</h2>
+        <div class="table-wrap">
+          <table class="data">
+            <thead>
+              <tr>
+                <th scope="col">Field</th>
+                <th scope="col">Source</th>
+                <th scope="col">Retrieved</th>
+                <th scope="col">Licence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {a.provenance!.map((p) => (
+                <tr>
+                  <td><code>{p.field}</code></td>
+                  <td>{p.url ? <a href={p.url}>{p.source}</a> : p.source}</td>
+                  <td>{p.retrieved_at}</td>
+                  <td>{p.license}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    )}
+  </div>
+</Base>

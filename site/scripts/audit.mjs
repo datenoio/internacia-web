@@ -45,6 +45,12 @@ const AXE_PAGES = [
   'blocks/unsc/', // institutional design with veto holders (contract 4.1)
   'blocks/btc/', // route roles in the roster (contract 4.1)
   'blocks/iata/', // roster removed: membership_applicability not_applicable (contract 4.1)
+  'agreements/', // trade agreements registry index, 839 rows in chunks (contract 5.0)
+  'agreements/uskr/', // two-party agreement, formerly an intblock (moved alias)
+  'agreements/euvn/', // bloc party: countries covered via the EU
+  'agreements/aege/', // catalogue record
+  'agreements/agoa/', // non-reciprocal preference scheme
+  'agreements/rcep/', // linked to its intblock
   'data/',
   'about/',
   'types/',
@@ -72,7 +78,7 @@ const AXE_PAGES = [
   'embed/blocks/jcpoa/',
   'embed/countries/fr/',
 ];
-const LH_PAGES = ['', 'countries/fr/', 'blocks/un/', 'blocks/eu/', 'blocks/', 'types/intorg/', 'stats/', 'explore/map/', 'explore/headquarters/', 'explore/compare/', 'embed/blocks/un/', 'embed/countries/fr/'];
+const LH_PAGES = ['', 'countries/fr/', 'blocks/un/', 'blocks/eu/', 'blocks/', 'agreements/', 'agreements/euvn/', 'types/intorg/', 'stats/', 'explore/map/', 'explore/headquarters/', 'explore/compare/', 'embed/blocks/un/', 'embed/countries/fr/'];
 const LH_MIN = 0.95;
 const LCP_MAX_MS = 2500;
 

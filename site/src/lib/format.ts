@@ -85,6 +85,37 @@ export const ENUM_LABELS: Record<string, Record<string, string>> = {
     organization: 'Organization',
     'historical-country': 'Historical country',
   },
+  // Trade agreements registry (contract 5.0); open enums, as everywhere else.
+  agreement_type: {
+    fta: 'Free trade agreement',
+    customs_union: 'Customs union',
+    pta: 'Preferential or partial-scope agreement',
+    preference_scheme: 'Non-reciprocal preference scheme',
+    services: 'Services or investment agreement',
+    digital: 'Digital agreement',
+    framework: 'Framework agreement',
+    other: 'Other',
+  },
+  agreement_status: {
+    proposed: 'Proposed',
+    negotiating: 'Under negotiation',
+    signed: 'Signed, not in force',
+    in_force: 'In force',
+    terminated: 'Terminated',
+    abandoned: 'Abandoned',
+    superseded: 'Superseded',
+  },
+  verification: {
+    official: 'Checked against official sources',
+    catalogue: 'From a catalogue (WTO RTA-IS or ADB ARIC)',
+  },
+  party_status: { party: 'Party', former_party: 'Former party' },
+  party_type: {
+    country: 'Country',
+    territory: 'Territory',
+    intblock: 'Organization or bloc',
+    'historical-country': 'Historical country',
+  },
 };
 
 export const enumLabel = (field: string, value: string | null | undefined): string =>
