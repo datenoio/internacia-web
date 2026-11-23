@@ -1314,6 +1314,36 @@ table.data .tag-official {
     color: var(--color-muted);
   }
 
+  /* The trade agreements list labels its cells from the column headings, which the table sets as
+     --label-N (agreements/index.astro): a data-label on each of its 31,000 cells cost 12 KB gzip. */
+  #agreements-table td:nth-child(n + 2)::before {
+    color: var(--color-muted);
+  }
+
+  #agreements-table td:nth-child(2)::before {
+    content: var(--label-2) ' ';
+  }
+
+  #agreements-table td:nth-child(3)::before {
+    content: var(--label-3) ' ';
+  }
+
+  #agreements-table td:nth-child(4)::before {
+    content: var(--label-4) ' ';
+  }
+
+  #agreements-table td:nth-child(5)::before {
+    content: var(--label-5) ' ';
+  }
+
+  #agreements-table td:nth-child(6)::before {
+    content: var(--label-6) ' ';
+  }
+
+  #agreements-table td:nth-child(7)::before {
+    content: var(--label-7) ' ';
+  }
+
   :is(#blocks-table, #agreements-table) :is(td:empty, td.is-empty) {
     display: none;
   }
