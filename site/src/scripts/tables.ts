@@ -20,12 +20,20 @@
 //   <table id="ID">              rows: tr[data-<attr>="a|b"], tr[data-search] (more text the search
 //                                matches, such as an ID the row does not show); sortable
 //                                th[data-sort="text|num"], sorting on a cell's data-value when it
-//                                has one; empty cells sort last either way
+//                                has one, else on the text of th[data-sort-by] (a selector) in the
+//                                cell, else on the cell's text; empty cells sort last either way
+//     data-rows="URL"            the rows' attributes are in a JSON file instead:
+//                                { format: ["path", attr, ...], data: [[path, value, ...], ...] },
+//                                one row per table row, keyed by the href of the row's first link;
+//                                an empty value sets no attribute. It is fetched when the reader
+//                                first reaches for a control, and filtering waits for it.
 //
 // Load cost matters on the 1,275-row index (SPEC §10.4): nothing walks the rows on load.
 // Checkbox filters are a table attribute plus one CSS rule, the count uses a native selector,
 // facet counts for the default view are in the HTML, and the per-row pass runs only after the
-// reader types or picks a filter (or opens a link with filters in its query string).
+// reader types or picks a filter (or opens a link with filters in its query string). The 5,195-row
+// trade agreements index keeps its row attributes out of the HTML (data-rows): Lighthouse's
+// simulated 4G waits for the whole document before the first paint.
 
 let ruleSheet: CSSStyleSheet | null = null;
 function addRule(rule: string) {
@@ -71,6 +79,28 @@ function setup(tools: HTMLElement) {
   const rowSelector = 'tbody tr:not(.group)';
   const total = table.querySelectorAll(rowSelector).length;
   const chunk = Number(table.dataset.chunk ?? 0);
+
+  // Row attributes from data-rows, set on the rows once; null until requested.
+  let loaded: Promise<void> | null = table.dataset.rows ? null : Promise.resolve();
+  const load = () =>
+    (loaded ??= fetch(table.dataset.rows!)
+      .then((r) => {
+        if (!r.ok) throw new Error(`${r.status} ${r.url}`);
+        return r.json() as Promise<{ format: string[]; data: string[][] }>;
+      })
+      .then(({ format, data }) => {
+        const byPath = new Map(data.map((d) => [d[0], d]));
+        table.querySelectorAll<HTMLTableRowElement>(rowSelector).forEach((row) => {
+          const d = byPath.get(row.querySelector('a')?.getAttribute('href') ?? '');
+          for (let i = 1; d && i < format.length; i++) if (d[i]) row.setAttribute(`data-${format[i]}`, d[i]);
+        });
+        haystack = null; // the search text includes data-search
+      })
+      .catch((error) => {
+        // Try again at the next change; until then the filters match on what the rows have.
+        loaded = null;
+        console.error('tables: row data not loaded', error);
+      }));
 
   // A <tbody> with no row left to show is hidden: a group drops its heading, and an empty chunk
   // gives up the space its contain-intrinsic-size keeps until it is rendered (seconds of blank
@@ -249,7 +279,7 @@ function setup(tools: HTMLElement) {
     return true;
   };
 
-  const apply = () => {
+  const applyNow = () => {
     rows ??= Array.from(table.querySelectorAll<HTMLTableRowElement>(rowSelector));
     haystack ??= new Map(rows.map((r) => [r, `${r.textContent ?? ''} ${r.dataset.search ?? ''}`.toLocaleLowerCase()]));
     const q = (text?.value ?? '').trim().toLocaleLowerCase();
@@ -298,10 +328,11 @@ function setup(tools: HTMLElement) {
     renderChips();
     writeUrl();
   };
+  const apply = () => load().then(applyNow);
 
   const refresh = () => {
     syncChecks();
-    apply();
+    return apply();
   };
 
   let timer = 0;
@@ -309,6 +340,12 @@ function setup(tools: HTMLElement) {
     window.clearTimeout(timer);
     timer = window.setTimeout(apply, 120);
   };
+  // Fetch the row data as soon as the reader heads for a control, so it is there by the change.
+  if (table.dataset.rows) {
+    for (const root of [...roots, sheet].filter((r): r is HTMLElement => Boolean(r))) {
+      for (const type of ['pointerover', 'pointerdown', 'focusin']) root.addEventListener(type, load, { once: true, passive: true });
+    }
+  }
   text?.addEventListener('input', schedule);
   ranges.forEach((r) => r.addEventListener('input', schedule));
   selects.forEach((s) => s.addEventListener('change', apply));
@@ -365,6 +402,7 @@ function setup(tools: HTMLElement) {
     if (!tbody) return;
     const index = th.cellIndex;
     const numeric = th.dataset.sort === 'num';
+    const by = th.dataset.sortBy;
     // Same text as the header; the sort arrow is CSS on th[data-sort], present from first paint.
     const button = document.createElement('button');
     button.type = 'button';
@@ -380,7 +418,7 @@ function setup(tools: HTMLElement) {
       // An empty cell (or an empty data-value, as on a "—" cell) has no key and sorts last.
       const key = (row: HTMLTableRowElement) => {
         const cell = row.cells[index];
-        const raw = (cell?.dataset.value ?? cell?.textContent ?? '').trim();
+        const raw = (cell?.dataset.value ?? (by ? cell?.querySelector(by) : cell)?.textContent ?? '').trim();
         if (!raw) return null;
         return numeric ? Number(raw.replace(/[^0-9.-]/g, '')) || 0 : raw.toLocaleLowerCase();
       };
@@ -400,12 +438,13 @@ function setup(tools: HTMLElement) {
     });
   });
 
-  if (readUrl()) refresh();
+  const ready = () => document.documentElement.classList.remove('list-pending');
+  if (readUrl()) refresh().then(ready);
   else {
     syncChecks();
     updateCount();
+    ready();
   }
-  document.documentElement.classList.remove('list-pending');
 }
 
 document.querySelectorAll<HTMLElement>('[data-table-tools]').forEach(setup);

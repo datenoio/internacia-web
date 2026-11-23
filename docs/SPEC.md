@@ -521,7 +521,11 @@ See [§8](#8-visualizations). Each explorer has a shareable URL with its state i
   parties (two, three or more) and verification. "Countries covered" follows the
   `country_trade_agreements` view (a bloc party counts its current members) and, unlike the other
   facets, combines its values with AND: two checked countries show the agreements that cover both.
-  Rows are chunked (`content-visibility`); on a phone they read as cards.
+  Rows are chunked (`content-visibility`); on a phone they read as cards. The rows carry no filter
+  values: the script loads them from `/agreements/facets.json` (path, ID, countries covered,
+  status, type, parties, verification) when the reader first reaches for the search or the
+  filters, so the page stays within its HTML budget ([§10.4](#104-performance-budgets)). The file
+  holds no fact the table, the cards and their twins do not show, and it is not part of the API.
 - **Card** (`/agreements/{id}/`), in order:
   1. Header: name and acronym; badges for status, type and verification level; `description`;
      the catalogue notice for `verification = catalogue`; "Cite"; a note when the ID was an
@@ -845,6 +849,7 @@ checks (§12) ──► deploy to GitHub Pages
 | Measure | Budget |
 |---------|--------|
 | Card HTML (gzip), without chart islands | ≤ 80 KB |
+| Trade agreements index HTML (gzip), the largest page | ≤ 180 KB |
 | JavaScript on a card page before interaction (gzip) | ≤ 60 KB |
 | Base map TopoJSON (gzip), loaded lazily | ≤ 120 KB |
 | Largest Contentful Paint, mobile, simulated 4G | ≤ 2.5 s |

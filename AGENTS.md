@@ -213,6 +213,14 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   overflow a smaller estimate, overlap the next chunk's, and axe fails `target-size`. Re-measure
   when rows get taller (v5.1.0: long official titles of `-TRA` and `-TIFA` records make rows up to
   406px; the tallest agreements chunk is 13,200px at 1280px and 18,700px on a phone).
+- Lighthouse's simulated 4G waits for the whole HTML document before the first paint, about
+  5.6 ms per KB gzip: `/agreements/` at 290 KB (v5.1.0) scored performance 0.94-0.96 against the
+  0.95 gate, FCP 2.25 s. Its rows carry no filter attributes (`data-rows`: `tables.ts` loads them
+  from `/agreements/facets.json` on the first reach for a control; `agreementFacetValues` in
+  `lib/agreements.ts` feeds both the file and the facet counts), the name is sorted on its link
+  (`data-sort-by`) and phone labels come from `--label-N` on the table: 150 KB, FCP 1.5 s,
+  score 1. `check_site.py` fails the index above 180 KB gzip (`INDEX_HTML_GZIP_MAX`, SPEC §10.4).
+  Per-row markup there is paid 5,195 times: add none without measuring.
 - axe's partial run (`@axe-core/playwright` default) loses the page's context on `/agreements/`
   (about 55,000 elements): `audit.mjs` runs it in legacy mode with violations only (`AXE_LEGACY`).
   Add any other page of that size there.
