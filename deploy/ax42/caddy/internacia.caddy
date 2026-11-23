@@ -1,0 +1,5 @@
+# internacia.io (github.com/datenoio/internacia-web, deploy/ax42/README.md). The server's
+# Caddyfile imports internacia-site.caddy first, then this file once DNS points at the server.
+internacia.io {
+	import internacia_site
+}

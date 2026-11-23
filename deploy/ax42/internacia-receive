@@ -1,0 +1,131 @@
+#!/bin/bash
+# internacia-receive: forced command of the internacia-deploy SSH key (SPEC §11.4).
+#
+# Installed as /usr/local/bin/internacia-receive. The key's authorized_keys line is
+#   restrict,command="/usr/local/bin/internacia-receive" ssh-ed25519 AAAA… internacia-web deploy
+# so the key can run nothing else; sshd passes the requested command in SSH_ORIGINAL_COMMAND.
+#
+# Commands:
+#   deploy <git-sha>   read a zstd-compressed tar of site/dist on stdin, check it, make it live
+#   rollback           make the release before the live one live again
+#   list               print the releases, the live one marked with *
+#
+# Layout: $BASE/releases/<UTC time>-<sha>/ holds one build; $BASE/current is a relative symlink
+# to the live one, swapped atomically. Caddy serves $BASE/current read-only. Only the last
+# $KEEP releases stay.
+set -euo pipefail
+umask 022
+export LC_ALL=C
+
+BASE=/srv/internacia
+RELEASES=$BASE/releases
+KEEP=5
+# A build with fewer files is broken (v5.0.0 has about 17,000).
+MIN_FILES=10000
+# Upper bound of the uncompressed tar stream, so a bad upload cannot fill the shared disk.
+MAX_TAR_BYTES=$((8 * 1024 * 1024 * 1024))
+# Free space the disk must keep after a deploy.
+MIN_FREE_BYTES=$((20 * 1024 * 1024 * 1024))
+REQUIRED_FILES=(index.html 404.html sitemap.xml llms.txt robots.txt)
+
+DEPLOY_USER=internacia-deploy
+INCOMING=""
+
+die() { echo "internacia-receive: $*" >&2; exit 1; }
+cleanup() { if [[ -n $INCOMING ]]; then rm -rf -- "$INCOMING"; fi; }
+
+live_release() {
+	if [[ -L $BASE/current ]]; then basename "$(readlink "$BASE/current")"; fi
+}
+
+activate() {
+	ln -sfn "releases/$1" "$BASE/current.new"
+	mv -T "$BASE/current.new" "$BASE/current"
+}
+
+releases_sorted() {
+	find "$RELEASES" -mindepth 1 -maxdepth 1 -type d ! -name '.*' -printf '%f\n' | sort
+}
+
+prune() {
+	local live n
+	live=$(live_release)
+	n=0
+	while read -r r; do
+		n=$((n + 1))
+		if ((n > KEEP)) && [[ $r != "$live" ]]; then rm -rf -- "${RELEASES:?}/$r"; fi
+	done < <(releases_sorted | sort -r)
+}
+
+cmd_deploy() {
+	local sha=$1 name tmp n missing f avail size
+	[[ $sha =~ ^[0-9a-f]{7,40}$ ]] || die "deploy: expected a git commit hash, got '$sha'"
+	# Uploads cut off by a dropped connection; none is running, since we hold the lock.
+	find "$RELEASES" -mindepth 1 -maxdepth 1 -name '.incoming-*' -exec rm -rf -- {} +
+	name="$(date -u +%Y%m%dT%H%M%SZ)-${sha:0:12}"
+	tmp="$RELEASES/.incoming-$name"
+	INCOMING=$tmp
+	trap cleanup EXIT
+	mkdir "$tmp"
+
+	# head caps the uncompressed stream; a longer one is cut and tar fails on the truncated
+	# archive. tar refuses absolute and ../ member names by default.
+	if ! zstd -dc | head -c "$MAX_TAR_BYTES" | tar -x -C "$tmp" --no-same-owner --no-same-permissions; then
+		die "deploy: could not unpack the upload (not a zstd tar, or over $MAX_TAR_BYTES bytes)"
+	fi
+
+	if [[ -n $(find "$tmp" ! -type f ! -type d -print -quit) ]]; then
+		die "deploy: the upload has links or special files"
+	fi
+	missing=()
+	for f in "${REQUIRED_FILES[@]}"; do [[ -f $tmp/$f ]] || missing+=("$f"); done
+	((${#missing[@]} == 0)) || die "deploy: missing ${missing[*]}"
+	n=$(find "$tmp" -type f | wc -l)
+	((n >= MIN_FILES)) || die "deploy: only $n files (at least $MIN_FILES expected)"
+	avail=$(df --output=avail -B1 "$BASE" | tail -1)
+	((avail >= MIN_FREE_BYTES)) || die "deploy: less than $MIN_FREE_BYTES bytes would stay free"
+
+	mv -T "$tmp" "$RELEASES/$name"
+	INCOMING=""
+	activate "$name"
+	prune
+	size=$(du -sh "$RELEASES/$name" | cut -f1)
+	echo "live: $name ($n files, $size)"
+}
+
+cmd_rollback() {
+	local live prev=""
+	live=$(live_release)
+	[[ -n $live ]] || die "rollback: no live release"
+	while read -r r; do
+		[[ $r == "$live" ]] && break
+		prev=$r
+	done < <(releases_sorted)
+	[[ -n $prev ]] || die "rollback: no release before $live"
+	activate "$prev"
+	echo "live: $prev (was $live)"
+}
+
+cmd_list() {
+	local live
+	live=$(live_release)
+	while read -r r; do
+		if [[ $r == "$live" ]]; then echo "* $r"; else echo "  $r"; fi
+	done < <(releases_sorted)
+}
+
+# Files belong to the deploy user, so that prune can remove them: root runs it as that user.
+if ((EUID == 0)); then exec runuser -u "$DEPLOY_USER" -- "$0" "$@"; fi
+# find must be able to return to the working directory (/root is closed to the deploy user).
+cd /
+[[ -d $RELEASES ]] || die "$RELEASES does not exist"
+read -r -a args <<<"${SSH_ORIGINAL_COMMAND:-${*:-}}"
+exec 9>"$BASE/.lock"
+flock -w 600 9 || die "another deploy is running"
+
+case "${args[0]:-} ${#args[@]}" in
+"deploy 2") cmd_deploy "${args[1]}" ;;
+"rollback 1") cmd_rollback ;;
+"list 1") cmd_list ;;
+*) die "usage: deploy <git-sha> | rollback | list" ;;
+esac

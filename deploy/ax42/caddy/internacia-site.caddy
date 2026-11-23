@@ -1,0 +1,39 @@
+# How internacia.io is served (SPEC §11.4): the files of the live release, with the headers
+# GitHub Pages sent, so that the move changes no behaviour. The server's Caddyfile imports this
+# file once, before internacia.caddy or next.caddy.
+(internacia_site) {
+	root * /srv/internacia/current
+	encode zstd gzip
+
+	# Widgets (/embed/widget.js) and the JSON API are read from other origins.
+	header Access-Control-Allow-Origin "*"
+
+	# The file names under /_astro/ carry a content hash; everything else may change with a build.
+	route {
+		header /_astro/* Cache-Control "public, max-age=31536000, immutable"
+		header ?Cache-Control "public, max-age=600"
+	}
+
+	# The image's mime.types gives these without a charset; the files are UTF-8.
+	@md path *.md
+	header @md Content-Type "text/markdown; charset=utf-8"
+	@csv path *.csv
+	header @csv Content-Type "text/csv; charset=utf-8"
+	@txt path *.txt
+	header @txt Content-Type "text/plain; charset=utf-8"
+	# Pagefind's index files are gzip inside; without this they are sniffed as application/x-gzip.
+	@pagefind path *.pagefind *.pf_fragment *.pf_index *.pf_meta *.pf_filter
+	header @pagefind Content-Type "application/octet-stream"
+
+	file_server {
+		index index.html
+	}
+
+	handle_errors 404 {
+		encode zstd gzip
+		rewrite * /404.html
+		# A missing /x.md would otherwise keep the Markdown type set above.
+		header Content-Type "text/html; charset=utf-8"
+		file_server
+	}
+}
