@@ -185,7 +185,10 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   `content-visibility: auto` and explicit ARIA table roles. A plain 1,275-row table scored 0.77.
   Each chunked table needs its own `--cols` in `global.css` (`#blocks-table`,
   `#agreements-table`): without it every row is one column, one cell per line. `npm run audit`
-  fails on a chunked table with one grid column.
+  fails on a chunked table with one grid column. A chunk's `--chunk-height` (its
+  `contain-intrinsic-size` until rendered) must exceed its real height: a skipped chunk's rows
+  overflow a smaller estimate, overlap the next chunk's, and axe fails `target-size`. Re-measure
+  when rows get taller.
 - In `.astro` templates, build sentences that end in punctuation as one string expression:
   JSX-style whitespace otherwise leaves a space before the period.
 - The compare explorer (`scripts/compare.ts`) colours by combination only for two intblocks (the
