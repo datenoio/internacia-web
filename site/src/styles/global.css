@@ -978,9 +978,14 @@ table.chunked thead th {
   white-space: normal;
 }
 
+/* Until a chunk is first rendered its height is this estimate ('auto' keeps the real one after).
+   Too small an estimate is worse than too large: the rows of a skipped chunk overflow it and
+   report positions inside the next chunk, which axe target-size counts as overlapping links.
+   Each table sets --chunk-height a quarter above its tallest chunk measured at 1280px (and on a
+   phone); the default covers the block tables of type, topic and geography pages (5,800px). */
 table.chunked tbody {
   content-visibility: auto;
-  contain-intrinsic-size: auto 4200px;
+  contain-intrinsic-size: auto var(--chunk-height, 7500px);
 }
 
 table.chunked tr {
@@ -1000,6 +1005,7 @@ table.chunked td {
 
 #blocks-table {
   --cols: minmax(12rem, 3fr) minmax(7rem, 1.3fr) 6rem 6.5rem 6.5rem minmax(8rem, 1fr) 6rem;
+  --chunk-height: 13000px;
   min-width: 52rem;
 }
 
@@ -1009,6 +1015,7 @@ table.chunked td {
    so that a date ("2026-10-20", 5.3rem) stays on one line in 6.5rem. */
 #agreements-table {
   --cols: minmax(12rem, 3fr) minmax(7rem, 1.2fr) 8rem 6.5rem 6.5rem 6.5rem 4.75rem;
+  --chunk-height: 10000px;
   min-width: 51.25rem;
 }
 
@@ -1030,10 +1037,12 @@ table.data .tag-official {
   white-space: nowrap;
 }
 
-/* Name links in the long lists are 24px touch targets (WCAG 2.5.8; an 18px line fails axe
-   target-size on phones). Padding on an inline link grows its box, not the line. */
+/* Name links in the long lists are 24px touch targets (WCAG 2.5.8, axe target-size). An inline
+   box is as tall as the font's content area, at least 1em but font-dependent (system-ui on Linux
+   CI: under 18px), so the padding makes up the rest from 1em. Padding on an inline link grows its
+   box, not the line. */
 :is(#blocks-table, #agreements-table) td:first-child a {
-  padding-block: 3px;
+  padding-block: max(4px, calc((24px - 1em) / 2));
 }
 
 /* List with a facet panel (organizations and trade agreements indexes). From 75rem the panel is a sticky column beside
@@ -1255,6 +1264,7 @@ table.data .tag-official {
    visually hidden. */
 @media (max-width: 40rem) {
   :is(#blocks-table, #agreements-table) {
+    --chunk-height: 19000px;
     min-width: 0;
   }
 
