@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft 0.1 — for review |
 | **Date** | 2026-11-19 |
-| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v4.4.0 (contract 4.4) |
+| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v5.0.0 (contract 5.0) |
 | **Owner** | Dateno ([datenoio](https://github.com/datenoio)) |
 | **Hosting** | GitHub Pages, custom domain (to be registered; written as `<DOMAIN>` below) |
 
@@ -12,7 +12,8 @@
 
 internacia-web is a static website that presents the contents of internacia-db — countries and
 territories, international organizations and country groupings ("intblocks"), their block types,
-topics and membership rosters — as browsable cards, indexes and visualizations.
+topics and membership rosters, and the trade agreements registry (from v5.0.0) — as browsable
+cards, indexes and visualizations.
 
 The site has two equal audiences:
 
@@ -29,8 +30,8 @@ All corrections go to internacia-db.
 
 1. **Make the product visible.** Anyone can see what internacia-db contains, how complete it is
    and how current it is, without installing anything.
-2. **One card per entity.** Every country (256), intblock (1,538), block type (83) and topic
-   (153) has its own permanent page.
+2. **One card per entity.** Every country (256), intblock (1,581), trade agreement (839), block
+   type (83) and topic (154) has its own permanent page.
 3. **Answer common questions visually.** Who belongs to X? What does country Y belong to? What do
    X and Z have in common? When were these organizations founded? Where are they based?
 4. **Be first-class for AI.** Every page has a Markdown twin and a JSON twin. The site publishes
@@ -79,7 +80,7 @@ Assets used:
 
 | Asset | Use |
 |-------|-----|
-| `internacia.duckdb` | Main query source: tables `countries`, `intblocks`, `blocktypes`, `memberships`, `border_status` (from v4.1.0), `_meta`, alias tables; views `current_memberships`, `country_currencies`, `country_languages`, `country_timezones`. The pipeline applies the rule of the `country_borders` view (v4.1.0) to `border_status`, whose rows carry the note, dates and sources, and fails if the result differs from the view. The view runs on DuckDB 1.5.4 (`min_duckdb`) from v4.3.0; before, it needed DuckDB 2.0 |
+| `internacia.duckdb` | Main query source: tables `countries`, `intblocks`, `blocktypes`, `memberships`, `border_status` (from v4.1.0), `trade_agreements` and `trade_agreement_parties` (from v5.0.0), `_meta`, alias tables; views `current_memberships`, `country_trade_agreements` (from v5.0.0), `country_currencies`, `country_languages`, `country_timezones`. The trade agreements registry is read from DuckDB: its JSONL exports carry the same columns. The pipeline applies the rule of the `country_borders` view (v4.1.0) to `border_status`, whose rows carry the note, dates and sources, and fails if the result differs from the view. The view runs on DuckDB 1.5.4 (`min_duckdb`) from v4.3.0; before, it needed DuckDB 2.0 |
 | `countries.jsonl.zst`, `intblocks.jsonl.zst` | Entity records as cards and JSON twins show them, with every field, including those exported to full JSON only (`suborganizations`, `founding_members`, `membership_applicability`, `notes`, `recognition_status`, `previous_names`, `official_documents`, `social_media`, `secretariat`). Intblock rosters come from `includes[]`: the `memberships` table leaves out organization members |
 | `contract.json` | Contract version check, enum values, deprecated enum values (`deprecated[]`), table schemas |
 | `SHA256SUMS` | Integrity check of every downloaded asset |
@@ -106,10 +107,10 @@ The repository commits a lock file, `internacia.lock.json`:
 ```json
 {
   "repository": "datenoio/internacia-db",
-  "tag": "v4.4.0",
-  "git_commit": "97d55149141e5b7daad2dbad247122811963aeeb",
-  "contract_major": 4,
-  "sha256sums_sha256": "aaab70304d7d621e424621e6b9e44dc6ed95303011a93044a7bcd8d82cf11396"
+  "tag": "v5.0.0",
+  "git_commit": "e3500d4333d53c3fe9ac458c018517d47a230806",
+  "contract_major": 5,
+  "sha256sums_sha256": "459f69abfd7fe8e8999bdd94e650e21c3ce788d1cf9f23eb8b2ae17d1735fdf3"
 }
 ```
 
@@ -169,12 +170,14 @@ The site's data code must follow them.
 - `includes[].name` of a `type: country` entry is the country's `name` (contract 4: the export
   fills it; it is optional in the source).
 - Deprecated include statuses (`associate`, `associated_observer`; `contract.json` `deprecated[]`,
-  `deprecated` in `includes_status.yaml`) stay valid until the next MAJOR. Card membership and
-  roster tables and their Markdown twins show the status's own label with a "deprecated label"
-  note; never remap them to a replacement. No record uses them from v4.3.0, where internacia-db
-  finished its review of associate statuses; the handling stays until the MAJOR removes them.
+  `deprecated` in `includes_status.yaml`) stay valid until a MAJOR removes them; contract 5.0
+  still lists them (`removal: next MAJOR`). Card membership and roster tables and their Markdown
+  twins show the status's own label with a "deprecated label" note; never remap them to a
+  replacement. No record uses them from v4.3.0, where internacia-db finished its review of
+  associate statuses; the handling stays until a MAJOR removes them.
 - Deprecated block types (`intorg` from v4.1.0; `eccurr` and `cuscurr` from v4.4.0; `deprecated`
-  in the `blocktypes` table) stay on their records until the next MAJOR. Cards and type pages mark
+  in the `blocktypes` table) stay on their records until a MAJOR removes them (contract 5.0 keeps
+  all three). Cards and type pages mark
   them deprecated; the type page shows the deprecation note and links the replacements.
   Intergovernmental organizations are selected by `scope_category = 'igo'`, never by block type. A
   block type never combines two others: `eccurr` is `economic` with `currency`, `cuscurr` is
@@ -200,24 +203,44 @@ The site's data code must follow them.
   and its Markdown twin say so in the same words (`BORDER_EVIDENCE_NOTE`, `lib/design.ts`).
 - Aliases with `reason = disambiguated` must not become redirects: the old ID now names a
   different entity. Show a disambiguation page instead.
+- Trade agreements registry (v5.0.0): one `trade_agreements` row per agreement, bilateral ones
+  included, with `agreement_type`, `status`, `signed`, `in_force`, `ended`, `wto_rta_id`,
+  `aric_id`, `verification` and provenance; parties in `trade_agreement_parties`. It holds no
+  trade values, tariff lines or depth scores, and the site adds none. A record with `intblock_id`
+  (an agreement with three or more parties, such as `RCEP`) reads its parties from that
+  intblock's `includes` (`source = intblock`), under the same ID; the card links the two.
+- A country's trade agreements are the `country_trade_agreements` view: one row per agreement it
+  is a current party to, directly or through a bloc party (the EU) expanded to the bloc's current
+  members, with `via` set to the bloc. Coverage is current, not historical; the card says so.
+  `former_party` rows of the country itself are listed apart.
+- `verification = catalogue` records come from WTO RTA-IS or ADB ARIC only: catalogue statuses can
+  lag and ARIC lists only ADB-member parties. Cards and twins say so in the same words
+  (`CATALOGUE_NOTE`, `lib/agreements.ts`). A `preference_scheme` (GSP, AGOA) lists grantors and
+  beneficiaries as parties; two grantors are not partners under it.
+- Aliases with `reason = moved` and `target_dataset = trade_agreements` (v5.0.0: 34 two-party
+  agreements such as `USKR`, `CETA`, `EUJP`) left `intblocks` and `memberships` for the registry,
+  under the same ID. Their old intblock URLs redirect to the agreement card, and the card notes the
+  former record.
 
-### 4.5 Baseline figures (v4.4.0)
+### 4.5 Baseline figures (v5.0.0)
 
 For sizing only; the site computes all figures at build time.
 
 | Measure | Value |
 |---------|------:|
 | Country records / ISO 3166-1 entries | 256 / 249 |
-| Intblocks | 1,538 |
-| Block types (deprecated) / topics | 83 (3) / 153 |
-| Membership edges / current / with `joined` date / with `left` date | 69,191 / 67,893 / 28,607 / 441 |
+| Intblocks | 1,581 |
+| Block types (deprecated) / topics | 83 (3) / 154 |
+| Membership edges / current / with `joined` date / with `left` date | 72,510 / 71,146 / 32,029 / 483 |
 | Membership edges with a route `role` / intblocks with roles | 125 / 44 |
-| Intblocks with `founded` / headquarters / `partof` | 1,428 / 1,004 / 386 |
-| Intblocks with Wikidata ID / `last_verified` / `institutional_design` | 1,288 / 1,465 / 112 |
+| Intblocks with `founded` / headquarters / `partof` | 1,471 / 1,016 / 387 |
+| Intblocks with Wikidata ID / `last_verified` / `institutional_design` | 1,309 / 1,518 / 112 |
 | `border_status` rows | 18 |
+| Trade agreements / in force / two parties / linked to an intblock / `official` | 839 / 442 / 620 / 89 / 126 |
+| `trade_agreement_parties` rows / `country_trade_agreements` rows / countries | 3,167 / 6,194 / 224 |
 | Languages in intblock `other_names` | 81 |
 | Country `native_names` entries / languages | 388 / 126 |
-| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 6.3 MB / 900 KB / 142 KB |
+| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 6.5 MB / 919 KB / 148 KB |
 
 ## 5. Information architecture and URLs
 
@@ -232,6 +255,8 @@ All paths end with a slash for HTML. Machine twins use the same slug with an ext
 | Country card | `/countries/{code}/` | `/countries/{code}.md` | `/api/v1/countries/{CODE}.json` |
 | Intblocks index | `/blocks/` | `/blocks.md` | `/api/v1/blocks.json` |
 | Intblock card | `/blocks/{id}/` | `/blocks/{id}.md` | `/api/v1/blocks/{ID}.json` |
+| Trade agreements index | `/agreements/` | `/agreements.md` | `/api/v1/agreements.json` |
+| Trade agreement card | `/agreements/{id}/` | `/agreements/{id}.md` | `/api/v1/agreements/{ID}.json` |
 | Block types | `/types/`, `/types/{key}/` | `/types/{key}.md` | `/api/v1/types/{key}.json` |
 | Topics | `/topics/`, `/topics/{key}/` | `/topics/{key}.md` | `/api/v1/topics/{key}.json` |
 | Continents, UN M49 subregions | `/geography/`, `/geography/{slug}/` | `/geography/{slug}.md` | `/api/v1/geography/{slug}.json` |
@@ -248,7 +273,8 @@ All paths end with a slash for HTML. Machine twins use the same slug with an ext
 - `{code}`: country alpha-2 code in lowercase (`/countries/fr/`).
 - `{id}`: intblock ID in lowercase (`/blocks/nato/`, `/blocks/g-20/`, `/blocks/afcfta/`). IDs use
   letters, digits, `-`, `_` and `+` (`G8+5`; GitHub Pages serves `/blocks/g8+5/` as is). The build
-  fails if two IDs collide after lowercasing (none do in v4.4.0).
+  fails if two IDs collide after lowercasing (none do in v5.0.0). Trade agreement IDs (`{id}` under
+  `/agreements/`) follow the same rules; a record linked to an intblock has the intblock's ID.
 - JSON paths keep the **exact** ID (`/api/v1/blocks/AfCFTA.json`) so agents can build URLs from
   data without transformation. A lowercase JSON alias is not generated.
 - `{key}`: block type or topic key as in the data (snake_case).
@@ -262,6 +288,9 @@ All paths end with a slash for HTML. Machine twins use the same slug with an ext
   `reason = disambiguated`), the build emits a redirect page at the old HTML URL: an HTML page with
   `<meta http-equiv="refresh">`, `<link rel="canonical">` to the target and a visible link.
   The old JSON URL gets a small JSON document `{"redirect": "<new URL>", "reason": "...", "since": "..."}`.
+- An intblock alias with `reason = moved` and `target_dataset = trade_agreements` (v5.0.0) redirects
+  to the trade agreement card of the same ID (`/blocks/uskr/` → `/agreements/uskr/`); its JSON
+  alias document names the agreement document.
 - GitHub Pages cannot send HTTP 301. This is a known limitation; the canonical link carries the
   signal for search engines.
 
@@ -307,34 +336,40 @@ the header sticks to the top of the window (also on the intblock card).
    - Count of current memberships, with a breakdown by status.
    - Grouped by block type; each row: block name and acronym (link; the ID only where it differs
      from the acronym), status label, route role (pipelines and corridors; the column appears only
-     when used), joined, left.
+     when used), joined, left. Under the table, the definitions of the statuses it uses (from
+     `includes_status.yaml`), which are also each status cell's tooltip.
    - Filter by status and block type; search within the list.
    - Former memberships in a separate, collapsed list.
    - Mini chart: memberships by block type.
-3. **Similar countries**: the five countries with the highest Jaccard overlap of current
+3. **Trade agreements** (v5.0.0): the agreements of the `country_trade_agreements` view, in force
+   first — agreement (link), type, status, in-force date, and "via" with the bloc (link) when the
+   country is covered through a bloc party. Search and status filter. The section states that
+   coverage is current and includes every agreement status; the country's own `former_party`
+   entries follow in a collapsed list. With no rows the section says the registry records none.
+4. **Similar countries**: the five countries with the highest Jaccard overlap of current
    memberships, with the overlap figure. Computed at build time.
-4. **Identifiers**: alpha-2, alpha-3, numeric, M49, Wikidata, GeoNames, IOC, FIFA, FIPS (marked
+5. **Identifiers**: alpha-2, alpha-3, numeric, M49, Wikidata, GeoNames, IOC, FIFA, FIPS (marked
    legacy), TLD, calling codes. Each value has a copy button. Wikidata and GeoNames link out.
-5. **Geography**: continent(s), UN M49 subregion, capital with coordinates, landlocked flag,
+6. **Geography**: continent(s), UN M49 subregion, capital with coordinates, landlocked flag,
    centroid and bounding box on a small locator map, land borders as links to neighbour cards
    (alpha-3 resolved to alpha-2). A border with a `border_status` row shows its status and period
    next to the link, and a list below gives the note, sources and verification date, with the
    statement that a border without a status has no recorded closure (not that it is open).
-6. **Status and classification**: UN status, independence flag, `recognition_status` notes,
+7. **Status and classification**: UN status, independence flag, `recognition_status` notes,
    parent entity for dependent territories (link), World Bank region, administrative region,
    income level, lending type — each with the World Bank ID.
-7. **Practical reference**: currencies (code, name, symbol), time zones, driving side, start of
+8. **Practical reference**: currencies (code, name, symbol), time zones, driving side, start of
    week, DVD region, broadcast systems, rail gauges, legal systems. Vocabulary values show their
    labels from `data/vocabs/`.
-8. **Languages and names**: languages (official flag), writing systems and directions, demonyms,
+9. **Languages and names**: languages (official flag), writing systems and directions, demonyms,
    names in the UN languages (`other_names`), common names.
-9. **Reference figures**: population, area, Gini — value, year (or "year unknown") and source.
+10. **Reference figures**: population, area, Gini — value, year (or "year unknown") and source.
    No charts, no ranks.
-10. **Provenance**: field-level `provenance` entries (field, source, retrieved date, licence).
+11. **Provenance**: field-level `provenance` entries (field, source, retrieved date, licence).
 
 ### 6.4 Intblocks index
 
-- Table of all 1,538 intblocks: name, acronym, block type(s), status, scope category, geographic
+- Table of all 1,581 intblocks: name, acronym, block type(s), status, scope category, geographic
   scope, founded, headquarters country, number of current member countries.
 - Filters: block type, status (formal / informal / de-facto / historical), scope category,
   geographic scope, region, topic, founded range, "active only" (default on, with a visible
@@ -352,12 +387,14 @@ the header sticks to the top of the window (also on the intblock card).
 3. **Key facts**: founded, dissolved, active period, headquarters (city, country link, small map),
    secretariat, official languages, legal status, recognition status, official
    `membership_count` and `membership_count_type` next to the roster count. A mismatch is shown
-   neutrally ("official count: 57; roster lists 56").
+   neutrally ("official count: 57; roster lists 56"). An intblock with a trade agreements registry
+   record (v5.0.0, `intblock_id`) links to its agreement card, with its status.
 4. **Membership map**: world choropleth coloured by status (member, founding member, associate
    member, observer, partner, former member, …). Legend uses labels from `includes_status.yaml`.
    Small or point-like territories are drawn as dots at their centroid.
 5. **Roster**: table of every `includes[]` entry — country or intblock (link), status, route role
-   (pipelines and corridors; the column appears only when used), joined, left. Filters by status. Download the roster as CSV (`/blocks/{id}/members.csv`, every entry
+   (pipelines and corridors; the column appears only when used), joined, left. Filters by status.
+   Under the table, the definitions of the statuses it uses, also each status cell's tooltip. Download the roster as CSV (`/blocks/{id}/members.csv`, every entry
    with a `current` column) and JSON (the card's JSON, `_roster`). Hovering a row highlights its
    country on the map, and the other way round.
    When `membership_applicability = not_applicable`, show the explanation instead of an empty table.
@@ -370,11 +407,14 @@ the header sticks to the top of the window (also on the intblock card).
    rule, decision force, independent organs, enforcement, mutual defence, veto holders (links to
    country cards), with labels and descriptions from `institutional_design.yaml`. Absent subfields
    are unknown and left out; the section says so.
-8. **Overlap**: the five intblocks with the highest overlap of current member countries, with a
+8. **Trade agreements** (v5.0.0, blocs that are parties such as the EU, EAEU, MERCOSUR): the
+   agreements the intblock is a party to, with type, status and in-force date. Its current members
+   are covered through it ("via").
+9. **Overlap**: the five intblocks with the highest overlap of current member countries, with a
    link to the Compare explorer prefilled.
-9. **Names**: `other_names` in all languages, grouped by script.
-10. **Links**: website, Wikipedia, Wikidata, official documents, social media.
-11. **Provenance**.
+10. **Names**: `other_names` in all languages, grouped by script.
+11. **Links**: website, Wikipedia, Wikidata, official documents, social media.
+12. **Provenance**.
 
 ### 6.6 Block types
 
@@ -440,6 +480,32 @@ See [§8](#8-visualizations). Each explorer has a shareable URL with its state i
 
 - `404.html` suggests close matches by edit distance over IDs and names (client-side, using the
   search index), so `/blocks/g20/` suggests `/blocks/g-20/`.
+
+### 6.14 Trade agreements (v5.0.0)
+
+- **Index** (`/agreements/`): counts by status and by type (bars with their values as text), the
+  share of catalogue records, and a table of all 839 agreements — name and acronym (link), type,
+  status, signed, in force, number of parties — with search and filters by status, type and
+  verification (state in the query string). Rows are chunked (`content-visibility`).
+- **Card** (`/agreements/{id}/`), in order:
+  1. Header: name and acronym; badges for status, type and verification level; `description`;
+     the catalogue notice for `verification = catalogue`; "Cite"; a note when the ID was an
+     intblock before v5.0.0 (`moved` alias).
+  2. Key facts: ID, type, status, signed, in force, ended, number of parties (and former), WTO RTA
+     ID and ADB ARIC ID (links to the catalogues), Wikidata, verification, `last_verified`, and the
+     registry's scope note (no trade values, tariff lines or depth scores).
+  3. Related records: the intblock that holds the roster (link), the records this one supersedes
+     (its `supersedes` and every record whose `superseded_by` names it), and its successor.
+  4. Notes (`notes`; IDs in backticks link to agreement or intblock cards).
+  5. Parties: name (link to the country or intblock card), code, type, signed, in force, joined
+     (columns appear when used); former parties in a collapsed list. Preference schemes carry the
+     grantor note.
+  6. Countries covered (when a party is a bloc): the view's rows with "via".
+  7. Names, links, provenance.
+- No map and no per-card social image: a linked intblock card has the map, and two-party
+  agreements gain little from one. The Markdown twin has the same facts and tables; the JSON twin
+  is the registry row with `_` fields (`_parties`, `_countries`, `_block`, `_supersedes`,
+  `_superseded_by`, `_alias_notes`).
 
 ## 7. Machine-readable layer
 
@@ -511,7 +577,7 @@ Formal intergovernmental organization, regional scope. Founded 1967. Headquarter
 - Described by `/api/v1/openapi.json` (OpenAPI 3.1). Response bodies have JSON Schemas under
   `/api/v1/schemas/`.
 - Every document has a `meta` object:
-  `{"data_version": "4.4.0", "contract_version": "4.4", "built_at": "…", "license": "CC-BY-4.0", "source": "https://github.com/datenoio/internacia-db/releases/tag/v4.4.0", "html": "…", "markdown": "…"}`.
+  `{"data_version": "5.0.0", "contract_version": "5.0", "built_at": "…", "license": "CC-BY-4.0", "source": "https://github.com/datenoio/internacia-db/releases/tag/v5.0.0", "html": "…", "markdown": "…"}`.
   `built_at` is the build time of the data release, so output is reproducible. Country documents
   add `license_notes`: `centroid` values come from mledoze/countries under ODbL-1.0.
 - Entity documents have the shape `{"meta": {…}, "data": {…}}`; lists add `count`. The JSON at a
@@ -524,6 +590,8 @@ Formal intergovernmental organization, regional scope. Founded 1967. Headquarter
 | `countries/{CODE}.json` | Full country record + `memberships` (current and former, with block name and type) + `similar` | 40 KB |
 | `blocks.json` | Lite list: id, name, acronyms, block types, status, scope, founded, HQ country, member count | 120 KB |
 | `blocks/{ID}.json` | Full intblock record (including full-JSON-only fields) + resolved roster with country names | 60 KB |
+| `agreements.json` | Lite list of the trade agreements registry: id, name, acronym, type, status, dates, intblock, catalogue IDs, verification, party count | 40 KB |
+| `agreements/{ID}.json` | Registry row + resolved parties + countries covered (bloc parties expanded) + related records | 10 KB |
 | `types.json`, `types/{key}.json` | Block types with counts and member intblock IDs | — |
 | `topics.json`, `topics/{key}.json` | Topics with counts and intblock IDs | — |
 | `geography/{slug}.json` | Countries and intblocks of an area | — |
@@ -544,13 +612,17 @@ Every card embeds JSON-LD:
 | Country | `Country` | `name`, `alternateName`, `identifier` (`PropertyValue` per code), `sameAs` (Wikidata, GeoNames, Wikipedia), `geo`, `containedInPlace`; current memberships as an `ItemList` of `Organization` items |
 | Intblock (organization) | `GovernmentOrganization` for IGOs; `Organization` otherwise | `name`, `alternateName`, `foundingDate`, `dissolutionDate`, `location`, `url`, `sameAs`, `parentOrganization`, `subOrganization`; roster as an `ItemList` of `Country` items |
 | Intblock (agreement or enumeration) | `DefinedTerm` in a `DefinedTermSet` | `name`, `termCode`, `description` |
+| Trade agreement (v5.0.0) | `Legislation` | `name`, `alternateName`, `identifier`, `sameAs`, `description`, `legislationDate` (signed), `legislationLegalForce` (`InForce` for in force, `NotInForce` for terminated or superseded, else omitted); parties as an `ItemList` |
 | Block type, topic | `DefinedTerm` | `name`, `termCode`, `inDefinedTermSet` |
 | Data & API | `Dataset` | `name`, `version`, `license`, `creator`, `distribution` (`DataDownload` per asset), `identifier` (DOI), `temporalCoverage` |
 | Every page | `BreadcrumbList` | — |
 
 schema.org has no property that makes a `Place` (such as `Country`) a member of an
 `Organization`: `memberOf` and `member` accept only `Organization` and `Person`. Memberships are
-therefore published as `ItemList` blocks, not as `memberOf` / `member` statements.
+therefore published as `ItemList` blocks, not as `memberOf` / `member` statements. The items of
+these lists are the `Organization`, `Country` or other entities themselves (`itemListElement`
+accepts a `Thing`), without a `ListItem` and `position` around each: the lists are unordered, and
+the wrapper was a quarter of the JSON-LD bytes (§10.3). `BreadcrumbList` keeps its `ListItem`s.
 
 The `Dataset` markup must validate in Google's Rich Results test so the dataset appears in
 Google Dataset Search.
@@ -684,7 +756,7 @@ Generated data (`.cache/`, `site/src/generated/`) is not committed.
 ### 10.3 Build pipeline
 
 ```text
-fetch.py ──► .cache/internacia/v4.4.0/  (assets + vocab files, verified)
+fetch.py ──► .cache/internacia/v5.0.0/  (assets + vocab files, verified)
    │
 build_data.py ──► site/src/generated/*.json  (cards, indexes, stats, search index, aliases)
    │
@@ -696,9 +768,20 @@ checks (§12) ──► deploy to GitHub Pages
 ```
 
 - Target build time on GitHub Actions: ≤ 10 minutes.
-- Output size target: ≤ 300 MB (GitHub Pages limit is 1 GB). With v4.4.0 the site is about 272 MB
-  (`du -sh site/dist`; 248 MB of file content): blocks 88 MB, countries 49 MB, API 51 MB, social
-  images 44 MB, widgets 20 MB, Pagefind 10 MB. It had grown above the target by data alone
+- Output size target: ≤ 300 MB (GitHub Pages limit is 1 GB). With v5.0.0 the site is about 294 MB
+  (`du -sh site/dist`; 263 MB of file content): blocks 83 MB, API 60 MB, social images 45 MB,
+  countries 46 MB, widgets 21 MB, trade agreement cards 16 MB, Pagefind 14 MB. The trade
+  agreements registry (839 cards with Markdown twins, their JSON, and the trade agreement sections
+  of country cards) added about 30 MB and took the site to 313 MB (283 MB of file content); four
+  repeats brought it back under the target, about 20 MB in all, with the same pages and facts.
+  A title with the status definition on every membership row (about 10 MB: "Full member state or
+  participant…" 134,000 times) became one list of definitions under each table, which
+  `scripts/site.ts` copies to the cells as tooltips. The `ListItem` around each JSON-LD list item
+  (about 6 MB, §7.5) is gone. The theme icons are CSS masks instead of three inline SVGs, and the
+  first-paint script is compact (about 3 MB); the citation's CSL-JSON is one property per line,
+  without `&quot;` escapes in `<pre>`. The shared layout of a small card (head, header, footer and
+  citation) is about 7 KB of its 11 KB. With v4.4.0 the site was about 272 MB
+  (248 MB of file content). It had grown above the target by data alone
   (322 MB with v4.3.0, 375 MB with v4.4.0: 1,538 intblocks, 69,191 membership edges), not by new
   kinds of pages. Template indentation was 84 MB of the HTML and JSON indentation 25 MB of the
   API, so the build removes both: `site/scripts/trim-html.mjs` turns each whitespace run with a
@@ -770,12 +853,13 @@ The build fails when any of these checks fails.
 | Check | Rule |
 |-------|------|
 | Integrity | [§4.3](#43-verification) checks pass |
-| Count parity | Country cards = rows in `countries` (256 in v4.4.0); intblock cards = rows in `intblocks` (1,538); type pages = 83; topic pages = distinct topic keys |
+| Count parity | Country cards = rows in `countries` (256 in v5.0.0); intblock cards = rows in `intblocks` (1,581); trade agreement cards = rows in `trade_agreements` (839); type pages = 83; topic pages = distinct topic keys |
 | Roster parity | For every intblock, the number of current members on the card = rows in `current_memberships` for it |
 | Twin parity | For a sample of 50 entities (and all featured ones), HTML, Markdown and JSON carry the same codes, names, statuses and dates; for every entity, route roles (HTML, Markdown, JSON, CSV) and border status (HTML, Markdown, JSON) agree |
+| Trade agreements | For every agreement, the parties in HTML, Markdown and JSON = its `party` rows in `trade_agreement_parties`; for every country, its trade agreements (with `via`) in HTML and JSON, and their IDs in Markdown, = its rows in `country_trade_agreements` |
 | JSON validity | Every `/api/v1/` file validates against its schema in `/api/v1/schemas/` and against `openapi.json` |
 | Links | No broken internal links (lychee, offline mode); external links checked weekly, not on every build |
-| Redirects | Every non-disambiguated alias has a redirect page that points to an existing page |
+| Redirects | Every non-disambiguated alias has a redirect page that points to an existing page in its target section (a `moved` intblock ID: an agreement card) |
 | Accessibility | axe-core finds no serious or critical issues on the sample pages |
 | Performance | Lighthouse CI meets [§10.4](#104-performance-budgets) on sample pages |
 | Structured data | JSON-LD on sample pages parses and matches the expected types |

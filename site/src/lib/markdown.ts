@@ -1,11 +1,22 @@
 // Markdown twins (SPEC §7.3): the same facts as the HTML card, with codes next to names and
 // absolute links, so an agent can join without a second lookup.
 import { CENTROID_NOTE, LICENSE } from './api';
-import { blockById, type Block, type Country } from './data';
+import {
+  CATALOGUE_NOTE,
+  COUNTRY_AGREEMENTS_NOTE,
+  COVERAGE_NOTE,
+  PREFERENCE_SCHEME_NOTE,
+  REGISTRY_SCOPE_NOTE,
+  agreementFacts,
+  agreementStatusLabel,
+  agreementTitle,
+  agreementTypeLabel,
+} from './agreements';
+import { blockById, type Agreement, type Block, type Country } from './data';
 import { BORDER_EVIDENCE_NOTE, borderStatusText, designRows } from './design';
 import { blocktypeDeprecated, blocktypeLabel, enumLabel, nativeNameList, num, roleLabel, statusDeprecated, statusLabel, topicLabel, vocabLabel } from './format';
 import { meta } from './meta';
-import { absolute, blockJson, blockPath, countryJson, countryPath } from './urls';
+import { absolute, agreementJson, agreementPath, blockJson, blockPath, countryJson, countryPath } from './urls';
 
 const cell = (value: unknown): string =>
   value === null || value === undefined ? '' : String(value).replace(/\|/g, '\\|').replace(/\s*\n\s*/g, ' ');
@@ -152,6 +163,23 @@ export function countryMarkdown(c: Country): string {
     table(...withRole(current, ['ID', 'Organization', 'Type', 'Status', 'Joined'], (m) => [m.block_id, m.block_name, blocktypeLabel(m.blocktype), status(m.status), m.joined])),
     `\n## Former memberships and memberships of historical organizations (${former.length})\n`,
     table(...withRole(former, ['ID', 'Organization', 'Status', 'Joined', 'Left'], (m) => [m.block_id, m.block_name, status(m.status), m.joined, m.left])),
+    `\n## Trade agreements (${c._trade_agreements.length})\n\n${COUNTRY_AGREEMENTS_NOTE}\n\n${table(
+      ['ID', 'Agreement', 'Type', 'Status', 'In force', 'Via'],
+      c._trade_agreements.map((r) => [
+        r.agreement_id,
+        r.name,
+        agreementTypeLabel(r.agreement_type),
+        agreementStatusLabel(r.status),
+        r.party_in_force ?? r.in_force,
+        r.via ? `${r.via_name ?? r.via} (${r.via})` : '',
+      ]),
+    )}\n`,
+    c._former_trade_agreements.length
+      ? `\n## Former trade agreements (${c._former_trade_agreements.length})\n\n${table(
+          ['ID', 'Agreement', 'Type', 'Status', 'Left'],
+          c._former_trade_agreements.map((r) => [r.agreement_id, r.name, agreementTypeLabel(r.agreement_type), agreementStatusLabel(r.status), r.left]),
+        )}\n`
+      : '',
     '\n## Most similar countries by shared current memberships\n',
     table(['Code', 'Country', 'Shared', 'Jaccard'], c._similar.map((s) => [s.code, s.name, s.shared, s.jaccard])),
     c.centroid ? `\n${CENTROID_NOTE}\n` : '',
@@ -234,6 +262,23 @@ export function blockMarkdown(b: Block): string {
           ]),
         )}`
       : '',
+    b._trade_agreement || b._party_to_agreements.length
+      ? `\n## Trade agreements registry\n\n${facts([
+          [
+            'Registry record',
+            b._trade_agreement
+              ? `${b._trade_agreement.agreement_id}, ${agreementStatusLabel(b._trade_agreement.status).toLowerCase()} (${absolute(agreementPath(b._trade_agreement.agreement_id))})`
+              : undefined,
+          ],
+        ])}${
+          b._party_to_agreements.length
+            ? `\n\n### Agreements this organization is a party to (${b._party_to_agreements.length})\n\n${table(
+                ['ID', 'Agreement', 'Type', 'Status', 'In force'],
+                b._party_to_agreements.map((r) => [r.agreement_id, r.name, agreementTypeLabel(r.agreement_type), agreementStatusLabel(r.status), r.in_force]),
+              )}`
+            : ''
+        }\n`
+      : '',
     '\n## Structure\n',
     facts([
       ['Part of', b._parents.map((p) => (p.name ? `${p.name} (${p.id})` : p.id))],
@@ -255,6 +300,81 @@ export function blockMarkdown(b: Block): string {
     footer(),
   ];
   return out.join('\n');
+}
+
+// A table without the columns that are empty in every row (the first `keep` columns stay).
+const compact = (headers: string[], rows: unknown[][], keep: number): [string[], unknown[][]] => {
+  const used = headers.map((_, i) => i < keep || rows.some((r) => r[i] !== null && r[i] !== undefined && r[i] !== ''));
+  return [headers.filter((_, i) => used[i]), rows.map((r) => r.filter((_, i) => used[i]))];
+};
+
+export function agreementMarkdown(a: Agreement): string {
+  const parties = a._parties.filter((p) => p.status === 'party');
+  const former = a._parties.filter((p) => p.status !== 'party');
+  const viaBloc = a._parties.some((p) => p.type === 'intblock');
+  const out = [
+    frontMatter({
+      type: 'trade_agreement',
+      id: a.id,
+      name: a._name,
+      acronym: a._acronym ?? undefined,
+      url: absolute(agreementPath(a.id)),
+      json: absolute(agreementJson(a.id)),
+      wikidata: a.wikidata_id,
+      data_version: meta.data.version,
+      license: LICENSE,
+    }),
+    `# ${agreementTitle(a)}\n`,
+    a.description ? `${a.description}\n` : '',
+    a.verification === 'catalogue' ? `> ${CATALOGUE_NOTE}\n` : '',
+    facts(agreementFacts(a).map(([k, v]) => [k, v === '' ? undefined : v])),
+    `\n${REGISTRY_SCOPE_NOTE}\n`,
+    a._alias_notes.length
+      ? `\n${a._alias_notes.map((n) => `Until internacia-db v${n.since} this agreement was an intblock record under the same ID (${absolute(blockPath(n.alias))} now leads here).`).join('\n')}\n`
+      : '',
+    a._block || a._supersedes.length || a._superseded_by
+      ? `\n## Related records\n\n${facts([
+          ['Organization record', a._block ? `${a._block.name ?? a._block.id} (${a._block.id})${a._block.exists ? `: ${absolute(blockPath(a._block.id))}` : ''}` : undefined],
+          ['Supersedes', a._supersedes.map((r) => (r.name ? `${r.name} (${r.id})` : r.id))],
+          ['Superseded by', a._superseded_by ? (a._superseded_by.name ? `${a._superseded_by.name} (${a._superseded_by.id})` : a._superseded_by.id) : undefined],
+        ])}\n`
+      : '',
+    a.notes ? `\n## Notes\n\n${a.notes}\n` : '',
+    `\n## Parties (${parties.length})\n`,
+    a.agreement_type === 'preference_scheme' ? `${PREFERENCE_SCHEME_NOTE}\n` : '',
+    table(
+      ...compact(
+        ['Code', 'Name', 'Type', 'Signed', 'In force', 'Joined'],
+        parties.map((p) => [p.id, p.name ?? p.id, enumLabel('party_type', p.type), p.signed, p.in_force, p.joined]),
+        3,
+      ),
+    ),
+    former.length
+      ? `\n## Former parties (${former.length})\n\n${table(
+          ...compact(
+            ['Code', 'Name', 'Type', 'Joined', 'Left'],
+            former.map((p) => [p.id, p.name ?? p.id, enumLabel('party_type', p.type), p.joined, p.left]),
+            3,
+          ),
+        )}\n`
+      : '',
+    viaBloc && a._countries.length
+      ? `\n## Countries covered (${a._countries.length})\n\n${COVERAGE_NOTE}\n\n${table(
+          ['Code', 'Country', 'Via'],
+          a._countries.map((c) => [c.code, c.name ?? c.code, c.via ?? 'direct party']),
+        )}\n`
+      : '',
+    '\n## Names\n',
+    facts([
+      ['Acronyms', [...new Set((a.acronyms ?? []).map((x) => `${x.value} (${x.lang})`))]],
+      ['Other names', (a.other_names ?? []).map((n) => `${n.name} (${n.lang})`)],
+    ]) || '_None recorded._',
+    '\n## Links\n',
+    (a.links ?? []).map((l) => `- ${l.type}: ${l.url}`).join('\n') || '_None recorded._',
+    footer(),
+  ];
+  // Sections without data are empty strings: leave them out rather than as blank lines.
+  return out.filter(Boolean).join('\n');
 }
 
 export const blockRefName = (id: string): string => blockById().get(id)?.name ?? id;

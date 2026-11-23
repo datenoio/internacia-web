@@ -1,0 +1,32 @@
+---
+// Membership status definitions for one table: each status the table shows, once, under it.
+// A title on every row repeated the same sentence hundreds of times per card (about 10 MB of the
+// site, SPEC §10.3). scripts/site.ts copies the definitions to the cells of the column whose
+// header has data-status-col as their tooltip, as the server-rendered title was before.
+import { statusDescription, statusLabel } from '../lib/format';
+
+interface Props {
+  // id of the table
+  table: string;
+  statuses: string[];
+}
+
+const { table, statuses } = Astro.props;
+const defs = statuses.map((s) => ({ key: s, label: statusLabel(s), text: statusDescription(s) })).filter((d) => d.text);
+---
+
+{
+  defs.length > 0 && (
+    <details class="status-defs" data-status-defs={table}>
+      <summary class="small">Status definitions</summary>
+      <dl class="small">
+        {defs.map((d) => (
+          <>
+            <dt data-key={d.key}>{d.label}</dt>
+            <dd>{d.text}</dd>
+          </>
+        ))}
+      </dl>
+    </details>
+  )
+}

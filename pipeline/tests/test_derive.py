@@ -6,6 +6,7 @@ from derive import (
     check_border_rule,
     check_current_rule,
     classify_aliases,
+    derive_agreements,
     derive_blocks,
     derive_countries,
     derive_labels,
@@ -65,12 +66,34 @@ def make_release(**overrides) -> Release:
             {"alias": "BRICS", "target": "EU", "reason": "disambiguated", "since": "1.0.0"},
             {"alias": "AMB", "target": "EU", "reason": "disambiguated", "since": "1.0.0"},
             {"alias": "GONE", "target": None, "reason": "retired", "since": "1.0.0"},
+            {"alias": "DEFR", "target": "DEFR", "reason": "moved", "since": "5.0.0", "target_dataset": "trade_agreements"},
+            {"alias": "LOST", "target": "LOST", "reason": "moved", "since": "5.0.0", "target_dataset": "trade_agreements"},
         ],
         country_aliases=[
             {"alias": "KV", "target": "FR", "reason": "renamed", "since": "1.0.0"},
             {"alias": "KSV", "target": "FRA", "reason": "renamed", "since": "1.0.0"},
         ],
     )
+    # Trade agreements registry (contract 5.0): a moved two-party agreement, an agreement linked to
+    # an intblock, a bloc party (EU, expanded by the view) and a superseded record.
+    data["trade_agreements"] = [
+        {"id": "DEFR", "name": "Germany-France Agreement", "agreement_type": "fta", "status": "in_force", "superseded_by": None, "supersedes": None, "intblock_id": None, "acronyms": []},
+        {"id": "EUBR", "name": "EU-BRICS Agreement", "agreement_type": "fta", "status": "negotiating", "superseded_by": None, "supersedes": None, "intblock_id": None, "acronyms": []},
+        {"id": "OLDFTA", "name": "Old Agreement", "agreement_type": "fta", "status": "superseded", "superseded_by": "DEFR", "supersedes": None, "intblock_id": None, "acronyms": []},
+        {"id": "BRICS", "name": None, "agreement_type": "other", "status": "in_force", "superseded_by": None, "supersedes": None, "intblock_id": "BRICS", "acronyms": []},
+    ]
+    data["trade_agreement_parties"] = [
+        {"agreement_id": "DEFR", "party_id": "DE", "party_type": "country", "status": "party", "source": "record"},
+        {"agreement_id": "DEFR", "party_id": "FR", "party_type": "country", "status": "party", "source": "record"},
+        {"agreement_id": "EUBR", "party_id": "EU", "party_type": "intblock", "status": "party", "source": "record"},
+        {"agreement_id": "OLDFTA", "party_id": "FR", "party_type": "country", "status": "former_party", "left": "2000", "source": "record"},
+    ]
+    data["country_trade_agreements"] = [
+        {"country_code": "DE", "agreement_id": "DEFR", "via": None, "agreement_type": "fta", "agreement_status": "in_force", "in_force": None},
+        {"country_code": "DE", "agreement_id": "EUBR", "via": "EU", "agreement_type": "fta", "agreement_status": "negotiating", "in_force": None},
+        {"country_code": "FR", "agreement_id": "DEFR", "via": None, "agreement_type": "fta", "agreement_status": "in_force", "in_force": None},
+        {"country_code": "FR", "agreement_id": "EUBR", "via": "EU", "agreement_type": "fta", "agreement_status": "negotiating", "in_force": None},
+    ]
     data.update(overrides)
     return Release(**data)
 
@@ -129,8 +152,13 @@ def test_classify_aliases():
         ("blocks", "OLD"): "redirect",
         ("blocks", "AMB"): "disambiguation",
         ("blocks", "GONE"): "retired",
+        ("blocks", "DEFR"): "redirect",
+        ("blocks", "LOST"): "retired",  # moved, but the registry has no such record
         ("countries", "KV"): "redirect",
     }
+    sections = {p["alias"]: p["target_section"] for p in result["pages"]}
+    assert sections["DEFR"] == "agreements" and sections["OLD"] == "blocks" and sections["KV"] == "countries"
+    assert [n["kind"] for n in result["notes"][("agreements", "DEFR")]] == ["former_id"]
     assert [n["kind"] for n in result["notes"][("blocks", "BRICS")]] == ["reused"]
     assert {n["alias"] for n in result["notes"][("blocks", "EU")]} == {"OLD", "BRICS", "AMB"}
 
@@ -276,3 +304,38 @@ def test_labels_carry_roles_and_institutional_design():
     labels = derive_labels(release)
     assert labels["include_roles"]["transit"]["name"] == "Transit"
     assert labels["institutional_design"]["mandate"]["name"] == "Mandate"
+
+
+def test_trade_agreements_on_cards():
+    release = make_release()
+    agreements = {a["id"]: a for a in derive_agreements(release, classify_aliases(release)["notes"])}
+    defr = agreements["DEFR"]
+    assert defr["_party_count"] == 2 and [p["link"] for p in defr["_parties"]] == ["country", "country"]
+    assert [r["id"] for r in defr["_supersedes"]] == ["OLDFTA"]  # from OLDFTA's superseded_by
+    assert defr["_alias_notes"][0]["alias"] == "DEFR"
+    assert defr["_source_path"] == "data/trade_agreements/DEFR.yaml"
+    eubr = agreements["EUBR"]
+    assert eubr["_parties"][0]["link"] == "block" and eubr["_parties"][0]["name"] == "European Union"
+    assert [c["code"] for c in eubr["_countries"]] == ["FR", "DE"]  # by name: France, Germany
+    assert agreements["BRICS"]["_name"] == "BRICS"  # a linked record takes its intblock's name
+    assert agreements["BRICS"]["_block"] == {"id": "BRICS", "name": "BRICS", "exists": True}
+    assert agreements["OLDFTA"]["_superseded_by"] == {"id": "DEFR", "name": "Germany-France Agreement", "exists": True}
+
+    countries = {c["code"]: c for c in derive_countries(release, {}, {})}
+    fr = countries["FR"]
+    assert [(r["agreement_id"], r["via"]) for r in fr["_trade_agreements"]] == [("DEFR", None), ("EUBR", "EU")]  # in force first
+    assert fr["_trade_agreements"][1]["via_name"] == "European Union"
+    assert [(r["agreement_id"], r["left"]) for r in fr["_former_trade_agreements"]] == [("OLDFTA", "2000")]
+    assert countries["HK"]["_trade_agreements"] == []
+
+    blocks = {b["id"]: b for b in derive_blocks(release, {}, {})}
+    assert [r["agreement_id"] for r in blocks["EU"]["_party_to_agreements"]] == ["EUBR"]
+    assert blocks["BRICS"]["_trade_agreement"]["agreement_id"] == "BRICS"
+    assert blocks["EU"]["_trade_agreement"] is None
+
+
+def test_trade_agreement_parties_must_name_known_agreements():
+    release = make_release()
+    release.trade_agreement_parties.append({"agreement_id": "NOPE", "party_id": "FR", "party_type": "country", "status": "party"})
+    with pytest.raises(DeriveError, match="unknown agreements"):
+        derive_agreements(release, {})

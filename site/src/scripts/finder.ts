@@ -42,7 +42,12 @@ document.querySelectorAll<HTMLElement>('[data-finder]').forEach((root) => {
       label.textContent = h.label;
       const meta = document.createElement('span');
       meta.className = 'finder-meta';
-      const kind = h.kind === 'c' ? 'Country' : h.active ? 'Organization' : 'Organization, historical';
+      const kind =
+        h.kind === 'c'
+          ? 'Country'
+          : h.kind === 'a'
+            ? h.active ? 'Trade agreement' : 'Trade agreement, ended'
+            : h.active ? 'Organization' : 'Organization, historical';
       meta.textContent = h.matched !== h.label && !h.label.includes(h.matched) ? `${kind} · ${h.matched}${h.lang ? ` (${h.lang})` : ''}` : `${kind} · ${h.id}`;
       a.append(label, meta);
       li.append(a);

@@ -4,6 +4,7 @@ import Facts from '../../../components/Facts.astro';
 import MembershipMap from '../../../components/MembershipMap.astro';
 import Cite from '../../../components/Cite.astro';
 import PageToc from '../../../components/PageToc.astro';
+import StatusDefs from '../../../components/StatusDefs.astro';
 import EmbedCode from '../../../components/EmbedCode.astro';
 import Base from '../../../layouts/Base.astro';
 import { aliases, blockById, blocks, type Block, type BlockRef } from '../../../lib/data';
@@ -17,7 +18,6 @@ import {
   roleLabel,
   splitCode,
   statusDeprecated,
-  statusDescription,
   statusLabel,
   topicLabel,
 } from '../../../lib/format';
@@ -26,7 +26,8 @@ import { designRows } from '../../../lib/design';
 import { meta } from '../../../lib/meta';
 import { steps } from '../../../scripts/charts';
 import { blockLd } from '../../../lib/jsonld';
-import { blockJson, blockMd, blockPath, countryPath, path, reportErrorUrl, sourceUrl, topicPath, typePath, wikidataUrl } from '../../../lib/urls';
+import { agreementStatusLabel, agreementTypeLabel } from '../../../lib/agreements';
+import { agreementPath, blockJson, blockMd, blockPath, countryPath, path, reportErrorUrl, sourceUrl, topicPath, typePath, wikidataUrl } from '../../../lib/urls';
 
 export function getStaticPaths() {
   const pages = blocks().map((b) => ({ params: { id: b.id.toLowerCase() }, props: { id: b.id, alias: null } }));
@@ -94,6 +95,7 @@ const toc = b
       ...(design.length > 0 ? [{ id: 'design', label: 'Institutional design' }] : []),
       ...(b.notes ? [{ id: 'notes', label: 'Notes' }] : []),
       { id: 'roster', label: 'Members', count: b._active && !(b.membership_applicability === 'not_applicable' && b._roster.length === 0) ? countryCount : undefined },
+      ...(b._party_to_agreements.length > 0 ? [{ id: 'trade', label: 'Trade agreements', count: b._party_to_agreements.length }] : []),
       ...(b._similar.length > 0 ? [{ id: 'overlap', label: 'Overlapping organizations' }] : []),
       ...(acronyms.length > 0 || (b.other_names?.length ?? 0) > 0 ? [{ id: 'names', label: 'Names' }] : []),
       ...(links.length > 0 ? [{ id: 'links', label: 'Links' }] : []),
@@ -217,6 +219,14 @@ const toc = b
                       : undefined,
                 },
                 { label: 'Last verified', value: b.last_verified },
+                {
+                  label: 'Trade agreement record',
+                  value: b._trade_agreement
+                    ? `${agreementStatusLabel(b._trade_agreement.status)}${b._trade_agreement.in_force ? `, in force ${b._trade_agreement.in_force}` : ''}`
+                    : undefined,
+                  href: b._trade_agreement ? agreementPath(b._trade_agreement.agreement_id) : undefined,
+                  note: b._trade_agreement ? '(registry record: dates and catalogue IDs)' : undefined,
+                },
               ]}
             />
           </section>
@@ -372,7 +382,7 @@ const toc = b
                           <th scope="col" data-sort="text">Name</th>
                           <th scope="col" data-sort="text">Code</th>
                           {listedCols.type && <th scope="col" data-sort="text">Type</th>}
-                          <th scope="col" data-sort="text">Status</th>
+                          <th scope="col" data-sort="text" data-status-col>Status</th>
                           {listedCols.role && <th scope="col" data-sort="text">Route role</th>}
                           {listedCols.joined && <th scope="col" data-sort="text">Joined</th>}
                           {!b._active && listedCols.left && <th scope="col" data-sort="text">Left</th>}
@@ -396,7 +406,7 @@ const toc = b
                               <code>{r.id}</code>
                             </td>
                             {listedCols.type && <td>{enumLabel('include_type', r.type)}</td>}
-                            <td title={statusDescription(r.status)}>
+                            <td>
                               {statusLabel(r.status)}
                               {statusDeprecated(r.status) && <span class="muted small"> (deprecated label)</span>}
                             </td>
@@ -408,6 +418,7 @@ const toc = b
                       </tbody>
                     </table>
                   </div>
+                  <StatusDefs table="roster-table" statuses={statusOptions} />
                 </>
               )}
               {b._active && other.length > 0 && (
@@ -494,6 +505,48 @@ const toc = b
             </>
           )}
         </section>
+
+        {b._party_to_agreements.length > 0 && (
+          <section class="card-section" aria-labelledby="trade">
+            <h2 id="trade">Trade agreements</h2>
+            <p>
+              {`${b._acronym ?? b.name} is itself a party to ${num(b._party_to_agreements.length)} trade ${b._party_to_agreements.length === 1 ? 'agreement' : 'agreements'} in the registry. Its current members are covered through it; the country cards list these agreements with "via ${b.id}".`}
+            </p>
+            <div class="filters js-only" data-table-tools="bloc-trade-table">
+              <label>
+                Search
+                <input type="search" data-filter="text" placeholder="Agreement or ID" />
+              </label>
+              <span class="count" data-count aria-live="polite" />
+            </div>
+            <div class="table-wrap">
+              <table class="data" id="bloc-trade-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Agreement</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">In force</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {b._party_to_agreements.map((r) => (
+                    <tr data-agreement={r.agreement_id} data-status={r.status ?? ''}>
+                      <td>
+                        <a href={agreementPath(r.agreement_id)}>{r.name}</a>
+                        {r.agreement_id !== r.acronym && <code class="inline-id">{r.agreement_id}</code>}
+                        {r.party_status === 'former_party' && <span class="muted small"> (former party)</span>}
+                      </td>
+                      <td>{agreementTypeLabel(r.agreement_type)}</td>
+                      <td>{agreementStatusLabel(r.status)}</td>
+                      <td class="date">{r.in_force}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
         {b._similar.length > 0 && (
           <section class="card-section" aria-labelledby="overlap">

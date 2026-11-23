@@ -13,7 +13,7 @@ DEFAULT_CACHE = ROOT / ".cache" / "internacia"
 
 # Contract MAJOR this pipeline reads (SPEC §4.3). Raise it only together with the code changes a
 # new MAJOR needs; bump.py writes it into the lock file and refuses releases with another MAJOR.
-CONTRACT_MAJOR = 4
+CONTRACT_MAJOR = 5
 
 _TAG = re.compile(r"^v\d+\.\d+\.\d+$")
 _SHA1 = re.compile(r"^[0-9a-f]{40}$")

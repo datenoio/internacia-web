@@ -104,29 +104,35 @@ def classify_aliases(release: Release) -> dict:
     - reason "disambiguated": a disambiguation page, never a redirect.
     - no target (retired): a "retired ID" page.
     - otherwise: a redirect page to the target.
+    An intblock alias with target_dataset "trade_agreements" (reason "moved", contract 5.0) points
+    to a trade agreement card under the same ID: its old intblock URLs redirect there, and the
+    agreement card notes the former record. `target_section` names the section of the target.
     Country aliases get pages only for alpha-2 codes, the key of country URLs.
     """
     block_ids = {b["id"] for b in release.intblocks}
+    agreement_ids = {a["id"] for a in release.trade_agreements}
     country_codes = {c["code"] for c in release.countries}
     pages, notes = [], defaultdict(list)
 
     for alias in release.intblock_aliases:
         old, target = alias["alias"], alias.get("target")
-        entry = {**alias, "section": "blocks"}
+        to_registry = alias.get("target_dataset") == "trade_agreements"
+        section, known = ("agreements", agreement_ids) if to_registry else ("blocks", block_ids)
+        entry = {**alias, "section": "blocks", "target_section": section}
         if old in block_ids:
             notes[("blocks", old)].append({**entry, "kind": "reused"})
         elif alias.get("reason") == "disambiguated":
             pages.append({**entry, "kind": "disambiguation"})
-        elif not target or target not in block_ids:
+        elif not target or target not in known:
             pages.append({**entry, "kind": "retired"})
         else:
             pages.append({**entry, "kind": "redirect"})
-        if target in block_ids:
-            notes[("blocks", target)].append({**entry, "kind": "former_id"})
+        if target in known:
+            notes[(section, target)].append({**entry, "kind": "former_id"})
 
     for alias in release.country_aliases:
         old, target = alias["alias"], alias.get("target")
-        entry = {**alias, "section": "countries"}
+        entry = {**alias, "section": "countries", "target_section": "countries"}
         if len(old) != 2:
             continue
         if old in country_codes:
@@ -196,6 +202,7 @@ def derive_countries(release: Release, similar: dict[str, list[dict]], alias_not
     by_code = {c["code"]: c for c in release.countries}
     by_iso3 = {c["iso3code"]: c for c in release.countries if c.get("iso3code")}
     border_rows = border_status_by_pair(release)
+    trade = country_trade_agreements(release)
 
     memberships = defaultdict(list)
     for block in release.intblocks:
@@ -257,6 +264,9 @@ def derive_countries(release: Release, similar: dict[str, list[dict]], alias_not
                 "_parent_exists": bool(parent and parent in by_code),
                 "_dependents": sorted(dependents.get(code, []), key=lambda d: d["name"]),
                 "_alias_notes": alias_notes.get(("countries", code), []),
+                # Trade agreements registry (contract 5.0); current coverage, blocs expanded.
+                "_trade_agreements": trade.get(code, {}).get("current", []),
+                "_former_trade_agreements": trade.get(code, {}).get("former", []),
                 "_source_path": _source_path_country(code),
             }
         )
@@ -270,6 +280,7 @@ def derive_countries(release: Release, similar: dict[str, list[dict]], alias_not
 def derive_blocks(release: Release, similar: dict[str, list[dict]], alias_notes: dict) -> list[dict]:
     blocks = {b["id"]: b for b in release.intblocks}
     countries = {c["code"]: c for c in release.countries}
+    trade = block_trade_agreements(release)
 
     children = defaultdict(dict)
     for block in release.intblocks:
@@ -333,9 +344,189 @@ def derive_blocks(release: Release, similar: dict[str, list[dict]], alias_notes:
                 "_similar": similar.get(block["id"], []),
                 "_hq_country_name": countries.get((block.get("headquarters") or {}).get("country"), {}).get("name"),
                 "_alias_notes": alias_notes.get(("blocks", block["id"]), []),
+                # Trade agreements registry (contract 5.0): the record linked to this intblock,
+                # and the agreements it is a party to as a bloc.
+                "_trade_agreement": trade[block["id"]]["linked"],
+                "_party_to_agreements": trade[block["id"]]["party"],
                 "_source_path": _source_path_block(block),
             }
         )
+    return out
+
+
+# Trade agreement statuses in the order cards list them (contract 5.0; open enum: an unknown
+# status sorts last).
+AGREEMENT_STATUS_ORDER = ("in_force", "signed", "negotiating", "proposed", "terminated", "superseded", "abandoned")
+
+
+def _agreement_status_rank(status: str | None) -> int:
+    return AGREEMENT_STATUS_ORDER.index(status) if status in AGREEMENT_STATUS_ORDER else len(AGREEMENT_STATUS_ORDER)
+
+
+def _source_path_agreement(agreement: dict) -> str:
+    return f"data/trade_agreements/{agreement['id']}.yaml"
+
+
+def _agreement_name(agreement: dict, blocks: dict[str, dict]) -> str:
+    """The record's name; a linked record without one takes its intblock's name (contract 5.0:
+    a record with `intblock` set has no name of its own in the source)."""
+    return agreement.get("name") or (blocks.get(agreement.get("intblock_id") or "") or {}).get("name") or agreement["id"]
+
+
+def _agreement_row(agreement: dict, blocks: dict[str, dict]) -> dict:
+    """The facts a country or intblock card lists for one agreement."""
+    return {
+        "agreement_id": agreement["id"],
+        "name": _agreement_name(agreement, blocks),
+        "acronym": primary_acronym(agreement),
+        "agreement_type": agreement.get("agreement_type"),
+        "status": agreement.get("status"),
+        "signed": agreement.get("signed"),
+        "in_force": agreement.get("in_force"),
+        "ended": agreement.get("ended"),
+        "verification": agreement.get("verification"),
+    }
+
+
+def _sort_agreements(rows: list[dict]) -> list[dict]:
+    return sorted(rows, key=lambda r: (_agreement_status_rank(r["status"]), r["name"].casefold(), r["agreement_id"]))
+
+
+def country_trade_agreements(release: Release) -> dict[str, dict[str, list[dict]]]:
+    """Trade agreements of each country (contract 5.0).
+
+    `current` rows are the country_trade_agreements view: one per agreement the country is a
+    current party to, directly (`via` None) or through a bloc that is a party (`via` = bloc ID,
+    expanded to the bloc's current members), whatever the agreement's own status. Coverage is
+    current, not historical. `former` rows are the country's own `former_party` entries.
+    """
+    blocks = {b["id"]: b for b in release.intblocks}
+    agreements = {a["id"]: a for a in release.trade_agreements}
+    out: dict[str, dict[str, list[dict]]] = defaultdict(lambda: {"current": [], "former": []})
+    for row in release.country_trade_agreements:
+        a = agreements[row["agreement_id"]]
+        via = row.get("via")
+        out[row["country_code"]]["current"].append(
+            {
+                **_agreement_row(a, blocks),
+                "party_in_force": row.get("in_force"),
+                "via": via,
+                "via_name": blocks[via]["name"] if via in blocks else None,
+            }
+        )
+    current = {(k, r["agreement_id"]) for k, v in out.items() for r in v["current"]}
+    for p in release.trade_agreement_parties:
+        if p.get("party_type") in COUNTRY_TYPES and p.get("status") == "former_party" and (p["party_id"], p["agreement_id"]) not in current:
+            out[p["party_id"]]["former"].append(
+                {**_agreement_row(agreements[p["agreement_id"]], blocks), "joined": p.get("joined"), "left": p.get("left")}
+            )
+    return {k: {"current": _sort_agreements(v["current"]), "former": _sort_agreements(v["former"])} for k, v in out.items()}
+
+
+def block_trade_agreements(release: Release) -> dict[str, dict]:
+    """For each intblock: the registry record linked to it (`intblock_id`) and the agreements it
+    is a party to as a bloc (the EU, EAEU). Contract 5.0."""
+    blocks = {b["id"]: b for b in release.intblocks}
+    agreements = {a["id"]: a for a in release.trade_agreements}
+    linked: dict[str, dict] = {}
+    for a in release.trade_agreements:
+        if a.get("intblock_id"):
+            linked[a["intblock_id"]] = {**_agreement_row(a, blocks), "wto_rta_id": a.get("wto_rta_id")}
+    parties: dict[str, list[dict]] = defaultdict(list)
+    for p in release.trade_agreement_parties:
+        if p.get("party_type") == "intblock":
+            parties[p["party_id"]].append(
+                {**_agreement_row(agreements[p["agreement_id"]], blocks), "party_status": p.get("status")}
+            )
+    return {
+        bid: {"linked": linked.get(bid), "party": _sort_agreements(parties.get(bid, []))}
+        for bid in blocks
+    }
+
+
+def derive_agreements(release: Release, alias_notes: dict) -> list[dict]:
+    """Trade agreement cards (contract 5.0): registry records with resolved parties.
+
+    `_parties` are the trade_agreement_parties rows (a linked record's parties come from its
+    intblock's includes, `source = intblock`). `_countries` are the country_trade_agreements view's
+    rows for the agreement: current coverage, with a bloc party expanded to its current members.
+    """
+    blocks = {b["id"]: b for b in release.intblocks}
+    countries = {c["code"]: c for c in release.countries}
+    agreements = {a["id"]: a for a in release.trade_agreements}
+
+    parties: dict[str, list[dict]] = defaultdict(list)
+    for p in release.trade_agreement_parties:
+        kind = p.get("party_type")
+        if kind in COUNTRY_TYPES:
+            link = "country" if p["party_id"] in countries else None
+        elif kind == "intblock":
+            link = "block" if p["party_id"] in blocks else None
+        else:  # historical-country: the code may now name a different, current country
+            link = None
+        name = (countries if link == "country" else blocks if link == "block" else {}).get(p["party_id"], {}).get("name")
+        parties[p["agreement_id"]].append(
+            {
+                "id": p["party_id"],
+                "name": name,
+                "type": kind,
+                "status": p.get("status"),
+                "signed": p.get("signed"),
+                "in_force": p.get("in_force"),
+                "joined": p.get("joined"),
+                "left": p.get("left"),
+                "note": p.get("note"),
+                "source": p.get("source"),
+                "link": link,
+                "flag_emoji": countries[p["party_id"]].get("flag_emoji") if link == "country" else None,
+            }
+        )
+    covered: dict[str, list[dict]] = defaultdict(list)
+    for row in release.country_trade_agreements:
+        c = countries.get(row["country_code"], {})
+        covered[row["agreement_id"]].append(
+            {"code": row["country_code"], "name": c.get("name"), "flag_emoji": c.get("flag_emoji"), "via": row.get("via"), "in_force": row.get("in_force")}
+        )
+
+    def block_ref(block_id: str | None) -> dict | None:
+        if not block_id:
+            return None
+        return {"id": block_id, "name": blocks[block_id]["name"] if block_id in blocks else None, "exists": block_id in blocks}
+
+    def agreement_ref(agreement_id: str | None) -> dict | None:
+        if not agreement_id:
+            return None
+        known = agreements.get(agreement_id)
+        return {"id": agreement_id, "name": _agreement_name(known, blocks) if known else None, "exists": known is not None}
+
+    replaced: dict[str, list[str]] = defaultdict(list)
+    for x in release.trade_agreements:
+        if x.get("superseded_by"):
+            replaced[x["superseded_by"]].append(x["id"])
+
+    out = []
+    for a in sorted(release.trade_agreements, key=lambda x: x["id"]):
+        rows = sorted(parties.get(a["id"], []), key=lambda r: (r["status"] != "party", (r["name"] or r["id"]).casefold()))
+        out.append(
+            {
+                **a,
+                "_name": _agreement_name(a, blocks),
+                "_acronym": primary_acronym(a),
+                "_party_count": sum(1 for r in rows if r["status"] == "party"),
+                "_parties": rows,
+                "_countries": sorted(covered.get(a["id"], []), key=lambda r: ((r["name"] or r["code"]).casefold(), r["code"])),
+                "_block": block_ref(a.get("intblock_id")),
+                # Records this one replaced: its own `supersedes` and every record whose
+                # `superseded_by` names it (most records set only one side).
+                "_supersedes": [agreement_ref(x) for x in sorted({*([a["supersedes"]] if a.get("supersedes") else []), *replaced.get(a["id"], [])})],
+                "_superseded_by": agreement_ref(a.get("superseded_by")),
+                "_alias_notes": alias_notes.get(("agreements", a["id"]), []),
+                "_source_path": _source_path_agreement(a),
+            }
+        )
+    unknown = {p["agreement_id"] for p in release.trade_agreement_parties} - set(agreements)
+    if unknown:
+        raise DeriveError(f"trade_agreement_parties reference unknown agreements: {sorted(unknown)[:5]}")
     return out
 
 

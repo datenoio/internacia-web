@@ -4,6 +4,7 @@ import Facts from '../../../components/Facts.astro';
 import MembershipMap from '../../../components/MembershipMap.astro';
 import Cite from '../../../components/Cite.astro';
 import PageToc from '../../../components/PageToc.astro';
+import StatusDefs from '../../../components/StatusDefs.astro';
 import EmbedCode from '../../../components/EmbedCode.astro';
 import Base from '../../../layouts/Base.astro';
 import { CENTROID_NOTE } from '../../../lib/api';
@@ -16,15 +17,16 @@ import {
   roleDescription,
   roleLabel,
   statusDeprecated,
-  statusDescription,
   statusLabel,
   vocabLabel,
   yesNo,
 } from '../../../lib/format';
 import { BORDER_EVIDENCE_NOTE, borderStatusText } from '../../../lib/design';
+import { COUNTRY_AGREEMENTS_NOTE, agreementStatusLabel, agreementTypeLabel, byStatusOrder } from '../../../lib/agreements';
 import { countryEmbeddable } from '../../../lib/embed';
 import { countryLd } from '../../../lib/jsonld';
 import {
+  agreementPath,
   blockPath,
   countryJson,
   countryMd,
@@ -77,10 +79,22 @@ const wb = (v?: { id: string; value: string }) => (v ? `${v.value} (${v.id})` : 
 const vocabList = (vocab: string, items?: { id: string }[]) =>
   items?.length ? items.map((i) => vocabLabel(vocab, i.id)).join(', ') : undefined;
 const nativeNames = nativeNameList(c?.native_names);
+// Trade agreements registry (contract 5.0): current coverage, a bloc party expanded to its members.
+const trade = c ? c._trade_agreements : [];
+const formerTrade = c ? c._former_trade_agreements : [];
+const tradeInForce = trade.filter((r) => r.status === 'in_force').length;
+const tradeVia = trade.filter((r) => r.via).length;
+const tradeStatuses = [...new Set(trade.map((r) => r.status ?? ''))].sort(byStatusOrder);
+const tradeSummary = c
+  ? trade.length > 0
+    ? `${c.name} is a current party to ${num(trade.length)} trade ${trade.length === 1 ? 'agreement' : 'agreements'} in the registry, ${num(tradeInForce)} of them in force${tradeVia > 0 ? `; ${num(tradeVia)} through a bloc that is a party` : ''}.`
+    : `The trade agreements registry records no agreement that ${c.name} is a current party to.`
+  : '';
 // In-page navigation, in page order: memberships first, reference sections after them.
 const toc = c
   ? [
       { id: 'memberships', label: 'Memberships', count: current.length },
+      { id: 'trade', label: 'Trade agreements', count: trade.length },
       ...(c._similar.length > 0 ? [{ id: 'similar', label: 'Similar countries' }] : []),
       { id: 'identifiers', label: 'Identifiers' },
       { id: 'geography', label: 'Geography' },
@@ -194,7 +208,7 @@ const toc = c
                   <thead>
                     <tr>
                       <th scope="col">Organization or grouping</th>
-                      <th scope="col">Status</th>
+                      <th scope="col" data-status-col>Status</th>
                       {currentRoles && <th scope="col">Route role</th>}
                       <th scope="col">Joined</th>
                     </tr>
@@ -214,7 +228,7 @@ const toc = c
                             {m.block_id !== m.acronym && <code class="inline-id">{m.block_id}</code>}
                             {m.note && <div class="muted small">{m.note}</div>}
                           </td>
-                          <td title={statusDescription(m.status)}>
+                          <td>
                             {statusLabel(m.status)}
                             {statusDeprecated(m.status) && <span class="muted small"> (deprecated label)</span>}
                           </td>
@@ -226,6 +240,7 @@ const toc = c
                   ))}
                 </table>
               </div>
+              <StatusDefs table="memberships-table" statuses={statusOptions} />
             </>
           )}
 
@@ -260,6 +275,91 @@ const toc = c
                         {formerRoles && <td title={roleDescription(m.role) || undefined}>{roleLabel(m.role)}</td>}
                         <td class="date">{m.joined}</td>
                         <td class="date">{m.left}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
+        </section>
+
+        <section class="card-section" aria-labelledby="trade">
+          <h2 id="trade">Trade agreements</h2>
+          <p>{tradeSummary}</p>
+          <p class="muted small">
+            {COUNTRY_AGREEMENTS_NOTE} <a href={path('agreements/')}>All trade agreements</a>
+          </p>
+          {trade.length > 0 && (
+            <>
+              <div class="filters js-only" data-table-tools="trade-table">
+                <label>
+                  Search
+                  <input type="search" data-filter="text" placeholder="Agreement or ID" />
+                </label>
+                <label>
+                  Status
+                  <select data-filter="status">
+                    <option value="">All</option>
+                    {tradeStatuses.map((s) => (
+                      <option value={s}>{agreementStatusLabel(s)}</option>
+                    ))}
+                  </select>
+                </label>
+                <span class="count" data-count aria-live="polite" />
+              </div>
+              <div class="table-wrap">
+                <table class="data" id="trade-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Agreement</th>
+                      <th scope="col">Type</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">In force</th>
+                      {tradeVia > 0 && <th scope="col">Via</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trade.map((r) => (
+                      <tr data-agreement={r.agreement_id} data-status={r.status ?? ''} data-via={r.via ?? ''}>
+                        <td>
+                          <a href={agreementPath(r.agreement_id)}>{r.name}</a>
+                          {r.acronym && <span class="muted"> ({r.acronym})</span>}
+                          {r.agreement_id !== r.acronym && <code class="inline-id">{r.agreement_id}</code>}
+                          {r.verification === 'catalogue' && <span class="muted small"> catalogue</span>}
+                        </td>
+                        <td>{agreementTypeLabel(r.agreement_type)}</td>
+                        <td>{agreementStatusLabel(r.status)}</td>
+                        <td class="date">{r.party_in_force ?? r.in_force}</td>
+                        {tradeVia > 0 && <td>{r.via ? <a href={blockPath(r.via)}>{r.via_name ?? r.via}</a> : ''}</td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+          {formerTrade.length > 0 && (
+            <details>
+              <summary>{`Former trade agreements (${formerTrade.length})`}</summary>
+              <div class="table-wrap">
+                <table class="data" id="former-trade-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Agreement</th>
+                      <th scope="col">Status</th>
+                      <th scope="col">Left</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formerTrade.map((r) => (
+                      <tr data-agreement={r.agreement_id}>
+                        <td>
+                          <a href={agreementPath(r.agreement_id)}>{r.name}</a>
+                          {r.agreement_id !== r.acronym && <code class="inline-id">{r.agreement_id}</code>}
+                        </td>
+                        <td>{agreementStatusLabel(r.status)}</td>
+                        <td class="date">{r.left}</td>
                       </tr>
                     ))}
                   </tbody>

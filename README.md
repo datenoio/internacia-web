@@ -9,7 +9,8 @@ membership maps, a multilingual finder, OpenAPI, `llms.txt`, post-build checks a
 accessibility/performance audit, plus block type, topic, geography and statistics pages (M2a)
 and explorers: membership map, accession and founding timelines, headquarters map, comparisons
 and hierarchy (M2b), full-text search and social images (M2c), embeddable widgets for other
-sites (M3a), and the site's own domain (M3c). Next: interface translations (M3b).
+sites (M3a), the site's own domain (M3c), and the internacia-db trade agreements registry (data
+v5.0.0). Next: interface translations (M3b).
 Address: <https://internacia.io/> (the old <https://datenoio.github.io/internacia-web/> redirects there).
 
 - Specification: [docs/SPEC.md](docs/SPEC.md)
@@ -17,8 +18,8 @@ Address: <https://internacia.io/> (the old <https://datenoio.github.io/internaci
 
 ## What the site will offer
 
-- A card for every country and territory (256), organization or grouping (1,538), block type (83)
-  and topic (153) in internacia-db.
+- A card for every country and territory (256), organization or grouping (1,581), trade agreement
+  (839), block type (83) and topic (154) in internacia-db.
 - Membership maps, accession and founding timelines, a headquarters map, organization comparison
   and hierarchy views, and a statistics and coverage page.
 - A Markdown and a JSON twin for every card, a static JSON API with an OpenAPI description,

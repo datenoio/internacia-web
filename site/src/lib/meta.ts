@@ -21,6 +21,8 @@ export interface SiteMeta {
     topics: number;
     memberships: number;
     current_memberships: number;
+    trade_agreements: number;
+    trade_agreements_in_force: number;
   };
 }
 

@@ -65,6 +65,12 @@ class Release:
     # subfields and values (data/schemas/institutional_design.yaml), contract 4.1.
     include_roles: dict[str, dict] = field(default_factory=dict)
     institutional_design: dict[str, dict] = field(default_factory=dict)
+    # Trade agreements registry (contract 5.0): the trade_agreements and trade_agreement_parties
+    # tables, and the rows of the country_trade_agreements view, which expands a bloc party (the
+    # EU) to its current members with `via` set to the bloc. Coverage of the view is current only.
+    trade_agreements: list[dict] = field(default_factory=list)
+    trade_agreement_parties: list[dict] = field(default_factory=list)
+    country_trade_agreements: list[dict] = field(default_factory=list)
 
 
 def _text(value) -> str:
@@ -173,6 +179,18 @@ def load_release(cache_dir: Path, repository: str, tag: str) -> Release:
                 "SELECT country_code, neighbor_iso3, current_status FROM country_borders"
             ).fetchall()
         }
+        # The registry's JSONL exports carry the same columns as these tables.
+        trade_agreements = _rows(con, "SELECT * FROM trade_agreements ORDER BY id")
+        trade_agreement_parties = _rows(
+            con,
+            'SELECT agreement_id, party_id, party_type, status, signed, in_force, joined, "left", note, source '
+            "FROM trade_agreement_parties ORDER BY agreement_id, party_id",
+        )
+        country_trade_agreements = _rows(
+            con,
+            "SELECT country_code, agreement_id, via, agreement_type, agreement_status, in_force "
+            "FROM country_trade_agreements ORDER BY country_code, agreement_id",
+        )
 
     statuses = _yaml(source / "schemas" / "includes_status.yaml")["statuses"]
     topics = {k: v.get("name", k) for k, v in _yaml(source / "schemas" / "topics.yaml")["topics"].items()}
@@ -210,4 +228,7 @@ def load_release(cache_dir: Path, repository: str, tag: str) -> Release:
         country_borders=country_borders,
         include_roles=_include_roles(source / "schemas" / "include_roles.yaml"),
         institutional_design=_institutional_design(source / "schemas" / "institutional_design.yaml"),
+        trade_agreements=trade_agreements,
+        trade_agreement_parties=trade_agreement_parties,
+        country_trade_agreements=country_trade_agreements,
     )

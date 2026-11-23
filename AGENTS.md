@@ -13,7 +13,9 @@ statistics pages, the home map, the Atom feed, citations and `data-bump.yml`. M2
 explorers under `/explore/`; M2c adds full-text search (`/search/`, Pagefind) and per-card social
 images (`/og/…png`). M3a adds embeddable widgets (`/embed/`, `public/embed/widget.js`) and the
 `repository_dispatch` trigger of `data-bump.yml`. M3c moves the site to its domain, `internacia.io`
-(`site.config.mjs`, `public/CNAME`). Next are interface translations (M3b)
+(`site.config.mjs`, `public/CNAME`). Data v5.0.0 (contract 5) adds the trade agreements registry:
+`/agreements/` cards with Markdown and JSON twins, a trade agreements section on country cards, and
+redirects from the intblock IDs that moved there. Next are interface translations (M3b)
 ([SPEC §13](docs/SPEC.md#13-milestones)).
 
 ## Rules
@@ -45,7 +47,7 @@ images (`/og/…png`). M3a adds embeddable widgets (`/embed/`, `public/embed/wid
 - `.github/workflows/data-bump.yml` — daily; `pipeline/bump.py` moves the lock to a newer release,
   the workflow builds and checks the site and opens a pull request.
 - The pipeline reads one internacia-db contract MAJOR, `CONTRACT_MAJOR` in `pipeline/lock.py`
-  (currently 4; the lock pins v4.4.0, contract 4.4). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
+  (currently 5; the lock pins v5.0.0, contract 5.0). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
   is; a lock with another `contract_major` fails to load. For a new MAJOR, raise the constant
   together with the code the new contract needs, then run `bump.py update` in the same pull request.
 
@@ -77,10 +79,24 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   (`prs`, `gsw`), and either `official` or `common` may be null. Read it through `nativeNameList`
   (`lib/format.ts`), which drops empty entries and names the language from `language_codes.yaml`;
   never look up `native_names.en` (English names are `name` and `official_name`).
-- Deprecated include statuses (`associate`, `associated_observer`) stay valid until the next
-  MAJOR. Card membership and roster tables and their Markdown twins show the status's own label
+- Deprecated include statuses (`associate`, `associated_observer`) stay valid until a MAJOR
+  removes them (contract 5.0 still lists them, `removal: next MAJOR`). Card membership and roster tables and their Markdown twins show the status's own label
   with "(deprecated label)" (`statusDeprecated`); never remap them to `associate_member`. No
   record uses them from v4.3.0 on; keep the handling until a MAJOR removes them.
+- Trade agreements registry (contract 5.0): `trade_agreements`, `trade_agreement_parties` and the
+  `country_trade_agreements` view, read from DuckDB (the JSONL exports have the same columns).
+  `derive.derive_agreements` writes `agreements.json`; country cards get `_trade_agreements` (the
+  view: current coverage, a bloc party such as the EU expanded to its current members, `via` = the
+  bloc, every agreement status) and `_former_trade_agreements`; intblock cards get
+  `_trade_agreement` (the linked record) and `_party_to_agreements` (as a bloc). Wording shared by
+  cards and twins is in `lib/agreements.ts` (`CATALOGUE_NOTE`, `COVERAGE_NOTE`, …). The registry
+  has no trade values: never add or rank by any. `check_site.py` compares parties and country
+  coverage in every form with the table and the view.
+- A linked registry record (`intblock_id`, three or more parties) has the intblock's ID and reads
+  its parties from the intblock's `includes`; its `name` may be null upstream, so show `_name`.
+- Intblock aliases with `reason = moved`, `target_dataset = trade_agreements` (34 two-party FTAs in
+  v5.0.0) redirect `/blocks/{id}/` and its twins to `/agreements/{id}/`: `classify_aliases` sets
+  `target_section`, and alias pages, Markdown and JSON build the target URL from it.
 - `historical-country` roster entries reuse current codes (`DE` is the GDR in such rows): never
   link them to country cards, never count them as a country's memberships.
 - An intblock alias with reason `disambiguated` gets an explanation page, never a redirect; when
@@ -104,8 +120,9 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   advice, which describes crossings for travellers (a `closed` border may still carry freight):
   the card and its Markdown twin say so with `BORDER_EVIDENCE_NOTE` (`lib/design.ts`); do not
   call a border "closed to goods".
-- Block type `intorg` is deprecated (contract 4.1) and stays on 358 records, never first. Never
-  select intergovernmental organizations by block type; use `scope_category = 'igo'`. `eccurr`
+- Block type `intorg` is deprecated (contract 4.1) and stays on its records (contract 5.0 keeps
+  it), never first. Never select intergovernmental organizations by block type; use
+  `scope_category = 'igo'`. `eccurr`
   (`OECS`) and `cuscurr` (`CEMAC`, `UEMOA`) are deprecated from contract 4.4, last on their records;
   the type page links the replacements (`economic`/`customs` with `currency`). Type pages and
   cards mark deprecated types from the `blocktypes` table, so no code lists them by name.
@@ -135,7 +152,7 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   locator map has no links.
 - Behaviour shared by every page (theme, header menus, copy buttons, in-page navigation) is in
   `scripts/site.ts`, bundled with the finder. Do not add `is:inline` scripts to `Base.astro`
-  beyond the first-paint one in `<head>`: inline code is repeated in all ~3,300 pages.
+  beyond the first-paint one in `<head>`: inline code is repeated in all ~4,800 pages.
 - The organizations index filters with facets (`tables.ts`, `data-facets`, `data-url-state`). The
   facet counts in the HTML are for the default view (active only) and must follow the same rule
   as the script: a value counts the rows that pass every other filter.
@@ -154,10 +171,14 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   gets a `section` prop; alias, search and 404 pages must not get one. Tables, charts and maps
   are excluded from the index in the build script.
 - Social images (`src/lib/og.ts`) take about 50 ms each; keep their SVG simple. They use about
-  eight colours, so a smaller palette saves nothing. Site size is about 272 MB with v4.4.0
-  (target ≤ 300 MB, SPEC §10.3; it was 375 MB before indentation was removed); check
-  `du -sh site/dist` when adding per-entity files. Write per-entity JSON with
-  `json(body, false)`: indentation was a third of the API's bytes.
+  eight colours, so a smaller palette saves nothing. Trade agreement cards use the default image.
+  Site size is about 294 MB with v5.0.0, under the target of ≤ 300 MB (SPEC §10.3) by little:
+  the trade agreements registry added about 30 MB (313 MB; it was 272 MB with v4.4.0, 375 MB
+  before indentation was removed); check `du -sh site/dist` when adding per-entity files or
+  per-row markup. Write per-entity JSON with `json(body, false)`: indentation was a third of the
+  API's bytes. Anything per membership row is paid about 140,000 times (both cards of each edge):
+  status definitions are listed once under the table (`StatusDefs.astro`; `site.ts` makes them
+  the cells' tooltips), never a `title` per row, and JSON-LD list items carry no `ListItem`.
 - Coverage on the Statistics page follows internacia-db's `*_completeness.yaml` gates; records
   empty by design (`timezone_status`, `membership_applicability`) count as filled.
 - Tables with hundreds of rows use the `chunked` class: rows in `<tbody>` chunks with

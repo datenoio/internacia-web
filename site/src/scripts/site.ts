@@ -69,3 +69,19 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
   finder.focus();
 });
+
+// Membership status definitions (components/StatusDefs.astro) are listed once under their table;
+// here they also become the tooltip of each status cell. A title does not change the layout.
+document.querySelectorAll<HTMLElement>('[data-status-defs]').forEach((defs) => {
+  const table = document.getElementById(defs.dataset.statusDefs ?? '') as HTMLTableElement | null;
+  const col = table?.querySelector<HTMLTableCellElement>('thead [data-status-col]')?.cellIndex ?? -1;
+  if (!table || col < 0) return;
+  const text = new Map(
+    Array.from(defs.querySelectorAll<HTMLElement>('dt[data-key]'), (dt) => [dt.dataset.key ?? '', dt.nextElementSibling?.textContent?.trim() ?? '']),
+  );
+  table.querySelectorAll<HTMLTableRowElement>('tbody tr[data-status]').forEach((row) => {
+    const cell = row.cells[col];
+    const title = text.get(row.dataset.status ?? '');
+    if (cell && title) cell.title = title;
+  });
+});

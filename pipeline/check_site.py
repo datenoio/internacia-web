@@ -3,12 +3,15 @@
 
 Runs after `astro build`. Fails (exit 1) when any check fails:
 
-- count parity      one HTML card, Markdown twin and JSON twin per country and intblock
+- count parity      one HTML card, Markdown twin and JSON twin per country, intblock and trade
+                    agreement
 - roster parity     current members on each intblock card = rows in current_memberships
 - twin parity       HTML, Markdown and JSON carry the same current members / memberships
+- trade agreements  agreement parties and every country's trade agreements match the release's
+                    trade_agreement_parties table and country_trade_agreements view in every form
 - JSON validity     every API file parses, carries meta.data_version and matches its JSON Schema
 - internal links    every site-internal href/src points to a built file
-- redirects         every alias page points to an existing card
+- redirects         every alias page points to an existing card (moved IDs: an agreement card)
 - structured data   JSON-LD parses and has the expected @type on cards
 - guardrails        entity JSON adds only `_`-prefixed fields to internacia-db export fields
 - social images     every card names an og:image that exists and is a 1200×630 PNG
@@ -143,6 +146,7 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
     countries = json.loads((generated / "countries.json").read_text(encoding="utf-8"))
     blocks = json.loads((generated / "blocks.json").read_text(encoding="utf-8"))
     aliases = json.loads((generated / "aliases.json").read_text(encoding="utf-8"))["pages"]
+    agreements = json.loads((generated / "agreements.json").read_text(encoding="utf-8"))
     browse = {
         "types": (json.loads((generated / "types.json").read_text(encoding="utf-8")), "id", "type-blocks"),
         "topics": (json.loads((generated / "topics.json").read_text(encoding="utf-8")), "key", "topic-blocks"),
@@ -161,6 +165,13 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
         built = sum(1 for p in (dist / section).iterdir() if (p / "index.html").is_file())
         if built != expected:
             problems.append(f"{section}: {built} card folders, expected {expected} ({len(items)} records + aliases)")
+    for a in agreements:
+        for rel in (f"agreements/{a['id'].lower()}/index.html", f"agreements/{a['id'].lower()}.md", f"api/v1/agreements/{a['id']}.json"):
+            if not (dist / rel).is_file():
+                problems.append(f"missing {rel}")
+    built = sum(1 for p in (dist / "agreements").iterdir() if (p / "index.html").is_file())
+    if built != len(agreements):
+        problems.append(f"agreements: {built} card folders, expected {len(agreements)}")
     for section, (items, key, _) in browse.items():
         for item in items:
             ident = item[key]
@@ -220,6 +231,40 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
                 problems.append(f"{section} {ident}: JSON {len(j)}, HTML {len(h)}, Markdown {len(m)} intblocks differ")
     report.check("twin parity", problems)
 
+    # Trade agreements registry (contract 5.0): parties and country coverage in every form, against
+    # the release's own table and view
+    problems = []
+    with duckdb.connect(str(db), read_only=True) as con:
+        party_rows = con.execute("SELECT agreement_id, party_id FROM trade_agreement_parties WHERE status = 'party'").fetchall()
+        view_rows = con.execute("SELECT country_code, agreement_id, coalesce(via, '') FROM country_trade_agreements").fetchall()
+    parties_of: dict[str, set[str]] = {}
+    for agreement_id, party_id in party_rows:
+        parties_of.setdefault(agreement_id, set()).add(party_id)
+    covered_of: dict[str, set[tuple[str, str]]] = {}
+    for code, agreement_id, via in view_rows:
+        covered_of.setdefault(code, set()).add((agreement_id, via))
+    for a in agreements:
+        aid, slug = a["id"], a["id"].lower()
+        expected = parties_of.get(aid, set())
+        doc = json.loads((dist / f"api/v1/agreements/{aid}.json").read_text(encoding="utf-8"))
+        j = {p["id"] for p in doc["data"]["_parties"] if p["status"] == "party"}
+        h = {r["party"] for r in table_rows((dist / f"agreements/{slug}/index.html").read_text(encoding="utf-8"), "parties-table") if "party" in r}
+        m = md_section_ids((dist / f"agreements/{slug}.md").read_text(encoding="utf-8"), "Parties (")
+        if not (j == h == m == expected):
+            problems.append(f"agreement {aid}: parties differ (table {len(expected)}, JSON {len(j)}, HTML {len(h)}, Markdown {len(m)})")
+        if doc["data"]["_party_count"] != len(expected):
+            problems.append(f"agreement {aid}: _party_count {doc['data']['_party_count']}, table has {len(expected)}")
+    for country in countries:
+        code = country["code"]
+        expected = covered_of.get(code, set())
+        doc = json.loads((dist / f"api/v1/countries/{code}.json").read_text(encoding="utf-8"))
+        j = {(r["agreement_id"], r["via"] or "") for r in doc["data"]["_trade_agreements"]}
+        h = {(r["agreement"], r.get("via", "")) for r in table_rows((dist / f"countries/{code.lower()}/index.html").read_text(encoding="utf-8"), "trade-table") if "agreement" in r}
+        m = md_section_ids((dist / f"countries/{code.lower()}.md").read_text(encoding="utf-8"), "Trade agreements (")
+        if not (j == h == expected) or m != {i for i, _ in expected}:
+            problems.append(f"country {code}: trade agreements differ (view {len(expected)}, JSON {len(j)}, HTML {len(h)}, Markdown {len(m)})")
+    report.check("trade agreements", problems)
+
     # Contract 4.1 facts in every form: route roles (pipelines, corridors) and border status
     problems = []
     roles = json.loads((generated / "labels.json").read_text(encoding="utf-8")).get("include_roles", {})
@@ -277,7 +322,7 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
         parts = rel.split("/")
         if rel == "index.json":
             return "index"
-        if rel in ("countries.json", "blocks.json"):
+        if rel in ("countries.json", "blocks.json", "agreements.json"):
             return f"{rel.removesuffix('.json')}-list"
         if rel in ("aliases.json", "search-index.json", "stats.json", "memberships.json", "headquarters.json"):
             return rel.removesuffix(".json")
@@ -285,6 +330,8 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
             return f"{rel.removesuffix('.json')}-list"
         if len(parts) == 2 and parts[0] in ("types", "topics", "geography"):
             return {"types": "type", "topics": "topic", "geography": "area"}[parts[0]]
+        if len(parts) == 2 and parts[0] == "agreements":
+            return "agreement"
         if len(parts) == 2 and parts[0] in ("countries", "blocks"):
             ident = parts[1].removesuffix(".json")
             if (parts[0], ident) in alias_ids:
@@ -322,6 +369,7 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
     # Internal links, structured data
     link_problems, ld_problems = [], []
     country_dirs = {c["code"].lower() for c in countries}
+    agreement_dirs = {a["id"].lower() for a in agreements}
     block_types = {}
     for html_path in sorted(dist.rglob("*.html")):
         html = html_path.read_text(encoding="utf-8")
@@ -346,6 +394,8 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
                 ld_problems.append(f"{rel}: no Country node")
             if parts[0] == "blocks" and len(parts) == 3:
                 block_types[parts[1]] = types
+            if parts[0] == "agreements" and len(parts) == 3 and parts[1] in agreement_dirs and not types.get("Legislation"):
+                ld_problems.append(f"{rel}: no Legislation node")
     for b in blocks:
         types = block_types.get(b["id"].lower(), Counter())
         if not any(types.get(t) for t in ("GovernmentOrganization", "Organization", "DefinedTerm")):
@@ -363,6 +413,8 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
                 problems.append(f"{a['section']}/{a['alias']}: redirect page without meta refresh")
             elif not (dist / refresh.group(1)[len(base) :] / "index.html").is_file():
                 problems.append(f"{a['section']}/{a['alias']}: redirect target {refresh.group(1)} does not exist")
+            elif not refresh.group(1).startswith(f"{base}{a.get('target_section', a['section'])}/"):
+                problems.append(f"{a['section']}/{a['alias']}: redirect target {refresh.group(1)} is not in {a.get('target_section')}/")
         elif refresh:
             problems.append(f"{a['section']}/{a['alias']}: {a['kind']} page must not redirect")
     report.check("redirects", problems)
@@ -373,8 +425,10 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
         "countries": {k for r in read_jsonl_zst(assets / "countries.jsonl.zst") for k in r},
         "blocks": {k for r in read_jsonl_zst(assets / "intblocks.jsonl.zst") for k in r},
     }
+    with duckdb.connect(str(db), read_only=True) as con:
+        allowed["agreements"] = {r[0] for r in con.execute("SELECT column_name FROM information_schema.columns WHERE table_name = 'trade_agreements'").fetchall()}
     problems = []
-    for section, items, key in (("countries", countries, "code"), ("blocks", blocks, "id")):
+    for section, items, key in (("countries", countries, "code"), ("blocks", blocks, "id"), ("agreements", agreements, "id")):
         for item in items:
             doc = json.loads((dist / f"api/v1/{section}/{item[key]}.json").read_text(encoding="utf-8"))
             extra = sorted(k for k in doc["data"] if not k.startswith("_") and k not in allowed[section])
@@ -410,7 +464,7 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
     else:
         languages = json.loads(entry.read_text(encoding="utf-8")).get("languages", {})
         indexed = sum(lang.get("page_count", 0) for lang in languages.values())
-        expected_min = len(countries) + len(blocks)
+        expected_min = len(countries) + len(blocks) + len(agreements)
         if indexed < expected_min:
             problems.append(f"Pagefind indexed {indexed} pages, expected at least {expected_min} (every card)")
         for a in aliases:

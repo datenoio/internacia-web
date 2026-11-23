@@ -12,6 +12,8 @@ export const GET: APIRoute = () =>
       country: absolute(path('api/v1/countries/{CODE}.json')),
       blocks: absolute(path('api/v1/blocks.json')),
       block: absolute(path('api/v1/blocks/{ID}.json')),
+      agreements: absolute(path('api/v1/agreements.json')),
+      agreement: absolute(path('api/v1/agreements/{ID}.json')),
       aliases: absolute(path('api/v1/aliases.json')),
       types: absolute(path('api/v1/types.json')),
       type: absolute(path('api/v1/types/{KEY}.json')),
@@ -28,6 +30,7 @@ export const GET: APIRoute = () =>
     notes: [
       '{CODE} is the ISO 3166-1 alpha-2 code as in the data (uppercase); {ID} is the exact intblock ID (case-sensitive).',
       'Derived fields start with an underscore; every other field is an internacia-db export field.',
+      'Trade agreements are the internacia-db trade agreements registry (contract 5.0): parties, status, dates and catalogue IDs, no trade values. {ID} of an agreement is its exact registry ID. Two-party agreements that were intblocks before v5.0.0 keep their ID; their old block documents redirect to the agreement.',
       'Current members follow the current_memberships view of internacia-db: not former_member, no left date, intblock not historical or dissolved.',
     ],
     llms_txt: absolute(path('llms.txt')),
