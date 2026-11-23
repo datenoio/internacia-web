@@ -10,7 +10,9 @@
 //     data-facets="EL"           more controls in element EL (a side panel):
 //                                input[type=checkbox][data-facet="<attr>"][value="<v>"] (values of
 //                                one facet are OR, facets are AND; each has a .facet-count that is
-//                                recounted after every change), input[data-range="<attr>"]
+//                                recounted after every change; in a fieldset[data-facet-group]
+//                                [data-facet-match="all"] a row must have every checked value),
+//                                input[data-range="<attr>"]
 //                                [data-bound="min|max"] (a year range on data-<attr>)
 //     data-url-state             the filters are kept in the query string, so a filtered list
 //                                can be shared and reloaded
@@ -60,6 +62,7 @@ function setup(tools: HTMLElement) {
   const checks = all<HTMLInputElement>('input[type="checkbox"][data-filter]');
   const boxes = all<HTMLInputElement>('input[type="checkbox"][data-facet]');
   const groups = [...new Set(boxes.map((b) => b.dataset.facet!))];
+  const matchAll = new Set(all<HTMLFieldSetElement>('fieldset[data-facet-match="all"]').map((f) => f.dataset.facetGroup!));
   const ranges = all<HTMLInputElement>('input[data-range]');
   const count = tools.querySelector<HTMLElement>('[data-count]');
   const rowSelector = 'tbody tr:not(.group)';
@@ -175,7 +178,8 @@ function setup(tools: HTMLElement) {
   };
 
   // Facet counts: a value counts the rows that pass every filter except its own facet, so the
-  // reader sees what each further choice would show.
+  // reader sees what each further choice would show. In a match-all facet a further value narrows
+  // the list, so it counts the shown rows that have it.
   const recount = (counts: Map<string, Map<string, number>>) => {
     for (const box of boxes) {
       const n = counts.get(box.dataset.facet!)?.get(box.value) ?? 0;
@@ -258,7 +262,9 @@ function setup(tools: HTMLElement) {
       let fails = 0;
       let failing = '';
       for (const [g, wanted] of picked) {
-        if (wanted.length && !values(row, g).some((v) => wanted.includes(v))) {
+        if (!wanted.length) continue;
+        const have = values(row, g);
+        if (!(matchAll.has(g) ? wanted.every((v) => have.includes(v)) : have.some((v) => wanted.includes(v)))) {
           fails += 1;
           failing = g;
         }
@@ -268,7 +274,7 @@ function setup(tools: HTMLElement) {
       // Rows hidden by a checkbox filter (CSS) do not count.
       if (groups.length && base && checked.every((b) => row.dataset[b.dataset.filter!] === b.dataset.value)) {
         if (fails === 0) groups.forEach((g) => add(g, row));
-        else if (fails === 1) add(failing, row);
+        else if (fails === 1 && !matchAll.has(failing)) add(failing, row);
       }
     }
     table.querySelectorAll<HTMLTableSectionElement>('tbody').forEach((body) => {

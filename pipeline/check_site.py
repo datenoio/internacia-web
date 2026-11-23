@@ -8,7 +8,8 @@ Runs after `astro build`. Fails (exit 1) when any check fails:
 - roster parity     current members on each intblock card = rows in current_memberships
 - twin parity       HTML, Markdown and JSON carry the same current members / memberships
 - trade agreements  agreement parties and every country's trade agreements match the release's
-                    trade_agreement_parties table and country_trade_agreements view in every form
+                    trade_agreement_parties table and country_trade_agreements view in every form;
+                    each index row's countries covered (its filter) match the view
 - JSON validity     every API file parses, carries meta.data_version and matches its JSON Schema
 - internal links    every site-internal href/src points to a built file
 - redirects         every alias page points to an existing card (moved IDs: an agreement card)
@@ -241,8 +242,18 @@ def run(dist: Path, generated: Path, lock_path: Path, cache_root: Path) -> Repor
     for agreement_id, party_id in party_rows:
         parties_of.setdefault(agreement_id, set()).add(party_id)
     covered_of: dict[str, set[tuple[str, str]]] = {}
+    countries_of: dict[str, set[str]] = {}
     for code, agreement_id, via in view_rows:
         covered_of.setdefault(code, set()).add((agreement_id, via))
+        countries_of.setdefault(agreement_id, set()).add(code)
+    # The index filters on the countries each row covers (data-countries): the view's rows.
+    index_rows = {r["agreement"]: r for r in table_rows((dist / "agreements/index.html").read_text(encoding="utf-8"), "agreements-table") if "agreement" in r}
+    for a in agreements:
+        row = index_rows.get(a["id"])
+        if row is None:
+            problems.append(f"agreements index: no row for {a['id']}")
+        elif set(filter(None, row.get("countries", "").split("|"))) != countries_of.get(a["id"], set()):
+            problems.append(f"agreements index {a['id']}: countries covered differ from the view")
     for a in agreements:
         aid, slug = a["id"], a["id"].lower()
         expected = parties_of.get(aid, set())

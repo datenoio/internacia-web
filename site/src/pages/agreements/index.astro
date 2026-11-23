@@ -1,6 +1,7 @@
 ---
-// Trade agreements registry index (contract 5.0, SPEC §6.14). Every record, with filters by status,
-// type and verification level; the counts above the table are a server-rendered summary.
+// Trade agreements registry index (contract 5.0, SPEC §6.14). Every record, with facets for the
+// countries covered, status, type, number of parties and verification level; the counts above the
+// table are a server-rendered summary whose values link to the matching filter.
 import BarList from '../../components/BarList.astro';
 import Base from '../../layouts/Base.astro';
 import {
@@ -10,11 +11,14 @@ import {
   byStatusOrder,
   groupCounts,
 } from '../../lib/agreements';
-import { agreements } from '../../lib/data';
+import { agreements, countryByCode } from '../../lib/data';
 import { enumLabel, num } from '../../lib/format';
 import { meta } from '../../lib/meta';
 import { agreementPath, path } from '../../lib/urls';
 
+type Row = ReturnType<typeof agreements>[number];
+
+const NONE = '_none';
 const rows = agreements().slice().sort((a, b) => a._name.localeCompare(b._name) || a.id.localeCompare(b.id));
 const byStatus = groupCounts(rows, (a) => a.status).sort((x, y) => byStatusOrder(x[0], y[0]));
 const byType = groupCounts(rows, (a) => a.agreement_type).sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0]));
@@ -22,6 +26,59 @@ const byVerification = groupCounts(rows, (a) => a.verification).sort((x, y) => y
 const bilateral = rows.filter((a) => a._party_count === 2).length;
 const linked = rows.filter((a) => a._block?.exists).length;
 const inForce = rows.filter((a) => a.status === 'in_force').length;
+
+// Countries covered: the country_trade_agreements view's rows for the agreement (current coverage,
+// a bloc party expanded to its current members), the same as the card's "Countries covered".
+const covered = (a: Row) => [...new Set(a._countries.map((c) => c.code))].sort();
+const partiesBucket = (a: Row) => (a._party_count >= 3 ? 'three-plus' : a._party_count === 2 ? 'two' : a._party_count === 1 ? 'one' : 'none');
+const PARTIES_LABELS: Record<string, string> = { two: 'Two', 'three-plus': 'Three or more', one: 'One', none: 'None recorded' };
+const verificationLabel = (v: string) => (v === 'catalogue' ? 'Catalogue' : v === 'official' ? 'Official sources' : enumLabel('verification', v));
+const notSet = (label: (v: string) => string) => (v: string) => (v === NONE ? 'Not set' : label(v));
+
+// Facet options with their counts for the unfiltered list; scripts/tables.ts recounts them after
+// every change. Values of a facet combine with OR, except "Countries covered" (data-facet-match
+// "all"): an agreement must cover every checked country.
+const valuesOf: Record<string, (a: Row) => string[]> = {
+  countries: covered,
+  status: (a) => [a.status ?? NONE],
+  type: (a) => [a.agreement_type ?? NONE],
+  parties: (a) => [partiesBucket(a)],
+  verification: (a) => [a.verification ?? NONE],
+};
+const countBy = (key: string) => {
+  const m = new Map<string, number>();
+  for (const a of rows) for (const v of valuesOf[key](a)) m.set(v, (m.get(v) ?? 0) + 1);
+  return m;
+};
+const countryName = (code: string) => countryByCode().get(code)?.name ?? code;
+const options = (key: string, label: (v: string) => string, order: (a: [string, number], b: [string, number]) => number) =>
+  [...countBy(key).entries()].sort(order).map(([value, count]) => ({ value, label: label(value), count }));
+const byCount = (a: [string, number], b: [string, number]) => b[1] - a[1] || a[0].localeCompare(b[0]);
+const facets = [
+  {
+    key: 'countries',
+    legend: 'Countries covered',
+    hint: 'Agreements that cover every checked country, directly or through a bloc that is a party.',
+    match: 'all',
+    options: options('countries', countryName, byCount),
+    top: 8,
+    find: 'Find a country',
+  },
+  { key: 'status', legend: 'Status', options: options('status', notSet(agreementStatusLabel), (a, b) => byStatusOrder(a[0], b[0])), top: 0 },
+  { key: 'type', legend: 'Type', options: options('type', notSet(agreementTypeLabel), byCount), top: 0 },
+  {
+    key: 'parties',
+    legend: 'Parties',
+    hint: 'A bloc that is a party, such as the European Union, counts as one.',
+    options: options('parties', (v) => PARTIES_LABELS[v] ?? v, (a, b) => Object.keys(PARTIES_LABELS).indexOf(a[0]) - Object.keys(PARTIES_LABELS).indexOf(b[0])),
+    top: 0,
+  },
+  { key: 'verification', legend: 'Verification', options: options('verification', notSet(verificationLabel), byCount), top: 0 },
+];
+
+// The summary's values link to the list with that filter set (the query string is the filter state).
+const listHref = (key: string, value: string) => `${path('agreements/')}?${key}=${encodeURIComponent(value || NONE)}#list`;
+const lowerFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 const CHUNK = 100;
 const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => rows.slice(i * CHUNK, (i + 1) * CHUNK));
 ---
@@ -48,83 +105,138 @@ const chunks = Array.from({ length: Math.ceil(rows.length / CHUNK) }, (_, i) => 
     <div class="grid-2">
       <div>
         <h2>By status</h2>
-        <BarList items={byStatus.map(([s, n]) => ({ label: agreementStatusLabel(s) || 'Not set', value: n }))} label="Trade agreements by status" />
+        <BarList
+          items={byStatus.map(([s, n]) => ({ label: agreementStatusLabel(s) || 'Not set', value: n, href: listHref('status', s) }))}
+          label="Trade agreements by status"
+        />
       </div>
       <div>
         <h2>By type</h2>
-        <BarList items={byType.map(([t, n]) => ({ label: agreementTypeLabel(t) || 'Not set', value: n }))} label="Trade agreements by type" />
+        <BarList
+          items={byType.map(([t, n]) => ({ label: agreementTypeLabel(t) || 'Not set', value: n, href: listHref('type', t) }))}
+          label="Trade agreements by type"
+        />
         <p class="muted small">
-          {byVerification.map(([v, n]) => `${num(n)} ${enumLabel('verification', v).toLowerCase()}`).join('; ') + '.'}
+          {byVerification.map(([v, n], i) => <>{i > 0 && '; '}<a href={listHref('verification', v)}>{`${num(n)} ${lowerFirst(enumLabel('verification', v) || 'not set')}`}</a></>)}.
         </p>
       </div>
     </div>
   </section>
 
-  <section class="container">
+  <section class="container" id="list">
     <h2>All trade agreements</h2>
-    <div class="filters js-only" data-table-tools="agreements-table" data-url-state>
-      <label>Search<input type="search" data-filter="text" placeholder="Name, acronym or ID" /></label>
-      <label>
-        Status
-        <select data-filter="status">
-          <option value="">All</option>
-          {byStatus.map(([s]) => <option value={s}>{agreementStatusLabel(s)}</option>)}
-        </select>
-      </label>
-      <label>
-        Type
-        <select data-filter="type">
-          <option value="">All</option>
-          {byType.map(([t]) => <option value={t}>{agreementTypeLabel(t)}</option>)}
-        </select>
-      </label>
-      <label>
-        Verification
-        <select data-filter="verification">
-          <option value="">All</option>
-          {byVerification.map(([v]) => <option value={v}>{v === 'catalogue' ? 'Catalogue' : 'Official sources'}</option>)}
-        </select>
-      </label>
-      <span class="count" data-count aria-live="polite"></span>
+    <div class="list-layout">
+      <aside class="facets js-only" id="agreement-facets" aria-label="Filters">
+        <div class="facets-body" data-facets-body>
+          {
+            facets.map((f) => (
+              <fieldset class="facet" data-facet-group={f.key} data-facet-match={f.match}>
+                <legend>{f.legend}</legend>
+                {f.hint && <p class="facet-hint">{f.hint}</p>}
+                {f.top > 0 && f.options.length > f.top && (
+                  <input
+                    type="search"
+                    class="facet-filter"
+                    data-facet-filter
+                    placeholder={f.find ?? `Filter ${f.options.length} values`}
+                    aria-label={`Filter ${f.legend.toLowerCase()} values`}
+                  />
+                )}
+                {f.options.map((o, i) => (
+                  <label class={`cb${f.top > 0 && i >= f.top ? ' extra' : ''}${o.count === 0 ? ' is-zero' : ''}`}>
+                    <input type="checkbox" data-facet={f.key} value={o.value} data-label={o.label} />
+                    <span class="cb-label">{o.label}</span>
+                    <span class="facet-count">{num(o.count)}</span>
+                  </label>
+                ))}
+                {f.top > 0 && f.options.length > f.top && (
+                  <button type="button" class="facet-more" data-facet-more data-more={`Show all ${f.options.length}`} data-less={`Show top ${f.top}`}>
+                    {`Show all ${f.options.length}`}
+                  </button>
+                )}
+              </fieldset>
+            ))
+          }
+        </div>
+      </aside>
+
+      <div class="list-main">
+        <div class="filters js-only" data-table-tools="agreements-table" data-facets="agreement-facets" data-url-state>
+          <label>Search<input type="search" data-filter="text" placeholder="Name, acronym or ID" /></label>
+          <button type="button" class="filters-open" data-facets-open aria-haspopup="dialog">Filters</button>
+          <span class="count" data-count aria-live="polite"></span>
+          <div class="active-filters" hidden></div>
+          <script is:inline>
+            // A shared link with filters gets its chip row before the first paint (tables.ts fills it),
+            // and the rows stay invisible until the filters are applied, so they do not jump. Should
+            // the script not run, the rows show after three seconds anyway.
+            if (location.search.length > 1) {
+              const row = document.currentScript.previousElementSibling;
+              row.hidden = false;
+              row.classList.add('reserve');
+              document.documentElement.classList.add('list-pending');
+              setTimeout(() => document.documentElement.classList.remove('list-pending'), 3000);
+            }
+          </script>
+        </div>
+        <div class="table-wrap">
+          <table class="data chunked" id="agreements-table" role="table" data-chunk={CHUNK}>
+            <caption class="muted small" style="text-align:left;padding:0.5rem 0.65rem">
+              Trade agreements in internacia-db v{meta.data.version}
+            </caption>
+            <thead role="rowgroup">
+              <tr role="row">
+                <th role="columnheader" scope="col" data-sort="text">Name</th>
+                <th role="columnheader" scope="col" data-sort="text">Type</th>
+                <th role="columnheader" scope="col" data-sort="text">Status</th>
+                <th role="columnheader" scope="col" data-sort="text">Signed</th>
+                <th role="columnheader" scope="col" data-sort="text">In force</th>
+                <th role="columnheader" scope="col" class="num" data-sort="num">Parties</th>
+              </tr>
+            </thead>
+            {
+              chunks.map((chunk) => (
+                <tbody role="rowgroup">
+                  {chunk.map((a) => (
+                    <tr
+                      role="row"
+                      data-agreement={a.id}
+                      data-status={a.status ?? NONE}
+                      data-type={a.agreement_type ?? NONE}
+                      data-parties={partiesBucket(a)}
+                      data-verification={a.verification ?? NONE}
+                      data-countries={covered(a).join('|')}
+                    >
+                      <td role="cell" data-value={a._name}>
+                        <a href={agreementPath(a.id)}>{a._name}</a>
+                        {a._acronym && <span class="muted"> ({a._acronym})</span>}
+                        {a.id !== a._acronym && <code class="inline-id">{a.id}</code>}
+                        {a.verification === 'catalogue' && <span class="muted small"> catalogue</span>}
+                      </td>
+                      <td role="cell" data-label="Type">{agreementTypeLabel(a.agreement_type)}</td>
+                      <td role="cell" data-label="Status">{agreementStatusLabel(a.status)}</td>
+                      <td role="cell" class="date" data-label="Signed">{a.signed}</td>
+                      <td role="cell" class="date" data-label="In force">{a.in_force}</td>
+                      <td role="cell" class="num" data-label="Parties">{num(a._party_count)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              ))
+            }
+          </table>
+        </div>
+      </div>
     </div>
-    <div class="table-wrap">
-      <table class="data chunked" id="agreements-table" role="table" data-chunk={CHUNK}>
-        <caption class="muted small" style="text-align:left;padding:0.5rem 0.65rem">
-          Trade agreements in internacia-db v{meta.data.version}
-        </caption>
-        <thead role="rowgroup">
-          <tr role="row">
-            <th role="columnheader" scope="col" data-sort="text">Name</th>
-            <th role="columnheader" scope="col" data-sort="text">Type</th>
-            <th role="columnheader" scope="col" data-sort="text">Status</th>
-            <th role="columnheader" scope="col" data-sort="text">Signed</th>
-            <th role="columnheader" scope="col" data-sort="text">In force</th>
-            <th role="columnheader" scope="col" class="num" data-sort="num">Parties</th>
-          </tr>
-        </thead>
-        {
-          chunks.map((chunk) => (
-            <tbody role="rowgroup">
-              {chunk.map((a) => (
-                <tr role="row" data-agreement={a.id} data-status={a.status ?? ''} data-type={a.agreement_type ?? ''} data-verification={a.verification ?? ''}>
-                  <td role="cell" data-value={a._name}>
-                    <a href={agreementPath(a.id)}>{a._name}</a>
-                    {a._acronym && <span class="muted"> ({a._acronym})</span>}
-                    {a.id !== a._acronym && <code class="inline-id">{a.id}</code>}
-                    {a.verification === 'catalogue' && <span class="muted small"> catalogue</span>}
-                  </td>
-                  <td role="cell" data-label="Type">{agreementTypeLabel(a.agreement_type)}</td>
-                  <td role="cell" data-label="Status">{agreementStatusLabel(a.status)}</td>
-                  <td role="cell" class="date" data-label="Signed">{a.signed}</td>
-                  <td role="cell" class="date" data-label="In force">{a.in_force}</td>
-                  <td role="cell" class="num" data-label="Parties">{num(a._party_count)}</td>
-                </tr>
-              ))}
-            </tbody>
-          ))
-        }
-      </table>
-    </div>
+    <dialog class="facet-sheet" data-facet-sheet aria-labelledby="facet-sheet-title">
+      <div class="facet-sheet-head">
+        <h2 id="facet-sheet-title">Filters</h2>
+        <button type="button" data-sheet-close>Close</button>
+      </div>
+      <div data-sheet-slot></div>
+      <div class="facet-sheet-foot">
+        <button type="button" class="pri" data-sheet-close data-sheet-done>Show results</button>
+      </div>
+    </dialog>
   </section>
   <script>
     import '../../scripts/tables.ts';

@@ -936,7 +936,14 @@ table.chunked td {
   min-width: 52rem;
 }
 
-/* List with a facet panel (organizations index). From 75rem the panel is a sticky column beside
+/* Every chunked table needs its own --cols: without one each row is a single column, one cell per
+   line (scripts/audit.mjs fails on that). */
+#agreements-table {
+  --cols: minmax(14rem, 3fr) minmax(8rem, 1.4fr) 8.5rem 6.5rem 6.5rem 5rem;
+  min-width: 49rem;
+}
+
+/* List with a facet panel (organizations and trade agreements indexes). From 75rem the panel is a sticky column beside
    the table; below, a "Filters" button opens the same controls in a modal sheet. */
 .list-layout {
   display: block;
@@ -991,6 +998,12 @@ table.chunked td {
   padding: 0;
   margin-bottom: var(--space-2);
   font-weight: 600;
+}
+
+.facet-hint {
+  margin: 0 0 var(--space-2);
+  font-size: 0.82rem;
+  color: var(--color-muted);
 }
 
 .facet .cb {
@@ -1144,14 +1157,15 @@ table.chunked td {
   border-color: var(--color-accent);
 }
 
-/* Phones: the organizations list reads as cards (name on top, labelled facts below). The table
-   roles and the header stay for assistive technology; the header is only visually hidden. */
+/* Phones: the organizations and trade agreements lists read as cards (name on top, labelled facts
+   below). The table roles and the header stay for assistive technology; the header is only
+   visually hidden. */
 @media (max-width: 40rem) {
-  #blocks-table {
+  :is(#blocks-table, #agreements-table) {
     min-width: 0;
   }
 
-  #blocks-table thead {
+  :is(#blocks-table, #agreements-table) thead {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -1159,33 +1173,33 @@ table.chunked td {
     clip: rect(0 0 0 0);
   }
 
-  #blocks-table tr {
+  :is(#blocks-table, #agreements-table) tr {
     grid-template-columns: 1fr 1fr;
     gap: 0.1rem var(--space-3);
     padding: 0.6rem 0.75rem;
     border-bottom: 1px solid var(--color-border);
   }
 
-  #blocks-table td {
+  :is(#blocks-table, #agreements-table) td {
     padding: 0;
     border: 0;
     font-size: 0.85rem;
     text-align: left;
   }
 
-  #blocks-table td:first-child {
+  :is(#blocks-table, #agreements-table) td:first-child {
     grid-column: 1 / -1;
     position: static;
     margin-bottom: 0.2rem;
     font-size: 0.95rem;
   }
 
-  #blocks-table td[data-label]::before {
+  :is(#blocks-table, #agreements-table) td[data-label]::before {
     content: attr(data-label) ' ';
     color: var(--color-muted);
   }
 
-  #blocks-table td:empty {
+  :is(#blocks-table, #agreements-table) td:empty {
     display: none;
   }
 }
