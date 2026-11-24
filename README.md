@@ -27,8 +27,8 @@ Address: <https://internacia.io/> (the old <https://datenoio.github.io/internaci
   `llms.txt`, and schema.org JSON-LD.
 - Widgets for other sites: the membership map of an organization and the memberships of a
   country, as an iframe or the `<internacia-embed>` web component.
-- Hosting on GitHub Pages under its own domain, rebuilt from pinned internacia-db releases; a move
-  to a dedicated server is prepared (`deploy/ax42/`, SPEC §11.4).
+- Hosting on a dedicated server under its own domain (`deploy/ax42/`, SPEC §11.4), with GitHub
+  Pages as fallback, rebuilt from pinned internacia-db releases.
 
 ## Build locally
 

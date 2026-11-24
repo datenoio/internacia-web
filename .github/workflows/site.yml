@@ -113,8 +113,7 @@ jobs:
   # The same build, to the AX42 server (SPEC §11.4). Inactive until the repository variable
   # AX42_HOST (the server's IPv4 address) is set. AX42_KNOWN_HOSTS pins the server's host key;
   # the ax42 environment's secret AX42_SSH_KEY is a key that can only run internacia-receive.
-  # AX42_SITE_HOST is the address checked after the upload (default internacia.io; next.internacia.io
-  # until DNS moves).
+  # AX42_SITE_HOST, if set, is the address checked after the upload (default internacia.io).
   deploy-ax42:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AX42_HOST != ''
     needs: build

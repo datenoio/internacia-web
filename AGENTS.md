@@ -19,8 +19,8 @@ redirects from the intblock IDs that moved there. Data v5.1.0 (contract 5.1) wid
 to 5,195 records (investment treaties, trade relations agreements, preference schemes with grantor
 and beneficiary roles) and adds provisional application, sub-schemes and instruments. Next are
 interface translations (M3b)
-([SPEC §13](docs/SPEC.md#13-milestones)). The move from GitHub Pages to a dedicated server is
-prepared ([SPEC §11.4](docs/SPEC.md#114-dedicated-server-ax42)); Pages serves the site until DNS moves.
+([SPEC §13](docs/SPEC.md#13-milestones)). Since 2026-11-23 a dedicated server serves the site
+([SPEC §11.4](docs/SPEC.md#114-dedicated-server-ax42)); GitHub Pages still deploys every build as the fallback.
 
 ## Rules
 

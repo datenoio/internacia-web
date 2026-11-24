@@ -6,7 +6,7 @@
 | **Date** | 2026-11-19 |
 | **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v5.1.0 (contract 5.1) |
 | **Owner** | Dateno ([datenoio](https://github.com/datenoio)) |
-| **Hosting** | GitHub Pages, custom domain `internacia.io` (written as `<DOMAIN>` in §11.2); moving to a dedicated server ([§11.4](#114-dedicated-server-ax42)) |
+| **Hosting** | Dedicated server ([§11.4](#114-dedicated-server-ax42)) since 2026-11-23, custom domain `internacia.io` (written as `<DOMAIN>` in §11.2); GitHub Pages as fallback |
 
 ## 1. Summary
 
@@ -41,8 +41,8 @@ All corrections go to internacia-db.
 6. **Stay honest about provenance.** Every page states the data version, links to sources and
    to the record in internacia-db, and carries the CC BY 4.0 attribution.
 7. **Cost nothing extra to run.** Static output only, built by GitHub Actions and served as plain
-   files: by GitHub Pages, and after the move by a dedicated server the maintainers already run
-   for other projects ([§11.4](#114-dedicated-server-ax42)).
+   files by a dedicated server the maintainers already run for other projects
+   ([§11.4](#114-dedicated-server-ax42)), with GitHub Pages as fallback.
 
 ### 2.2 Non-goals
 
@@ -864,8 +864,8 @@ checks (§12) ──► deploy to GitHub Pages
 
 ### 11.1 GitHub Pages
 
-Pages serves the site until DNS moves to the dedicated server of [§11.4](#114-dedicated-server-ax42),
-and stays the fallback after.
+Since 2026-11-23 the dedicated server of [§11.4](#114-dedicated-server-ax42) serves the site. Pages
+still deploys every build and is the fallback.
 
 - Deploy with `actions/upload-pages-artifact` and `actions/deploy-pages` from the `main` branch.
 - Pull requests build the site and upload it as a workflow artifact for review. They do not deploy.
@@ -911,10 +911,10 @@ keep working. Until the domain existed, the site deployed there with a `noindex`
 
 ### 11.4 Dedicated server (AX42)
 
-The site moves from GitHub Pages to a Hetzner AX42 dedicated server: room to grow (interface
-translations, M3b, take the site past the 1 GB limit of Pages) and control of HTTP behaviour. The
-maintainers run other projects on the same server, and its Caddy serves them too. Files are in
-[`deploy/ax42/`](../deploy/ax42/); the steps are in its README.
+The site moved from GitHub Pages to a Hetzner AX42 dedicated server on 2026-11-23: room to grow
+(interface translations, M3b, take the site past the 1 GB limit of Pages) and control of HTTP
+behaviour. The maintainers run other projects on the same server, and its Caddy serves them too.
+Files are in [`deploy/ax42/`](../deploy/ax42/); the steps are in its README.
 
 - **Serving.** Caddy, in Docker, serves `/srv/internacia/current` read-only, with Let's Encrypt
   certificates. `deploy/ax42/caddy/internacia-site.caddy` gives the responses Pages gave:
@@ -932,21 +932,21 @@ maintainers run other projects on the same server, and its Caddy serves them too
   symlink atomically and keeps five releases. `rollback` makes the previous release live; `list`
   shows them. The job then checks that the server returns this build's `index.html`.
 - **Configuration.** Repository variables `AX42_HOST` (IPv4 address), `AX42_KNOWN_HOSTS` (the
-  pinned host key) and `AX42_SITE_HOST` (address the job checks: `next.internacia.io` until DNS
-  moves); environment `ax42` with the secret `AX42_SSH_KEY`. Without `AX42_HOST` the job does not
-  run. Neither the address nor a key is in the repository.
-- **Move.** Test on `next.internacia.io`, then point `internacia.io` (A and AAAA, Cloudflare DNS
-  only) at the server. Pages keeps deploying in parallel, so moving back is a DNS change to the
-  records of §11.2. The Pages site stays published after the move: it redirects the former address
-  `datenoio.github.io/internacia-web/`.
+  pinned host key) and, optionally, `AX42_SITE_HOST` (address the job checks, default
+  `internacia.io`; it was `next.internacia.io` before the move); environment `ax42` with the
+  secret `AX42_SSH_KEY`. Without `AX42_HOST` the job does not run. Neither the address nor a key
+  is in the repository.
+- **Move.** Tested on `next.internacia.io`, then `internacia.io` (A and AAAA, Cloudflare DNS
+  only) pointed at the server. Pages keeps deploying in parallel, so moving back is a DNS change to
+  the records of §11.2. The Pages site stays published after the move: it redirects the former
+  address `datenoio.github.io/internacia-web/`.
 - **Trade-offs.** One server in Falkenstein instead of the Pages CDN. Uptime, patches and
   monitoring are the maintainers' job, and the Caddy is shared with other sites. The site needs no
   backup: git and the pinned release rebuild it.
-- **State (2026-11-23).** Prepared: the deploy user, `/srv/internacia`, `internacia-receive` (a
-  build of `666b5e1` received and tested), the read-only mount in Caddy, and
-  `next.internacia.io` (A record only) serving that build with the same headers as Pages; search,
-  maps and widgets checked in a browser; the repository settings. Not done: a deploy by the
-  workflow (it runs once this change is on `main`), the DNS move.
+- **State (2026-11-23).** The server serves `internacia.io` over IPv4 and IPv6 from 21:30 CET,
+  with a Let's Encrypt certificate. The first workflow deploy (`dc4818b`: 34,882 files, 462 MB)
+  passed, and the server returned the same files as Pages. The test address `next.internacia.io` is
+  gone from Caddy. The former address `datenoio.github.io/internacia-web/` still redirects.
 
 ## 12. Quality assurance and acceptance
 
