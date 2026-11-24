@@ -71,19 +71,21 @@ Run the audit and spot checks against it. It serves the same files as internacia
   No other copy of the key is kept: to replace it, make a new one, run `setup.sh` with its public
   half and set the secret again.
 - Variables: `AX42_HOST` (IPv4 address), `AX42_KNOWN_HOSTS` (`<address> ssh-ed25519 AAAA…`, the
-  server's `/etc/ssh/ssh_host_ed25519_key.pub`, checked against the provider's handover), and
-  `AX42_SITE_HOST=next.internacia.io`.
+  server's `/etc/ssh/ssh_host_ed25519_key.pub`, checked against the provider's handover), and,
+  before the move only, `AX42_SITE_HOST=next.internacia.io`.
 
-The `deploy-ax42` job runs from the next push to `main`, next to the Pages deploy. It fails if
-the upload is refused, or if the server does not return this build's `index.html` at
-`AX42_SITE_HOST`.
+The `deploy-ax42` job runs on every push to `main`, next to the Pages deploy. It fails if the
+upload is refused, or if the server does not return this build's `index.html` at `AX42_SITE_HOST`
+(default `internacia.io`).
 
-## 5. Moving DNS
+## 5. Moving DNS (done 2026-11-23)
 
 1. In Cloudflare, replace the `internacia.io` A and AAAA records (GitHub Pages, SPEC §11.2) with
-   the server's addresses, DNS only.
-2. On the server, replace `import internacia/next.caddy` with `import internacia/internacia.caddy`.
-   Then restart Caddy, so that it requests the certificate at once: `docker compose restart caddy`.
+   the server's addresses, DNS only. Replace both: with an AAAA record still at Pages, Let's
+   Encrypt validates over IPv6 and fails.
+2. On the server, once both Cloudflare name servers give the new addresses, add
+   `import internacia/internacia.caddy` and reload Caddy. A reload requests the certificate at
+   once (it took 7 s).
 3. Delete the variable `AX42_SITE_HOST`; the job then checks `internacia.io`. Delete the
    `next.internacia.io` records and `next.caddy`.
 4. Keep the Pages deploy until the server has run for a while. Moving back is step 1 in reverse.
