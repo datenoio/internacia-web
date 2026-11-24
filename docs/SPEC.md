@@ -825,12 +825,13 @@ checks (§12) ──► deploy to GitHub Pages
 ```
 
 - Target build time on GitHub Actions: ≤ 10 minutes.
-- Output size target: ≤ 450 MB (GitHub Pages limit is 1 GB; it holds while Pages is the host or
-  the fallback, [§11.4](#114-dedicated-server-ax42)); it was ≤ 300 MB until v5.1.0. With
+- Output size target: ≤ 1 GB, the GitHub Pages limit, which holds while Pages is the fallback
+  ([§11.4](#114-dedicated-server-ax42)). It was ≤ 300 MB until v5.1.0 and ≤ 450 MB in v5.1.0;
+  with v5.2.0 it was raised to 1 GB rather than trimming the site. With
   v5.2.0 the site is about 445 MB (`du -sh site/dist`; 386 MB of file content): trade agreement
   cards 93 MB, API 91 MB, blocks 90 MB, countries 54 MB, social images 50 MB, Pagefind 33 MB,
-  widgets 22 MB. Data alone (168 more intblocks, 114 more agreements) added 18 MB, so the next
-  releases will pass the target unless the site is trimmed. With v5.1.0 it was about 427 MB
+  widgets 22 MB. Data alone (168 more intblocks, 114 more agreements) added 18 MB. With v5.1.0 it
+  was about 427 MB
   (356 MB of file content): trade agreement cards 92 MB, API 88 MB, blocks 84 MB, countries 53 MB,
   social images 45 MB, Pagefind 32 MB, widgets 21 MB. The trade agreements registry grew from 839 to 5,195 records (3,503 investment
   treaties), and one card per record (§1, goal 2) cannot stay under 300 MB: a small agreement card

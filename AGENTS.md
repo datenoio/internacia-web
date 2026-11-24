@@ -204,9 +204,10 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   are excluded from the index in the build script.
 - Social images (`src/lib/og.ts`) take about 50 ms each; keep their SVG simple. They use about
   eight colours, so a smaller palette saves nothing. Trade agreement cards use the default image.
-  Site size is about 445 MB with v5.2.0 (386 MB of file content), 5 MB under the target of
-  ≤ 450 MB (SPEC §10.3), raised from 300 MB when the registry grew from 839 to 5,195 records:
-  agreement cards take 93 MB, each card with its twin 16 KB on disk (it was 427 MB with v5.1.0,
+  Site size is about 445 MB with v5.2.0 (386 MB of file content), under the target of ≤ 1 GB
+  (SPEC §10.3), the GitHub Pages limit: raised from 300 MB to 450 MB when the registry grew from
+  839 to 5,195 records, and to 1 GB with v5.2.0 instead of trimming the site. Agreement cards
+  take 93 MB, each card with its twin 16 KB on disk (it was 427 MB with v5.1.0,
   data alone added 18 MB with v5.2.0; 294 MB with v5.0.0, 272 MB with
   v4.4.0, 375 MB before indentation was removed); check `du -sh site/dist` when adding per-entity
   files or per-row markup. Write per-entity JSON with `json(body, false)`: indentation was a third of the
