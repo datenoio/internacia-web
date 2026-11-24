@@ -19,8 +19,8 @@ Address: <https://internacia.io/> (the old <https://datenoio.github.io/internaci
 
 ## What the site will offer
 
-- A card for every country and territory (256), organization or grouping (1,606), trade agreement
-  (5,195), block type (83) and topic (154) in internacia-db.
+- A card for every country and territory (256), organization or grouping (1,774), trade agreement
+  (5,309), block type (83) and topic (154) in internacia-db.
 - Membership maps, accession and founding timelines, a headquarters map, organization comparison
   and hierarchy views, and a statistics and coverage page.
 - A Markdown and a JSON twin for every card, a static JSON API with an OpenAPI description,
