@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Draft 0.1 — for review |
 | **Date** | 2026-11-19 |
-| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v5.1.0 (contract 5.1) |
+| **Data baseline** | [internacia-db](https://github.com/datenoio/internacia-db) v5.2.0 (contract 5.2) |
 | **Owner** | Dateno ([datenoio](https://github.com/datenoio)) |
 | **Hosting** | Dedicated server ([§11.4](#114-dedicated-server-ax42)) since 2026-11-23, custom domain `internacia.io` (written as `<DOMAIN>` in §11.2); GitHub Pages as fallback |
 
@@ -30,7 +30,7 @@ All corrections go to internacia-db.
 
 1. **Make the product visible.** Anyone can see what internacia-db contains, how complete it is
    and how current it is, without installing anything.
-2. **One card per entity.** Every country (256), intblock (1,606), trade agreement (5,195), block
+2. **One card per entity.** Every country (256), intblock (1,774), trade agreement (5,309), block
    type (83) and topic (154) has its own permanent page.
 3. **Answer common questions visually.** Who belongs to X? What does country Y belong to? What do
    X and Z have in common? When were these organizations founded? Where are they based?
@@ -109,10 +109,10 @@ The repository commits a lock file, `internacia.lock.json`:
 ```json
 {
   "repository": "datenoio/internacia-db",
-  "tag": "v5.1.0",
-  "git_commit": "e147990effa2a8a789966b485100823652c0d1c9",
+  "tag": "v5.2.0",
+  "git_commit": "11ec83d1aa31516fafd674e33fa0d96cb6d42599",
   "contract_major": 5,
-  "sha256sums_sha256": "bde644290700659e5671e04b817e61bba64ce90bacbf89f133d3c6fa810d34c2"
+  "sha256sums_sha256": "cbd56bddf026c3f9ef35f8d3947a05e696b228ac1b4f466db70f5c959bbd6c6c"
 }
 ```
 
@@ -225,6 +225,10 @@ The site's data code must follow them.
   show "applies since" as `provisional_application` when there is no `in_force`. A record with `intblock_id`
   (an agreement with three or more parties, such as `RCEP`) reads its parties from that
   intblock's `includes` (`source = intblock`), under the same ID; the card links the two.
+- Contract 5.2 (v5.2.0) changes no table, column or enum value; the release adds records (168
+  intblocks, among them 31 oil pipelines with route roles, and 115 trade agreements), observers and
+  partners on rosters, and instruments. It removes one agreement, `COMX`, a second record of the
+  Colombia-Mexico FTA: internacia-db points to `G-3`, but the registry has no alias table (§5.3).
 - A country's trade agreements are the `country_trade_agreements` view: one row per agreement it
   is a current party to, directly or through a bloc party (the EU) expanded to the bloc's current
   members, with `via` set to the bloc. Coverage is current, not historical; the card says so.
@@ -239,27 +243,27 @@ The site's data code must follow them.
   under the same ID. Their old intblock URLs redirect to the agreement card, and the card notes the
   former record.
 
-### 4.5 Baseline figures (v5.1.0)
+### 4.5 Baseline figures (v5.2.0)
 
 For sizing only; the site computes all figures at build time.
 
 | Measure | Value |
 |---------|------:|
 | Country records / ISO 3166-1 entries | 256 / 249 |
-| Intblocks | 1,606 |
+| Intblocks | 1,774 |
 | Block types (deprecated) / topics | 83 (3) / 154 |
-| Membership edges / current / with `joined` date / with `left` date | 73,101 / 71,734 / 32,411 / 486 |
-| Membership edges with a route `role` / intblocks with roles | 125 / 44 |
-| Intblocks with `founded` / headquarters / `partof` | 1,495 / 1,031 / 399 |
-| Intblocks with Wikidata ID / `last_verified` / `institutional_design` | 1,324 / 1,543 / 112 |
+| Membership edges / current / with `joined` date / with `left` date | 74,219 / 72,748 / 35,427 / 569 |
+| Membership edges with a route `role` / intblocks with roles | 197 / 75 |
+| Intblocks with `founded` / headquarters / `partof` | 1,660 / 1,117 / 440 |
+| Intblocks with Wikidata ID / `last_verified` / `institutional_design` | 1,450 / 1,721 / 112 |
 | `border_status` rows | 18 |
-| Trade agreements / in force / two parties / linked to an intblock / `official` | 5,195 / 3,195 / 4,827 / 99 / 1,109 |
-| Of them investment treaties / trade relations agreements / preference schemes / `suspended` | 3,503 / 369 / 59 / 6 |
-| With `provisional_application` (no `in_force`) / instruments (agreements with any) | 30 (13) / 141 (51) |
-| `trade_agreement_parties` rows / `country_trade_agreements` rows / countries | 15,481 / 19,172 / 238 |
-| Languages in intblock `other_names` | 82 |
+| Trade agreements / in force / two parties / linked to an intblock / `official` | 5,309 / 3,273 / 4,932 / 104 / 1,330 |
+| Of them investment treaties / trade relations agreements / preference schemes / `suspended` | 3,507 / 413 / 59 / 9 |
+| With `provisional_application` (no `in_force`) / instruments (agreements with any) | 40 (18) / 245 (92) |
+| `trade_agreement_parties` rows / `country_trade_agreements` rows / countries | 15,771 / 19,600 / 238 |
+| Languages in intblock `other_names` | 83 |
 | Country `native_names` entries / languages | 388 / 126 |
-| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 8.7 MB / 955 KB / 154 KB |
+| Release assets: `internacia.duckdb` / `intblocks.parquet` / `memberships.parquet` | 8.9 MB / 1.1 MB / 166 KB |
 
 ## 5. Information architecture and URLs
 
@@ -302,7 +306,9 @@ All paths end with a slash for HTML. Machine twins use the same slug with an ext
 ### 5.3 Stability and redirects
 
 - URLs are permanent. Removing an entity from the data removes its page only through the alias
-  mechanism below.
+  mechanism below. The trade agreements registry has no alias table: an agreement removed from it
+  loses its card, and the old URL gets the 404 page with its suggestions (v5.2.0: `COMX`). The site
+  adds no redirect of its own ([§15](#15-open-questions), Q8).
 - For every alias in `intblocks_aliases.json` and `countries_aliases.json` (except
   `reason = disambiguated`), the build emits a redirect page at the old HTML URL: an HTML page with
   `<meta http-equiv="refresh">`, `<link rel="canonical">` to the target and a visible link.
@@ -498,7 +504,8 @@ See [§8](#8-visualizations). Each explorer has a shareable URL with its state i
      names, acronyms and codes of countries, intblocks and trade agreements, in all languages
      (`/api/v1/search-index.json`, budget ≤ 300 KB gzip). Typing "НАТО", "北约" or "OTAN" finds NATO.
      Investment treaties (v5.1.0: 3,503 records) are left out: with them the index is about
-     360 KB gzip, without them about 280 KB. Full-text search and the country cards list them.
+     360 KB gzip, without them about 280 KB (v5.2.0: 298 KB, close to the budget). Full-text
+     search and the country cards list them.
   2. **Full-text search** page over all HTML (Pagefind).
 - Results show entity type, code or acronym, and the matched name with its language.
 
@@ -514,7 +521,7 @@ See [§8](#8-visualizations). Each explorer has a shareable URL with its state i
   investment treaties made nearly every record bilateral), each a link to the list it counts; the registry's
   scope note and the share of catalogue records in a collapsed "About the registry"; then the list,
   and below it the counts by status and by type (bars with their values as text, each a link to the
-  list with that filter). The list is a table of all 5,195 agreements — name and acronym (link, with
+  list with that filter). The list is a table of all 5,309 agreements — name and acronym (link, with
   an "Official sources" badge on the records checked against them), type, status (badge: in force
   filled; terminated, superseded and abandoned marked, as on the card), signed, in force, ended
   ("—" when not recorded), number of parties. An agreement applied only provisionally shows the
@@ -639,7 +646,7 @@ Formal intergovernmental organization, regional scope. Founded 1967. Headquarter
 | `countries/{CODE}.json` | Full country record + `memberships` (current and former, with block name and type) + `similar` | 40 KB |
 | `blocks.json` | Lite list: id, name, acronyms, block types, status, scope, founded, HQ country, member count | 120 KB |
 | `blocks/{ID}.json` | Full intblock record (including full-JSON-only fields) + resolved roster with country names | 60 KB |
-| `agreements.json` | Lite list of the trade agreements registry: id, name, acronym, type, status, dates (provisional application included), intblock, parent scheme, WTO RTA and ADB ARIC IDs, verification, party count | 1.8 MB (5,195 records) |
+| `agreements.json` | Lite list of the trade agreements registry: id, name, acronym, type, status, dates (provisional application included), intblock, parent scheme, WTO RTA and ADB ARIC IDs, verification, party count | 2.1 MB (5,309 records) |
 | `agreements/{ID}.json` | Registry row + resolved parties (with role) + countries covered (bloc parties expanded) + related records + instruments | 4 KB (most are two-party investment treaties) |
 | `types.json`, `types/{key}.json` | Block types with counts and member intblock IDs | — |
 | `topics.json`, `topics/{key}.json` | Topics with counts and intblock IDs | — |
@@ -806,7 +813,7 @@ Generated data (`.cache/`, `site/src/generated/`) is not committed.
 ### 10.3 Build pipeline
 
 ```text
-fetch.py ──► .cache/internacia/v5.1.0/  (assets + vocab files, verified)
+fetch.py ──► .cache/internacia/v5.2.0/  (assets + vocab files, verified)
    │
 build_data.py ──► site/src/generated/*.json  (cards, indexes, stats, search index, aliases)
    │
@@ -818,11 +825,15 @@ checks (§12) ──► deploy to GitHub Pages
 ```
 
 - Target build time on GitHub Actions: ≤ 10 minutes.
-- Output size target: ≤ 450 MB (GitHub Pages limit is 1 GB; it holds while Pages is the host or
-  the fallback, [§11.4](#114-dedicated-server-ax42)); it was ≤ 300 MB until v5.1.0. With
-  v5.1.0 the site is about 427 MB (`du -sh site/dist`; 356 MB of file content): trade agreement
-  cards 92 MB, API 88 MB, blocks 84 MB, countries 53 MB, social images 45 MB, Pagefind 32 MB,
-  widgets 21 MB. The trade agreements registry grew from 839 to 5,195 records (3,503 investment
+- Output size target: ≤ 1 GB, the GitHub Pages limit, which holds while Pages is the fallback
+  ([§11.4](#114-dedicated-server-ax42)). It was ≤ 300 MB until v5.1.0 and ≤ 450 MB in v5.1.0;
+  with v5.2.0 it was raised to 1 GB rather than trimming the site. With
+  v5.2.0 the site is about 445 MB (`du -sh site/dist`; 386 MB of file content): trade agreement
+  cards 93 MB, API 91 MB, blocks 90 MB, countries 54 MB, social images 50 MB, Pagefind 33 MB,
+  widgets 22 MB. Data alone (168 more intblocks, 114 more agreements) added 18 MB. With v5.1.0 it
+  was about 427 MB
+  (356 MB of file content): trade agreement cards 92 MB, API 88 MB, blocks 84 MB, countries 53 MB,
+  social images 45 MB, Pagefind 32 MB, widgets 21 MB. The trade agreements registry grew from 839 to 5,195 records (3,503 investment
   treaties), and one card per record (§1, goal 2) cannot stay under 300 MB: a small agreement card
   is about 11.6 KB, of which the shared layout is about 6.5 KB, and each card with its Markdown twin
   takes 16 KB on disk. Grouping provenance by source is the one trim made with v5.1.0. The target
@@ -955,7 +966,7 @@ The build fails when any of these checks fails.
 | Check | Rule |
 |-------|------|
 | Integrity | [§4.3](#43-verification) checks pass |
-| Count parity | Country cards = rows in `countries` (256 in v5.1.0); intblock cards = rows in `intblocks` (1,606); trade agreement cards = rows in `trade_agreements` (5,195); type pages = 83; topic pages = distinct topic keys |
+| Count parity | Country cards = rows in `countries` (256 in v5.2.0); intblock cards = rows in `intblocks` (1,774); trade agreement cards = rows in `trade_agreements` (5,309); type pages = 83; topic pages = distinct topic keys |
 | Roster parity | For every intblock, the number of current members on the card = rows in `current_memberships` for it |
 | Twin parity | For a sample of 50 entities (and all featured ones), HTML, Markdown and JSON carry the same codes, names, statuses and dates; for every entity, route roles (HTML, Markdown, JSON, CSV) and border status (HTML, Markdown, JSON) agree |
 | Trade agreements | For every agreement, the parties in HTML, Markdown and JSON = its `party` rows in `trade_agreement_parties`, their grantor and beneficiary roles = the table's `role`, and its instruments = its rows in `trade_agreement_instruments` (contract 5.1); for every country, its trade agreements (with `via`) in HTML and JSON, and their IDs in Markdown, = its rows in `country_trade_agreements`, with the view's `role` in JSON and in the HTML kind filter |
@@ -1115,6 +1126,7 @@ limit goes away when Pages stops being the fallback.
 | Q5 | Order of interface languages after English | Russian, French, Spanish, Chinese, Arabic |
 | Q6 | Should internacia-db's own docs site (`datenoio.github.io/internacia-db/`) link to or merge into this site | Cross-link from both sides |
 | Q7 | Show deprecated status values (`associate`, `associated_observer`) under their replacement label | Show the label from `includes_status.yaml` and mark it deprecated |
+| Q8 | Redirect a removed trade agreement ID (v5.2.0: `COMX`, now `G-3`): ask internacia-db for registry aliases, or read the release's `migration` file | No redirect; the 404 page suggests close matches |
 
 ## 16. References
 

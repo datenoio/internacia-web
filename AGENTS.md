@@ -17,7 +17,8 @@ images (`/og/…png`). M3a adds embeddable widgets (`/embed/`, `public/embed/wid
 `/agreements/` cards with Markdown and JSON twins, a trade agreements section on country cards, and
 redirects from the intblock IDs that moved there. Data v5.1.0 (contract 5.1) widens the registry
 to 5,195 records (investment treaties, trade relations agreements, preference schemes with grantor
-and beneficiary roles) and adds provisional application, sub-schemes and instruments. Next are
+and beneficiary roles) and adds provisional application, sub-schemes and instruments. Data v5.2.0
+(contract 5.2) changes no field or vocabulary: 1,774 intblocks and 5,309 agreements. Next are
 interface translations (M3b)
 ([SPEC §13](docs/SPEC.md#13-milestones)). Since 2026-11-23 a dedicated server serves the site
 ([SPEC §11.4](docs/SPEC.md#114-dedicated-server-ax42)); GitHub Pages still deploys every build as the fallback.
@@ -55,7 +56,7 @@ interface translations (M3b)
 - `.github/workflows/data-bump.yml` — daily; `pipeline/bump.py` moves the lock to a newer release,
   the workflow builds and checks the site and opens a pull request.
 - The pipeline reads one internacia-db contract MAJOR, `CONTRACT_MAJOR` in `pipeline/lock.py`
-  (currently 5; the lock pins v5.1.0, contract 5.1). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
+  (currently 5; the lock pins v5.2.0, contract 5.2). `bump.py update` refuses a release with another MAJOR and leaves the lock as it
   is; a lock with another `contract_major` fails to load. For a new MAJOR, raise the constant
   together with the code the new contract needs, then run `bump.py update` in the same pull request.
 
@@ -100,7 +101,7 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   cards and twins is in `lib/agreements.ts` (`CATALOGUE_NOTE`, `COVERAGE_NOTE`, …). The registry
   has no trade values: never add or rank by any. `check_site.py` compares parties and country
   coverage in every form with the table and the view.
-- Contract 5.1 registry facts: `investment` (3,503 records, `-BIT` IDs) and `trade_relations`
+- Contract 5.1 registry facts: `investment` (3,507 records in v5.2.0, `-BIT` IDs) and `trade_relations`
   (`-TRA`) grant no preferences, and a preference scheme's parties have `role` grantor or
   beneficiary (`party` on every other agreement). Count them apart from trade agreements
   (internacia-db `docs/ai-consumers.md`): `agreementKind` and `kindSummary` (`lib/agreements.ts`)
@@ -115,8 +116,12 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   codes: the records' `links` hold the catalogue URLs, so build none from an ID.
   `check_site.py` compares party roles and instruments in every form with the tables.
 - The entity finder index (`/api/v1/search-index.json`, ≤ 300 KB gzip) leaves out investment
-  treaties: with them it is about 360 KB gzip (v5.1.0), without them about 280 KB. Pagefind and
-  the country cards still find them.
+  treaties: with them it is about 360 KB gzip (v5.1.0), without them about 280 KB (298 KB with
+  v5.2.0, 2 KB under the budget; no check enforces it, so measure it on every data bump: `gzip -6c
+  site/dist/api/v1/search-index.json | wc -c`). Pagefind and the country cards still find them.
+- The trade agreements registry has no alias table: a record removed upstream loses its card and
+  its URL gets the 404 page (v5.2.0 removed `COMX`, a duplicate of `G-3`; SPEC §5.3, Q8). Do not
+  add a redirect of the site's own.
 - Agreement cards list provenance grouped by source (`provenanceGroups`): a catalogue record cites
   one page for four fields. The JSON twin keeps the rows as they are.
 - A linked registry record (`intblock_id`, three or more parties) has the intblock's ID and reads
@@ -199,9 +204,11 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   are excluded from the index in the build script.
 - Social images (`src/lib/og.ts`) take about 50 ms each; keep their SVG simple. They use about
   eight colours, so a smaller palette saves nothing. Trade agreement cards use the default image.
-  Site size is about 427 MB with v5.1.0 (356 MB of file content), under the target of ≤ 450 MB
-  (SPEC §10.3), raised from 300 MB when the registry grew from 839 to 5,195 records: agreement
-  cards take 92 MB, each card with its twin 16 KB on disk (it was 294 MB with v5.0.0, 272 MB with
+  Site size is about 445 MB with v5.2.0 (386 MB of file content), under the target of ≤ 1 GB
+  (SPEC §10.3), the GitHub Pages limit: raised from 300 MB to 450 MB when the registry grew from
+  839 to 5,195 records, and to 1 GB with v5.2.0 instead of trimming the site. Agreement cards
+  take 93 MB, each card with its twin 16 KB on disk (it was 427 MB with v5.1.0,
+  data alone added 18 MB with v5.2.0; 294 MB with v5.0.0, 272 MB with
   v4.4.0, 375 MB before indentation was removed); check `du -sh site/dist` when adding per-entity
   files or per-row markup. Write per-entity JSON with `json(body, false)`: indentation was a third of the
   API's bytes. Anything per membership row is paid about 140,000 times (both cards of each edge):
@@ -217,7 +224,8 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   `contain-intrinsic-size` until rendered) must exceed its real height: a skipped chunk's rows
   overflow a smaller estimate, overlap the next chunk's, and axe fails `target-size`. Re-measure
   when rows get taller (v5.1.0: long official titles of `-TRA` and `-TIFA` records make rows up to
-  406px; the tallest agreements chunk is 13,200px at 1280px and 18,700px on a phone).
+  406px; the tallest agreements chunk is 13,200px at 1280px and 18,700px on a phone; v5.2.0:
+  12,700px and 18,200px, blocks 11,100px and 16,300px).
 - Lighthouse's simulated 4G waits for the whole HTML document before the first paint, about
   5.6 ms per KB gzip: `/agreements/` at 290 KB (v5.1.0) scored performance 0.94-0.96 against the
   0.95 gate, FCP 2.25 s. Its rows carry no filter attributes (`data-rows`: `tables.ts` loads them
@@ -225,7 +233,7 @@ The site build fails if `site/src/generated/meta.json` is missing: run the pipel
   `lib/agreements.ts` feeds both the file and the facet counts), the name is sorted on its link
   (`data-sort-by`) and phone labels come from `--label-N` on the table: 150 KB, FCP 1.5 s,
   score 1. `check_site.py` fails the index above 180 KB gzip (`INDEX_HTML_GZIP_MAX`, SPEC §10.4).
-  Per-row markup there is paid 5,195 times: add none without measuring.
+  Per-row markup there is paid 5,309 times (v5.2.0): add none without measuring.
 - axe's partial run (`@axe-core/playwright` default) loses the page's context on `/agreements/`
   (about 55,000 elements): `audit.mjs` runs it in legacy mode with violations only (`AXE_LEGACY`).
   Add any other page of that size there.
